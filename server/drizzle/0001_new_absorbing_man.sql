@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN "last_scraped_at" timestamp with time zone;

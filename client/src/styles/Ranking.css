@@ -1,0 +1,37 @@
+#root {
+  background: #f5f7fa;
+  padding: 2rem;
+  margin: 0 auto;
+  display: flex;
+}
+.ranking-container {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  padding: 2rem 2.5rem 2.5rem 2.5rem;
+}
+.ranking-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: #213547;
+  letter-spacing: -1px;
+}
+.ranking-table .ant-table-thead > tr > th {
+  background: #f5f7fa;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+.ranking-table .ant-table-tbody > tr > td {
+  font-size: 1.05rem;
+}
+.ranking-table .ant-table-tbody > tr:nth-child(1) td {
+  background: #ffe06633;
+  font-weight: bold;
+}
+.ranking-table .ant-table-tbody > tr:nth-child(2) td {
+  background: #e9ecef33;
+}
+.ranking-table .ant-table-tbody > tr:nth-child(3) td {
+  background: #dee2e633;
+}
