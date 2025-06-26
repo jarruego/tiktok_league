@@ -154,13 +154,13 @@ export class TiktokScraperService {
   ) {}
 
   /**
-   * Tarea programada que se ejecuta cada hora (cron: '0 * * * *')
+   * Tarea programada que se ejecuta cada 2 minutos
    * Actualiza los datos de TikTok de los equipos de manera inteligente:
-   * 1. Primero actualiza equipos que nunca han sido scrapeados
-   * 2. Luego actualiza los que tienen datos más antiguos
-   * 3. Procesa máximo 10 equipos por ejecución para no sobrecargar
+   * - Primero actualiza equipos que nunca han sido scrapeados
+   * - Luego actualiza los que tienen datos más antiguos
+   * - Procesa 1 equipo por ejecución para distribución natural
    */
-  @Cron('0 * * * *') // Cada hora en punto (minuto 0)
+  @Cron('*/2 * * * *') // Cada 2 minutos
   async updateFollowers() {
     const db = this.databaseService.db;
     
@@ -169,22 +169,21 @@ export class TiktokScraperService {
       .select()
       .from(teamTable)
       .where(isNull(teamTable.lastScrapedAt)) // Donde lastScrapedAt es null
-      .limit(10); // Máximo 10 equipos
+      .limit(1); // Solo 1 equipo por ejecución
     
     let batch = unscrapedTeams;
     
-    // PASO 2: Si no hay suficientes equipos sin scrapear, completar con los más antiguos
-    if (batch.length < 10) {
-      const remainingSlots = 10 - batch.length; // Calcular cuántos faltan
+    // PASO 2: Si no hay equipos sin scrapear, obtener el más antiguo
+    if (batch.length < 1) {
       const oldestScrapedTeams = await db
         .select()
         .from(teamTable)
         .where(isNotNull(teamTable.lastScrapedAt)) // Donde lastScrapedAt no es null
         .orderBy(asc(teamTable.lastScrapedAt)) // Ordenar por fecha más antigua primero
-        .limit(remainingSlots); // Solo los que faltan para completar 10
+        .limit(1); // Solo 1 equipo
       
-      // Combinar ambas listas
-      batch = [...batch, ...oldestScrapedTeams];
+      // Usar el equipo más antiguo
+      batch = oldestScrapedTeams;
     }
     
     // PASO 3: Procesar cada equipo en el lote
@@ -222,8 +221,8 @@ export class TiktokScraperService {
         this.logger.error(`Error actualizando ${team.name}: ${e}`);
       }
       
-      // IMPORTANTE: Espera aleatoria entre 10 y 30 segundos para evitar ser detectado como bot
-      await delay(10000 + Math.random() * 20000);
+      // IMPORTANTE: Pequeño delay aleatorio para simular comportamiento humano natural
+      await delay(5000 + Math.random() * 10000); // Entre 5-15 segundos
     }
     
     // Retornar resumen de la operación
