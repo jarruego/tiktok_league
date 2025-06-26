@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards } from '@n
 import { TeamService } from  './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
+import { FootballDataTeamResponseDto } from '../players/dto/football-data.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('teams')
@@ -17,8 +18,8 @@ export class TeamController {
 
   @Get()
   findAll() {
-    // Consulta pública
-    return this.teamService.findAll();
+    // Consulta pública con información completa incluyendo entrenadores
+    return this.teamService.findAllWithCoaches();
   }
 
   @Get(':id')
@@ -36,5 +37,15 @@ export class TeamController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.teamService.remove(Number(id));
+  }
+
+  // Endpoint para actualizar equipo con información de Football-Data.org
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/football-data')
+  updateWithFootballData(
+    @Param('id') id: string, 
+    @Body() footballDataTeam: FootballDataTeamResponseDto
+  ) {
+    return this.teamService.updateWithFootballData(Number(id), footballDataTeam);
   }
 }

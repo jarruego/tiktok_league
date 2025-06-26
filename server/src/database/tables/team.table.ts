@@ -1,9 +1,12 @@
 import { pgTable, serial, varchar, text, integer, timestamp } from 'drizzle-orm/pg-core';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import { coachTable } from './coach.table';
 
 export const teamTable = pgTable('teams', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
+  
+  // Campos existentes para TikTok
   tiktokId: varchar('tiktok_id', { length: 100 }).notNull(),
   displayName: varchar('display_name', { length: 100 }), // Nombre mostrado en TikTok
   followers: integer('followers').notNull().default(0),
@@ -13,6 +16,23 @@ export const teamTable = pgTable('teams', {
   profileUrl: varchar('profile_url', { length: 500 }), // URL del perfil
   avatarUrl: text('avatar_url'), // URL de la imagen de perfil
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
+  
+  // Nuevos campos para Football-Data.org
+  footballDataId: integer('football_data_id'), // Sin unique constraint por ahora
+  shortName: varchar('short_name', { length: 50 }), // Nombre corto del equipo
+  tla: varchar('tla', { length: 5 }), // Three Letter Abbreviation
+  crest: text('crest'), // URL del escudo del equipo
+  venue: varchar('venue', { length: 200 }), // Estadio
+  founded: integer('founded'), // Año de fundación
+  clubColors: varchar('club_colors', { length: 100 }), // Colores del club
+  website: varchar('website', { length: 500 }), // Sitio web oficial
+  
+  // Relación con entrenador
+  coachId: integer('coach_id').references(() => coachTable.id),
+  
+  // Timestamps
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
 export type TeamSelectModel = InferSelectModel<typeof teamTable>;

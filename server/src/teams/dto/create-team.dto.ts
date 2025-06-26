@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsUrl } from 'class-validator';
 
 export class CreateTeamDto {
   @IsString()
@@ -39,4 +39,42 @@ export class CreateTeamDto {
   @IsString()
   @IsOptional()
   avatarUrl?: string;
+
+  // Nuevos campos para Football-Data.org
+  @IsInt()
+  @IsOptional()
+  footballDataId?: number;
+
+  @IsString()
+  @IsOptional()
+  shortName?: string;
+
+  @IsString()
+  @IsOptional()
+  tla?: string;
+
+  @IsUrl()
+  @IsOptional()
+  crest?: string;
+
+  @IsString()
+  @IsOptional()
+  venue?: string;
+
+  @IsInt()
+  @Min(1800)
+  @IsOptional()
+  founded?: number;
+
+  @IsString()
+  @IsOptional()
+  clubColors?: string;
+
+  @IsUrl()
+  @IsOptional()
+  website?: string;
+
+  @IsInt()
+  @IsOptional()
+  coachId?: number;
 }
