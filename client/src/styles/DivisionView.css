@@ -1,0 +1,126 @@
+.team-row-european {
+  background-color: #e6f7ff !important;
+  border-left: 4px solid #1890ff !important;
+}
+
+.team-row-promotion {
+  background-color: #f6ffed !important;
+  border-left: 4px solid #52c41a !important;
+}
+
+.team-row-playoff {
+  background-color: #fff7e6 !important;
+  border-left: 4px solid #fa8c16 !important;
+}
+
+.team-row-relegation {
+  background-color: #fff2f0 !important;
+  border-left: 4px solid #ff4d4f !important;
+}
+
+.team-row-safe {
+  background-color: #ffffff !important;
+  border-left: 4px solid transparent !important;
+}
+
+.division-legend {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #fafafa;
+  border-radius: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 12px;
+  margin-bottom: 4px;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.division-info-card {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 6px;
+}
+
+.division-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.division-tags {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Hover effects para las filas */
+.ant-table-tbody > tr:hover > td {
+  background-color: inherit !important;
+}
+
+.team-row-european:hover {
+  background-color: #d4edda !important;
+}
+
+.team-row-promotion:hover {
+  background-color: #d1ecf1 !important;
+}
+
+.team-row-playoff:hover {
+  background-color: #fff3cd !important;
+}
+
+.team-row-relegation:hover {
+  background-color: #f8d7da !important;
+}
+
+.team-row-safe:hover {
+  background-color: #f8f9fa !important;
+}
+
+/* Estilos para elementos clickeables */
+.clickable-team {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clickable-team:hover {
+  transform: translateY(-1px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.clickable-team-name {
+  color: #1890ff !important;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.clickable-team-name:hover {
+  color: #40a9ff !important;
+  text-decoration: underline;
+}
+
+.clickable-crest {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.clickable-crest:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}

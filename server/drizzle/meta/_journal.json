@@ -71,6 +71,13 @@
       "when": 1750975761713,
       "tag": "0009_lame_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1750977699772,
+      "tag": "0010_complete_darkstar",
+      "breakpoints": true
     }
   ]
 }
