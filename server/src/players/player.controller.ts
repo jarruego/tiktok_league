@@ -16,12 +16,15 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
 import { GetPlayersQueryDto } from './dto/get-players-query.dto';
 import { ImportPlayersDto } from './dto/import-players.dto';
-import { FootballDataTeamResponseDto, ImportTeamFromFootballDataDto } from './dto/football-data.dto';
+import { FootballDataCacheService } from '../football-data/football-data-cache.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('players')
 export class PlayerController {
-  constructor(private readonly playerService: PlayerService) {}
+  constructor(
+    private readonly playerService: PlayerService,
+    private readonly footballDataCacheService: FootballDataCacheService,
+  ) {}
 
   // Solo usuarios autenticados pueden crear, actualizar o borrar jugadores
   @UseGuards(JwtAuthGuard)
@@ -44,13 +47,65 @@ export class PlayerController {
     return this.playerService.importPlayersFromExternal(importPlayersDto);
   }
 
-  // Endpoint específico para Football-Data.org
+  // NUEVO: Importar desde cache local
   @UseGuards(JwtAuthGuard)
-  @Post('import/football-data')
-  importFromFootballData(
-    @Body() body: { teamData: FootballDataTeamResponseDto; importDto: ImportTeamFromFootballDataDto }
+  @Post('import/from-cache')
+  async importFromCache(
+    @Body() body: { 
+      teamId: number; 
+      footballDataTeamId: number; 
+      competitionId: number; 
+    }
   ) {
-    return this.playerService.importFromFootballData(body.teamData, body.importDto);
+    // 1. Obtener datos desde el cache local
+    const cachedData = await this.footballDataCacheService.getCachedCompetition(body.competitionId);
+    
+    // 2. Buscar el equipo específico en los datos cacheados
+    const teams = cachedData.competition.teams;
+    const teamData = teams.find(team => team.id === body.footballDataTeamId);
+    
+    if (!teamData) {
+      throw new Error(`Team with Football-Data ID ${body.footballDataTeamId} not found in cached competition ${body.competitionId}`);
+    }
+    
+    // 3. Importar usando el servicio existente
+    return this.playerService.importFromFootballData(teamData, {
+      teamId: body.teamId,
+      footballDataTeamId: body.footballDataTeamId,
+      competitionId: body.competitionId, // Añadir competitionId
+      source: `cache-competition-${body.competitionId}`
+    });
+  }
+
+  // Endpoint para listar equipos disponibles en una competición cacheada
+  @Get('cache/competition/:competitionId/teams')
+  async getCachedCompetitionTeams(
+    @Param('competitionId', ParseIntPipe) competitionId: number
+  ) {
+    // Obtener datos desde el cache
+    const cachedData = await this.footballDataCacheService.getCachedCompetition(competitionId);
+    
+    const teams = cachedData.competition.teams.map(team => ({
+      footballDataId: team.id,
+      name: team.name,
+      shortName: team.shortName,
+      venue: team.venue,
+      founded: team.founded,
+      playersCount: team.squad?.length || 0,
+      hasCoach: !!team.coach?.name,
+      crest: team.crest,
+      website: team.website
+    }));
+    
+    return {
+      cached: true,
+      lastUpdated: cachedData.lastUpdated,
+      competition: cachedData.competition.competition,
+      season: cachedData.competition.season,
+      teamsCount: teams.length,
+      teams,
+      instruction: 'Para importar: POST /players/import/from-cache con { teamId: TU_EQUIPO_ID, footballDataTeamId: FOOTBALL_DATA_ID, competitionId: COMPETITION_ID }'
+    };
   }
 
   @Get()

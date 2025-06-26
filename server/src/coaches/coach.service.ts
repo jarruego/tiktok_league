@@ -62,6 +62,11 @@ export class CoachService {
   async createOrUpdate(coachData: CreateCoachDto) {
     const db = this.databaseService.db;
     
+    // Validar que el nombre del entrenador no sea null o undefined
+    if (!coachData.name || coachData.name.trim() === '') {
+      throw new Error('Coach name is required and cannot be empty');
+    }
+    
     if (coachData.footballDataId) {
       // Intentar encontrar entrenador existente
       const existingCoach = await this.findByFootballDataId(coachData.footballDataId);
@@ -74,5 +79,20 @@ export class CoachService {
     
     // Crear nuevo entrenador
     return this.create(coachData);
+  }
+
+  async createOrUpdateSafely(coachData: CreateCoachDto): Promise<any | null> {
+    try {
+      // Validar que los datos mínimos estén presentes
+      if (!coachData.name || coachData.name.trim() === '') {
+        console.warn('Skipping coach creation: name is missing or empty');
+        return null;
+      }
+
+      return await this.createOrUpdate(coachData);
+    } catch (error) {
+      console.error('Error creating/updating coach:', error);
+      return null;
+    }
   }
 }

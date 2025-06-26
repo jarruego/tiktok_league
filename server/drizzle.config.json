@@ -2,5 +2,9 @@
   "schema": "./src/database/schema.ts",
   "out": "./drizzle",
   "dialect": "postgresql",
-  "url": "postgres://postgres:postgres@localhost:5432/tiktok_teams"
+  "dbCredentials": {
+    "url": {
+      "env": "DATABASE_URL"
+    }
+  }
 }

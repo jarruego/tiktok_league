@@ -50,6 +50,20 @@
       "when": 1750923103062,
       "tag": "0006_tiny_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1750927007780,
+      "tag": "0007_narrow_piledriver",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1750929006342,
+      "tag": "0008_real_viper",
+      "breakpoints": true
     }
   ]
 }

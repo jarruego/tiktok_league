@@ -56,7 +56,11 @@ export class TeamService {
     return team;
   }
 
-  async updateWithFootballData(teamId: number, footballDataTeam: FootballDataTeamResponseDto) {
+  async updateWithFootballData(
+    teamId: number, 
+    footballDataTeam: FootballDataTeamResponseDto,
+    competitionId?: number
+  ) {
     const db = this.databaseService.db;
     
     // Verificar que el equipo existe
@@ -66,20 +70,34 @@ export class TeamService {
     }
 
     let coachId: number | undefined = undefined;
+    let coachResult: any = null;
 
-    // Manejar entrenador si existe
-    if (footballDataTeam.coach) {
-      const coach = await this.coachService.createOrUpdate({
-        name: footballDataTeam.coach.name,
-        footballDataId: footballDataTeam.coach.id,
-        nationality: footballDataTeam.coach.nationality,
-      });
-      coachId = coach.id;
+    // Manejar entrenador si existe y tiene datos válidos
+    if (footballDataTeam.coach && footballDataTeam.coach.name) {
+      try {
+        const coach = await this.coachService.createOrUpdateSafely({
+          name: footballDataTeam.coach.name,
+          footballDataId: footballDataTeam.coach.id,
+          nationality: footballDataTeam.coach.nationality,
+        });
+        
+        if (coach) {
+          coachId = coach.id;
+          coachResult = coach;
+        }
+      } catch (error) {
+        console.warn('Could not create/update coach, continuing without coach:', error.message);
+        coachResult = { error: 'Coach data incomplete or invalid' };
+      }
+    } else {
+      console.log('No valid coach data available for this team');
+      coachResult = { skipped: 'No coach data available' };
     }
 
     // Actualizar equipo con información de Football-Data.org
     const updateData: Partial<CreateTeamDto> = {
       footballDataId: footballDataTeam.id,
+      competitionId: competitionId, // Añadir competitionId
       shortName: footballDataTeam.shortName,
       tla: footballDataTeam.tla,
       crest: footballDataTeam.crest,
@@ -98,8 +116,10 @@ export class TeamService {
 
     return {
       team: updatedTeam,
-      coach: coachId ? await this.coachService.findOne(coachId) : null,
-      message: 'Team updated with Football-Data.org information'
+      coach: coachResult,
+      message: coachId 
+        ? 'Team and coach updated with Football-Data.org information'
+        : 'Team updated with Football-Data.org information (coach data unavailable or incomplete)'
     };
   }
 

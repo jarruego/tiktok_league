@@ -19,6 +19,7 @@ export const teamTable = pgTable('teams', {
   
   // Nuevos campos para Football-Data.org
   footballDataId: integer('football_data_id'), // Sin unique constraint por ahora
+  competitionId: integer('competition_id'), // ID de la competición de Football-Data.org
   shortName: varchar('short_name', { length: 50 }), // Nombre corto del equipo
   tla: varchar('tla', { length: 5 }), // Three Letter Abbreviation
   crest: text('crest'), // URL del escudo del equipo

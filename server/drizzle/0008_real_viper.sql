@@ -1,0 +1,1 @@
+ALTER TABLE "teams" ADD COLUMN "competition_id" integer;

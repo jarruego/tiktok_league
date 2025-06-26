@@ -281,7 +281,11 @@ export class PlayerService {
     }
 
     // 1. Actualizar información del equipo y entrenador
-    const teamUpdateResult = await this.teamService.updateWithFootballData(importDto.teamId, teamData);
+    const teamUpdateResult = await this.teamService.updateWithFootballData(
+      importDto.teamId, 
+      teamData, 
+      importDto.competitionId
+    );
 
     // 2. Convertir jugadores de Football-Data a nuestro formato
     const createPlayersDto: CreatePlayerDto[] = teamData.squad.map(player => ({

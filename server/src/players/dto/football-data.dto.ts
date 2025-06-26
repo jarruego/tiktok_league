@@ -95,6 +95,10 @@ export class ImportTeamFromFootballDataDto {
   @IsNotEmpty()
   footballDataTeamId: number; // ID del equipo en Football-Data.org
 
+  @IsInt()
+  @IsOptional()
+  competitionId?: number; // ID de la competición
+
   @IsString()
   @IsOptional()
   source?: string;

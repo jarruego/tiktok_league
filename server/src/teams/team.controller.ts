@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { TeamService } from  './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -47,5 +47,20 @@ export class TeamController {
     @Body() footballDataTeam: FootballDataTeamResponseDto
   ) {
     return this.teamService.updateWithFootballData(Number(id), footballDataTeam);
+  }
+
+  // Endpoint para asociar un equipo local con Football-Data ID
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/map-football-data/:footballDataId')
+  async mapToFootballData(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('footballDataId', ParseIntPipe) footballDataId: number
+  ) {
+    // Solo actualizar el footballDataId sin cambiar otros datos
+    const updatedTeam = await this.teamService.update(id, { footballDataId });
+    return {
+      message: `Team ${updatedTeam.name} mapped to Football-Data ID ${footballDataId}`,
+      team: updatedTeam
+    };
   }
 }

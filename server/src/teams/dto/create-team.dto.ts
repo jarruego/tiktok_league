@@ -45,6 +45,10 @@ export class CreateTeamDto {
   @IsOptional()
   footballDataId?: number;
 
+  @IsInt()
+  @IsOptional()
+  competitionId?: number;
+
   @IsString()
   @IsOptional()
   shortName?: string;
