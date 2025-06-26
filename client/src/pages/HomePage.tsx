@@ -1,9 +1,9 @@
 import DivisionView from '../components/divisions/DivisionView';
-import '../styles/Ranking.css';
+import '../styles/common.css';
 
 export default function HomePage() {
   return (
-    <div className="ranking-container">
+    <div className="main-container">
       <DivisionView />
     </div>
   );

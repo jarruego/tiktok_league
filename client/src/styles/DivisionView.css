@@ -1,3 +1,6 @@
+/* Estilos específicos para el sistema de divisiones y ligas */
+
+/* Estados de clasificación de equipos */
 .team-row-european {
   background-color: #e6f7ff !important;
   border-left: 4px solid #1890ff !important;
@@ -23,6 +26,7 @@
   border-left: 4px solid transparent !important;
 }
 
+/* Leyenda de divisiones */
 .division-legend {
   margin-top: 16px;
   padding: 12px;
@@ -44,6 +48,7 @@
   border-radius: 2px;
 }
 
+/* Controles de división */
 .division-info-card {
   margin-top: 16px;
   padding: 12px;
@@ -66,7 +71,7 @@
   flex-wrap: wrap;
 }
 
-/* Hover effects para las filas */
+/* Efectos hover específicos para equipos */
 .ant-table-tbody > tr:hover > td {
   background-color: inherit !important;
 }
@@ -91,7 +96,7 @@
   background-color: #f8f9fa !important;
 }
 
-/* Estilos para elementos clickeables */
+/* Elementos clickeables específicos */
 .clickable-team {
   cursor: pointer;
   transition: all 0.2s ease;

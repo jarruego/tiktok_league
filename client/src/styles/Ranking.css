@@ -1,15 +1,13 @@
-#root {
-  background: #f5f7fa;
-  padding: 2rem;
-  margin: 0 auto;
-  display: flex;
-}
+/* Estilos heredados - se mantendrán por compatibilidad pero se migrarán gradualmente a common.css */
+
+/* Estilos específicos del ranking (temporal) */
 .ranking-container {
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.08);
   padding: 2rem 2.5rem 2.5rem 2.5rem;
 }
+
 .ranking-title {
   font-size: 2.5rem;
   font-weight: 700;
@@ -17,41 +15,48 @@
   color: #213547;
   letter-spacing: -1px;
 }
+
 .ranking-table .ant-table-thead > tr > th {
   background: #f5f7fa;
   font-weight: 600;
   font-size: 1.1rem;
   text-align: center;
 }
+
 .ranking-table .ant-table-tbody > tr > td {
   font-size: 1.05rem;
   text-align: center;
 }
+
 .ranking-table .ant-table-tbody > tr > td:nth-child(3), 
 .ranking-table .ant-table-tbody > tr > td:nth-child(4),
 .ranking-table .ant-table-tbody > tr > td:nth-child(9) {
   text-align: left;
 }
+
 .ranking-table .ant-table-tbody > tr:nth-child(1) td {
   background: #ffe06633;
   font-weight: bold;
 }
+
 .ranking-table .ant-table-tbody > tr:nth-child(2) td {
   background: #e9ecef33;
 }
+
 .ranking-table .ant-table-tbody > tr:nth-child(3) td {
   background: #dee2e633;
 }
+
 .ranking-table .ant-table-cell a {
   color: #1890ff;
   text-decoration: none;
 }
+
 .ranking-table .ant-table-cell a:hover {
   color: #40a9ff;
   text-decoration: underline;
 }
 
-/* Estilos para filas clickeables */
 .ranking-table .ant-table-tbody > tr:hover {
   background-color: #f0f8ff !important;
   transition: background-color 0.2s ease;

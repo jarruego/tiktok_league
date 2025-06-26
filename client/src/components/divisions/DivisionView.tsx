@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Table, Select, Spin, Alert, Typography, Card, Tag, Button, message, Tooltip } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
 import type { Division, Season, TeamInLeague } from '../../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
+import { formatNumber } from '../../utils/formatters';
+import '../../styles/common.css';
 import '../../styles/DivisionView.css';
 
 const { Title, Text } = Typography;
@@ -13,14 +15,16 @@ interface ExtendedTeamInLeague extends TeamInLeague {
   position?: number;
 }
 
-// Función para determinar el estado de clasificación de un equipo
+// Función para determinar el estado de clasificación de un equipo (optimizada)
 const getTeamStatus = (
   position: number, 
   division: Division, 
   totalTeamsInLeague: number
 ): { status: string; color: string; badge: string; backgroundColor: string } => {
+  const { level, europeanSlots, promoteSlots, promotePlayoffSlots, relegateSlots } = division;
+  
   // Plazas europeas (solo División 1)
-  if (division.level === 1 && position <= division.europeanSlots) {
+  if (level === 1 && position <= europeanSlots) {
     return {
       status: 'european',
       color: '#1890ff',
@@ -30,7 +34,7 @@ const getTeamStatus = (
   }
 
   // Ascenso directo
-  if (division.level > 1 && position <= division.promoteSlots) {
+  if (level > 1 && position <= promoteSlots) {
     return {
       status: 'promotion',
       color: '#52c41a',
@@ -40,9 +44,9 @@ const getTeamStatus = (
   }
 
   // Playoff de ascenso
-  if (division.level > 1 && 
-      position > division.promoteSlots && 
-      position <= (division.promoteSlots + division.promotePlayoffSlots)) {
+  if (level > 1 && 
+      position > promoteSlots && 
+      position <= (promoteSlots + promotePlayoffSlots)) {
     return {
       status: 'playoff',
       color: '#fa8c16',
@@ -52,8 +56,8 @@ const getTeamStatus = (
   }
 
   // Descenso
-  if (division.relegateSlots > 0 && 
-      position > (totalTeamsInLeague - division.relegateSlots)) {
+  if (relegateSlots > 0 && 
+      position > (totalTeamsInLeague - relegateSlots)) {
     return {
       status: 'relegation',
       color: '#ff4d4f',
@@ -71,125 +75,116 @@ const getTeamStatus = (
   };
 };
 
-function formatNumber(num?: number) {
-  if (!num || num === 0) return '0';
-  
-  if (num >= 1000000000) {
-    const billions = num / 1000000000;
-    return (billions % 1 === 0 ? billions.toFixed(0) : billions.toFixed(1)) + 'B';
-  } else if (num >= 1000000) {
-    const millions = num / 1000000;
-    return (millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)) + 'M';
-  } else if (num >= 1000) {
-    const thousands = num / 1000;
-    return (thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1)) + 'K';
-  }
-  return num.toString();
-}
+// Mapeo de razones de asignación (optimizado)
+const ASSIGNMENT_REASONS = {
+  0: { text: 'TikTok', color: 'blue' },
+  1: { text: 'Ascenso', color: 'green' },
+  2: { text: 'Descenso', color: 'red' },
+  3: { text: 'Playoff', color: 'orange' },
+  4: { text: 'Disponibilidad', color: 'purple' }
+} as const;
 
 const getAssignmentReasonText = (reason: number) => {
-  switch (reason) {
-    case 0: return { text: 'TikTok', color: 'blue' };
-    case 1: return { text: 'Ascenso', color: 'green' };
-    case 2: return { text: 'Descenso', color: 'red' };
-    case 3: return { text: 'Playoff', color: 'orange' };
-    case 4: return { text: 'Disponibilidad', color: 'purple' };
-    default: return { text: 'Desconocido', color: 'default' };
-  }
+  return ASSIGNMENT_REASONS[reason as keyof typeof ASSIGNMENT_REASONS] || 
+         { text: 'Desconocido', color: 'default' };
 };
 
-// Función para crear las columnas dinámicamente según la división
-const createColumns = (selectedDivision: Division | null, navigate: any): ColumnsType<ExtendedTeamInLeague> => [
-  { 
-    title: 'Pos', 
-    dataIndex: 'position', 
-    key: 'position', 
-    width: 60,
-    render: (position: number) => position || '-',
-  },
-  { 
-    title: 'Estado', 
-    key: 'status', 
-    width: 120,
-    render: (_, record: ExtendedTeamInLeague) => {
-      if (!selectedDivision || !record.position) return null;
-      
-      const status = getTeamStatus(record.position, selectedDivision, 20); // Asumimos 20 equipos por liga
-      return (
-        <Tag color={status.color} style={{ margin: 0 }}>
-          {status.badge}
-        </Tag>
-      );
-    }
-  },
-  { 
-    title: 'Escudo', 
-    dataIndex: 'crest', 
-    key: 'crest',
-    width: 60,
-    render: (crest: string, record: ExtendedTeamInLeague) => (
-      <Tooltip title={`Haz clic para ver detalles de ${record.teamName}`}>
-        <div 
-          className="clickable-crest"
-          style={{ display: 'flex', justifyContent: 'center' }}
-          onClick={() => navigate(`/team/${record.teamId}`)}
-        >
-          {crest ? (
-            <img 
-              src={crest} 
-              alt={record.teamName} 
-              style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
-            />
-          ) : (
-            <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Text type="secondary">?</Text>
-            </div>
-          )}
-        </div>
-      </Tooltip>
-    )
-  },
-  { 
-    title: 'Equipo', 
-    dataIndex: 'teamName', 
-    key: 'teamName',
-    render: (teamName: string, record: ExtendedTeamInLeague) => (
-      <Tooltip title={`Haz clic para ver el perfil completo de ${record.teamName}`}>
-        <div 
-          className="clickable-team"
-          onClick={() => navigate(`/team/${record.teamId}`)}
-        >
-          <div className="clickable-team-name" style={{ fontWeight: 500 }}>{teamName}</div>
-          {record.shortName && record.shortName !== teamName && (
-            <Text type="secondary" style={{ fontSize: '12px' }}>{record.shortName}</Text>
-          )}
-        </div>
-      </Tooltip>
-    )
-  },
-  { 
-    title: 'Seguidores Actuales', 
-    dataIndex: 'tiktokFollowers', 
-    key: 'tiktokFollowers', 
-    sorter: (a, b) => b.tiktokFollowers - a.tiktokFollowers,
-    render: (followers: number) => formatNumber(followers)
-  },
-  { 
-    title: 'Seguidores al Asignar', 
-    dataIndex: 'followersAtAssignment', 
-    key: 'followersAtAssignment',
-    render: (followers: number) => formatNumber(followers)
-  },
-  { 
-    title: 'Motivo Asignación', 
-    dataIndex: 'assignmentReason', 
-    key: 'assignmentReason',
-    render: (reason: number) => {
-      const { text, color } = getAssignmentReasonText(reason);
-      return <Tag color={color}>{text}</Tag>;
-    }
-  },
-];
+// Función para crear las columnas dinámicamente según la división (optimizada con memoización)
+const createColumns = (selectedDivision: Division | null, navigate: any): ColumnsType<ExtendedTeamInLeague> => {
+  const handleTeamClick = (teamId: number) => navigate(`/team/${teamId}`);
+  
+  return [
+    { 
+      title: 'Pos', 
+      dataIndex: 'position', 
+      key: 'position', 
+      width: 60,
+      render: (position: number) => position || '-',
+    },
+    { 
+      title: 'Estado', 
+      key: 'status', 
+      width: 120,
+      render: (_, record: ExtendedTeamInLeague) => {
+        if (!selectedDivision || !record.position) return null;
+        
+        const status = getTeamStatus(record.position, selectedDivision, 20); // Asumimos 20 equipos por liga
+        return (
+          <Tag color={status.color} style={{ margin: 0 }}>
+            {status.badge}
+          </Tag>
+        );
+      }
+    },
+    { 
+      title: 'Escudo', 
+      dataIndex: 'crest', 
+      key: 'crest',
+      width: 60,
+      render: (crest: string, record: ExtendedTeamInLeague) => (
+        <Tooltip title={`Haz clic para ver detalles de ${record.teamName}`}>
+          <div 
+            className="clickable-crest"
+            style={{ display: 'flex', justifyContent: 'center' }}
+            onClick={() => handleTeamClick(record.teamId)}
+          >
+            {crest ? (
+              <img 
+                src={crest} 
+                alt={record.teamName} 
+                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Text type="secondary">?</Text>
+              </div>
+            )}
+          </div>
+        </Tooltip>
+      )
+    },
+    { 
+      title: 'Equipo', 
+      dataIndex: 'teamName', 
+      key: 'teamName',
+      render: (teamName: string, record: ExtendedTeamInLeague) => (
+        <Tooltip title={`Haz clic para ver el perfil completo de ${record.teamName}`}>
+          <div 
+            className="clickable-team"
+            onClick={() => handleTeamClick(record.teamId)}
+          >
+            <div className="clickable-team-name" style={{ fontWeight: 500 }}>{teamName}</div>
+            {record.shortName && record.shortName !== teamName && (
+              <Text type="secondary" style={{ fontSize: '12px' }}>{record.shortName}</Text>
+            )}
+          </div>
+        </Tooltip>
+      )
+    },
+    { 
+      title: 'Seguidores Actuales', 
+      dataIndex: 'tiktokFollowers', 
+      key: 'tiktokFollowers', 
+      sorter: (a, b) => b.tiktokFollowers - a.tiktokFollowers,
+      render: (followers: number) => formatNumber(followers)
+    },
+    { 
+      title: 'Seguidores al Asignar', 
+      dataIndex: 'followersAtAssignment', 
+      key: 'followersAtAssignment',
+      render: (followers: number) => formatNumber(followers)
+    },
+    { 
+      title: 'Motivo Asignación', 
+      dataIndex: 'assignmentReason', 
+      key: 'assignmentReason',
+      render: (reason: number) => {
+        const { text, color } = getAssignmentReasonText(reason);
+        return <Tag color={color}>{text}</Tag>;
+      }
+    },
+  ];
+};
 
 export default function DivisionView() {
   const navigate = useNavigate();
@@ -201,6 +196,63 @@ export default function DivisionView() {
   const [loading, setLoading] = useState(true);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [systemInitialized, setSystemInitialized] = useState(false);
+
+  // Memoizar las columnas para evitar re-renders innecesarios
+  const columns = useMemo(() => 
+    createColumns(selectedDivision, navigate), 
+    [selectedDivision, navigate]
+  );
+
+  // Optimizar handlers con useCallback
+  const handleDivisionChange = useCallback((divisionLevel: number) => {
+    const division = divisions.find(d => d.level === divisionLevel);
+    if (division) {
+      setSelectedDivision(division);
+      if (division.leagues.length > 0) {
+        setSelectedLeague(division.leagues[0].id);
+      } else {
+        setSelectedLeague(null);
+        setTeams([]);
+      }
+    }
+  }, [divisions]);
+
+  const handleLeagueChange = useCallback((leagueId: number) => {
+    setSelectedLeague(leagueId);
+  }, []);
+
+  const handleInitializeSystem = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Inicializar sistema
+      await leagueApi.initializeLeagueSystem();
+      message.success('Sistema de ligas inicializado correctamente');
+      
+      // Crear temporada inicial
+      const currentYear = new Date().getFullYear();
+      const newSeason = await leagueApi.createSeason({
+        name: `Temporada ${currentYear}-${String(currentYear + 1).slice(2)}`,
+        year: currentYear,
+        isActive: true
+      });
+      
+      message.success('Temporada creada correctamente');
+      
+      // Asignar equipos
+      await leagueApi.assignTeamsByTikTokFollowers(newSeason.id);
+      message.success('Equipos asignados a divisiones según seguidores de TikTok');
+      
+      // Recargar datos
+      await loadInitialData();
+      
+    } catch (error) {
+      console.error('Error inicializando sistema:', error);
+      message.error('Error inicializando el sistema de ligas');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -277,56 +329,6 @@ export default function DivisionView() {
     } finally {
       setTeamsLoading(false);
     }
-  };
-
-  const handleInitializeSystem = async () => {
-    try {
-      setLoading(true);
-      
-      // Inicializar sistema
-      await leagueApi.initializeLeagueSystem();
-      message.success('Sistema de ligas inicializado correctamente');
-      
-      // Crear temporada inicial
-      const currentYear = new Date().getFullYear();
-      const newSeason = await leagueApi.createSeason({
-        name: `Temporada ${currentYear}-${String(currentYear + 1).slice(2)}`,
-        year: currentYear,
-        isActive: true
-      });
-      
-      message.success('Temporada creada correctamente');
-      
-      // Asignar equipos
-      await leagueApi.assignTeamsByTikTokFollowers(newSeason.id);
-      message.success('Equipos asignados a divisiones según seguidores de TikTok');
-      
-      // Recargar datos
-      await loadInitialData();
-      
-    } catch (error) {
-      console.error('Error inicializando sistema:', error);
-      message.error('Error inicializando el sistema de ligas');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDivisionChange = (divisionLevel: number) => {
-    const division = divisions.find(d => d.level === divisionLevel);
-    if (division) {
-      setSelectedDivision(division);
-      if (division.leagues.length > 0) {
-        setSelectedLeague(division.leagues[0].id);
-      } else {
-        setSelectedLeague(null);
-        setTeams([]);
-      }
-    }
-  };
-
-  const handleLeagueChange = (leagueId: number) => {
-    setSelectedLeague(leagueId);
   };
 
   if (loading) {
@@ -451,7 +453,7 @@ export default function DivisionView() {
           }
         >
           <Table
-            columns={createColumns(selectedDivision, navigate)}
+            columns={columns}
             dataSource={teams}
             rowKey="teamId"
             loading={teamsLoading}

@@ -1,0 +1,77 @@
+/* Estilos comunes para todo el sistema */
+
+/* Layout principal */
+#root {
+  background: #f5f7fa;
+  padding: 2rem;
+  margin: 0 auto;
+  display: flex;
+}
+
+/* Containers principales */
+.main-container {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  padding: 2rem 2.5rem 2.5rem 2.5rem;
+}
+
+/* Títulos principales */
+.main-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 2rem;
+  color: #213547;
+  letter-spacing: -1px;
+}
+
+/* Estilos de tabla comunes */
+.data-table .ant-table-thead > tr > th {
+  background: #f5f7fa;
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.data-table .ant-table-tbody > tr > td {
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+.data-table .ant-table-tbody > tr > td:nth-child(3), 
+.data-table .ant-table-tbody > tr > td:nth-child(4),
+.data-table .ant-table-tbody > tr > td:nth-child(9) {
+  text-align: left;
+}
+
+/* Enlaces */
+.data-table .ant-table-cell a {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.data-table .ant-table-cell a:hover {
+  color: #40a9ff;
+  text-decoration: underline;
+}
+
+/* Efectos hover para filas */
+.data-table .ant-table-tbody > tr:hover {
+  background-color: #f0f8ff !important;
+  transition: background-color 0.2s ease;
+}
+
+.data-table .ant-table-tbody > tr {
+  transition: background-color 0.2s ease;
+}
+
+/* Elementos clickeables */
+.clickable-element {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clickable-element:hover {
+  transform: translateY(-1px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
