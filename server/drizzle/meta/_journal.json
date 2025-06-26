@@ -64,6 +64,13 @@
       "when": 1750929006342,
       "tag": "0008_real_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1750975761713,
+      "tag": "0009_lame_sugar_man",
+      "breakpoints": true
     }
   ]
 }

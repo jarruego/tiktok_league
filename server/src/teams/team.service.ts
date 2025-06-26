@@ -30,8 +30,56 @@ export class TeamService {
 
   async findOne(id: number) {
     const db = this.databaseService.db;
-    const [team] = await db.select().from(teamTable).where(eq(teamTable.id, id));
+    const [team] = await db
+      .select({
+        id: teamTable.id,
+        name: teamTable.name,
+        shortName: teamTable.shortName,
+        tla: teamTable.tla,
+        crest: teamTable.crest,
+        venue: teamTable.venue,
+        founded: teamTable.founded,
+        website: teamTable.website,
+        footballDataId: teamTable.footballDataId,
+        competitionId: teamTable.competitionId,
+        clubColors: teamTable.clubColors,
+        // Información del área/país
+        areaId: teamTable.areaId,
+        areaName: teamTable.areaName,
+        areaCode: teamTable.areaCode,
+        areaFlag: teamTable.areaFlag,
+        // Información de TikTok
+        tiktokId: teamTable.tiktokId,
+        displayName: teamTable.displayName,
+        followers: teamTable.followers,
+        following: teamTable.following,
+        likes: teamTable.likes,
+        description: teamTable.description,
+        profileUrl: teamTable.profileUrl,
+        avatarUrl: teamTable.avatarUrl,
+        lastScrapedAt: teamTable.lastScrapedAt,
+        // Timestamps
+        createdAt: teamTable.createdAt,
+        updatedAt: teamTable.updatedAt,
+        // Entrenador
+        coach: {
+          id: coachTable.id,
+          name: coachTable.name,
+          nationality: coachTable.nationality,
+          footballDataId: coachTable.footballDataId,
+        }
+      })
+      .from(teamTable)
+      .leftJoin(coachTable, eq(teamTable.coachId, coachTable.id))
+      .where(eq(teamTable.id, id));
+    
     if (!team) throw new NotFoundException('Team not found');
+    
+    // Si no hay entrenador, eliminar el objeto coach vacío
+    if (!team.coach?.id) {
+      team.coach = null;
+    }
+    
     return team;
   }
 
@@ -105,6 +153,11 @@ export class TeamService {
       founded: footballDataTeam.founded,
       website: footballDataTeam.website,
       clubColors: footballDataTeam.clubColors,
+      // Información del área/país
+      areaId: footballDataTeam.area?.id,
+      areaName: footballDataTeam.area?.name,
+      areaCode: footballDataTeam.area?.code,
+      areaFlag: footballDataTeam.area?.flag,
       coachId: coachId,
     };
 
@@ -126,7 +179,7 @@ export class TeamService {
   async findAllWithCoaches() {
     const db = this.databaseService.db;
     
-    return db
+    const teams = await db
       .select({
         id: teamTable.id,
         name: teamTable.name,
@@ -138,6 +191,12 @@ export class TeamService {
         website: teamTable.website,
         footballDataId: teamTable.footballDataId,
         competitionId: teamTable.competitionId,
+        clubColors: teamTable.clubColors,
+        // Información del área/país
+        areaId: teamTable.areaId,
+        areaName: teamTable.areaName,
+        areaCode: teamTable.areaCode,
+        areaFlag: teamTable.areaFlag,
         // Información de TikTok
         tiktokId: teamTable.tiktokId,
         displayName: teamTable.displayName,
@@ -161,5 +220,11 @@ export class TeamService {
       })
       .from(teamTable)
       .leftJoin(coachTable, eq(teamTable.coachId, coachTable.id));
+
+    // Limpiar coaches vacíos
+    return teams.map(team => ({
+      ...team,
+      coach: team.coach?.id ? team.coach : null
+    }));
   }
 }

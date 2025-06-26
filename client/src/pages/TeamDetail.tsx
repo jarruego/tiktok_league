@@ -26,6 +26,11 @@ interface Team {
   founded?: number;
   clubColors?: string;
   website?: string;
+  // Información del área/país
+  areaId?: number;
+  areaName?: string;
+  areaCode?: string;
+  areaFlag?: string;
   createdAt?: string;
   updatedAt?: string;
   coach?: {
@@ -214,7 +219,19 @@ export default function TeamDetail() {
             {(team.displayName || team.name).charAt(0).toUpperCase()}
           </Avatar>
           <div>
-            <h1 style={{ margin: 0, fontSize: '28px' }}>{team.name}</h1>
+            <h1 style={{ margin: 0, fontSize: '28px' }}>
+              {team.name}
+              {team.areaFlag && team.areaCode && (
+                <span style={{ marginLeft: '12px' }}>
+                  <img 
+                    src={team.areaFlag} 
+                    alt={team.areaName || team.areaCode}
+                    style={{ width: '24px', height: '16px', objectFit: 'cover', marginRight: '6px' }}
+                  />
+                  <span style={{ fontSize: '18px', color: '#888' }}>{team.areaCode}</span>
+                </span>
+              )}
+            </h1>
             {team.displayName && team.displayName !== team.name && (
               <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>{team.displayName}</p>
             )}
@@ -270,9 +287,26 @@ export default function TeamDetail() {
         </Card>
 
         {/* Información del Club */}
-        {(team.venue || team.founded || team.clubColors || team.footballDataId) && (
+        {(team.venue || team.founded || team.clubColors || team.coach || team.areaName) && (
           <Card title="Información del Club" size="small">
             <Descriptions column={1} size="small">
+              {team.areaName && (
+                <Descriptions.Item label="País">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {team.areaFlag && (
+                      <img 
+                        src={team.areaFlag} 
+                        alt={team.areaName}
+                        style={{ width: '20px', height: '14px', objectFit: 'cover' }}
+                      />
+                    )}
+                    <span>{team.areaName}</span>
+                    {team.areaCode && (
+                      <span style={{ color: '#888', fontSize: '12px' }}>({team.areaCode})</span>
+                    )}
+                  </div>
+                </Descriptions.Item>
+              )}
               {team.venue && (
                 <Descriptions.Item label="Estadio">{team.venue}</Descriptions.Item>
               )}
@@ -282,11 +316,11 @@ export default function TeamDetail() {
               {team.clubColors && (
                 <Descriptions.Item label="Colores">{team.clubColors}</Descriptions.Item>
               )}
-              {team.footballDataId && (
-                <Descriptions.Item label="ID Football-Data">{team.footballDataId}</Descriptions.Item>
-              )}
-              {team.competitionId && (
-                <Descriptions.Item label="ID Competición">{team.competitionId}</Descriptions.Item>
+              {team.coach && (
+                <Descriptions.Item label="Entrenador">
+                  {team.coach.name}
+                  {team.coach.nationality && ` (${team.coach.nationality})`}
+                </Descriptions.Item>
               )}
             </Descriptions>
           </Card>
@@ -296,6 +330,12 @@ export default function TeamDetail() {
         <Card title="Información del Sistema" size="small">
           <Descriptions column={1} size="small">
             <Descriptions.Item label="ID del equipo">{team.id}</Descriptions.Item>
+            {team.footballDataId && (
+              <Descriptions.Item label="ID Football-Data">{team.footballDataId}</Descriptions.Item>
+            )}
+            {team.competitionId && (
+              <Descriptions.Item label="ID Competición">{team.competitionId}</Descriptions.Item>
+            )}
             <Descriptions.Item label="Creado">
               {formatFecha(team.createdAt)}
             </Descriptions.Item>

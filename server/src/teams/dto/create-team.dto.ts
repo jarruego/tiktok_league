@@ -78,6 +78,23 @@ export class CreateTeamDto {
   @IsOptional()
   website?: string;
 
+  // Información del área/país
+  @IsInt()
+  @IsOptional()
+  areaId?: number;
+
+  @IsString()
+  @IsOptional()
+  areaName?: string;
+
+  @IsString()
+  @IsOptional()
+  areaCode?: string;
+
+  @IsUrl()
+  @IsOptional()
+  areaFlag?: string;
+
   @IsInt()
   @IsOptional()
   coachId?: number;

@@ -28,6 +28,12 @@ export const teamTable = pgTable('teams', {
   clubColors: varchar('club_colors', { length: 100 }), // Colores del club
   website: varchar('website', { length: 500 }), // Sitio web oficial
   
+  // Información del área/país
+  areaId: integer('area_id'), // ID del área de Football-Data.org
+  areaName: varchar('area_name', { length: 100 }), // Nombre del país/área
+  areaCode: varchar('area_code', { length: 10 }), // Código del país (ESP, ENG, etc.)
+  areaFlag: text('area_flag'), // URL de la bandera del país
+  
   // Relación con entrenador
   coachId: integer('coach_id').references(() => coachTable.id),
   

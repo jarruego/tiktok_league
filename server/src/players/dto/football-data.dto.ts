@@ -1,6 +1,21 @@
 import { IsString, IsNotEmpty, IsOptional, IsInt, IsArray, ValidateNested, IsUrl } from 'class-validator';
 import { Type } from 'class-transformer';
 
+export class FootballDataAreaDto {
+  @IsInt()
+  id: number;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  code: string;
+
+  @IsUrl()
+  @IsOptional()
+  flag?: string;
+}
+
 export class FootballDataCoachDto {
   @IsInt()
   id: number;
@@ -74,6 +89,11 @@ export class FootballDataTeamResponseDto {
   @IsUrl()
   @IsOptional()
   website?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FootballDataAreaDto)
+  area?: FootballDataAreaDto;
 
   @IsOptional()
   @ValidateNested()

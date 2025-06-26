@@ -25,6 +25,11 @@ interface Team {
   website?: string;
   footballDataId?: number;
   competitionId?: number;
+  // Información del área/país
+  areaId?: number;
+  areaName?: string;
+  areaCode?: string;
+  areaFlag?: string;
   createdAt?: string;
   updatedAt?: string;
   coach?: {
@@ -75,42 +80,72 @@ const columns: ColumnsType<Team> = [
     width: 60
   },
   { 
-    title: 'Equipo', 
-    dataIndex: 'name', 
-    key: 'name',
-    sorter: (a, b) => a.name.localeCompare(b.name),
-    render: (name: string, record: Team) => (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {record.avatarUrl ? (
+    title: 'Escudo', 
+    dataIndex: 'crest', 
+    key: 'crest',
+    width: 60,
+    render: (_: string, record: Team) => (
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {record.crest || record.avatarUrl ? (
           <img 
-            src={record.avatarUrl} 
+            src={record.crest || record.avatarUrl} 
             alt={record.displayName || record.name} 
-            style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+            style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
           />
         ) : (
           <div style={{ 
-            width: 40, 
-            height: 40, 
+            width: 32, 
+            height: 32, 
             borderRadius: '50%', 
             backgroundColor: '#f0f0f0', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            fontSize: '14px',
+            fontSize: '12px',
             fontWeight: 'bold',
             color: '#666'
           }}>
             {(record.displayName || record.name).charAt(0).toUpperCase()}
           </div>
         )}
-        <div>
-          <div style={{ fontWeight: 'bold' }}>{name}</div>
-          {record.displayName && record.displayName !== name && (
-            <div style={{ fontSize: '12px', color: '#666' }}>{record.displayName}</div>
-          )}
-        </div>
       </div>
     )
+  },
+  { 
+    title: 'Equipo', 
+    dataIndex: 'name', 
+    key: 'name',
+    sorter: (a, b) => a.name.localeCompare(b.name),
+    render: (name: string, record: Team) => (
+      <div>
+        <div style={{ fontWeight: 'bold' }}>{name}</div>
+        {record.displayName && record.displayName !== name && (
+          <div style={{ fontSize: '12px', color: '#666' }}>{record.displayName}</div>
+        )}
+      </div>
+    )
+  },
+  { 
+    title: 'País', 
+    dataIndex: 'areaCode', 
+    key: 'areaCode',
+    width: 80,
+    sorter: (a, b) => (a.areaCode || '').localeCompare(b.areaCode || ''),
+    render: (_: string, record: Team) => {
+      if (!record.areaCode && !record.areaFlag) return '-';
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          {record.areaFlag && (
+            <img 
+              src={record.areaFlag} 
+              alt={record.areaName || record.areaCode}
+              style={{ width: '20px', height: '14px', objectFit: 'cover' }}
+            />
+          )}
+          <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{record.areaCode}</span>
+        </div>
+      );
+    }
   },
   { 
     title: 'Cuenta TikTok', 
@@ -133,25 +168,11 @@ const columns: ColumnsType<Team> = [
     render: (followers: number) => formatNumber(followers)
   },
   { 
-    title: 'Siguiendo', 
-    dataIndex: 'following', 
-    key: 'following',
-    sorter: (a, b) => (b.following || 0) - (a.following || 0),
-    render: (following: number) => formatNumber(following) || '-'
-  },
-  { 
     title: 'Likes', 
     dataIndex: 'likes', 
     key: 'likes',
     sorter: (a, b) => (b.likes || 0) - (a.likes || 0),
     render: (likes: number) => formatNumber(likes) || '-'
-  },
-  { 
-    title: 'Descripción', 
-    dataIndex: 'description', 
-    key: 'description',
-    ellipsis: true,
-    width: 200
   },
   { 
     title: 'Última Actualización', 
@@ -165,7 +186,11 @@ const columns: ColumnsType<Team> = [
       // Comparar fechas (más reciente primero)
       return new Date(b.lastScrapedAt).getTime() - new Date(a.lastScrapedAt).getTime();
     },
-    render: formatFecha,
+    render: (lastScrapedAt: string) => (
+      <span style={{ fontSize: '12px' }}>
+        {formatFecha(lastScrapedAt)}
+      </span>
+    ),
     width: 150
   },
 ];
@@ -196,7 +221,7 @@ export default function TeamsTable() {
       loading={loading}
       pagination={false}
       className="ranking-table"
-      scroll={{ x: 1200 }}
+      scroll={{ x: 900 }}
       size="middle"
       onRow={(record) => ({
         onClick: () => handleRowClick(record),
