@@ -1,12 +1,18 @@
+// Importaciones necesarias para el servicio de scraping de TikTok
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
-import { teamTable } from '../database/schema';
-import { eq, desc, isNull, isNotNull, asc } from 'drizzle-orm';
-import { DATABASE_PROVIDER } from '../database/database.module';
-import { DatabaseService } from '../database/database.service';
-import puppeteer from 'puppeteer';
+import { Cron } from '@nestjs/schedule'; // Para tareas programadas (cron jobs)
+import { teamTable } from '../database/schema'; // Esquema de la tabla de equipos
+import { eq, desc, isNull, isNotNull, asc } from 'drizzle-orm'; // Operadores de consulta de Drizzle ORM
+import { DATABASE_PROVIDER } from '../database/database.module'; // Proveedor de base de datos
+import { DatabaseService } from '../database/database.service'; // Servicio de base de datos
+import puppeteer from 'puppeteer'; // Librería para automatización de navegador (web scraping)
 
-// Scraper real de TikTok usando puppeteer
+/**
+ * Función para hacer scraping de un perfil de TikTok
+ * Utiliza puppeteer para abrir un navegador, navegar al perfil y extraer datos
+ * @param tiktokId - El ID del usuario de TikTok (sin el @)
+ * @returns Objeto con los datos del perfil: seguidores, siguiendo, likes, etc.
+ */
 async function scrapeTikTokProfile(tiktokId: string): Promise<{ 
   followers: number; 
   following: number;
@@ -16,62 +22,74 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
   profileUrl: string;
   avatarUrl: string;
 }> {
+  // Construir la URL del perfil de TikTok
   const url = `https://www.tiktok.com/@${tiktokId}`;
+  
+  // Lanzar una instancia de navegador sin interfaz gráfica (headless)
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
+  
+  // Navegar a la página del perfil con timeout de 30 segundos
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-  // Espera a que cargue el número de seguidores
+  // Esperar a que aparezca el elemento que contiene el número de seguidores
   await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 15000 });
   
-  // Obtener seguidores
+  // Extraer el texto del número de seguidores y convertirlo a número
   const followersText = await page.$eval('strong[data-e2e="followers-count"]', el => el.textContent || '0');
   const followers = parseTikTokFollowers(followersText);
 
-  // Obtener siguiendo
+  // Obtener número de cuentas que sigue (siguiendo)
   let following = 0;
   try {
     const followingText = await page.$eval('strong[data-e2e="following-count"]', el => el.textContent || '0');
     following = parseTikTokFollowers(followingText);
   } catch {
+    // Si no se encuentra el elemento, asignar 0
     following = 0;
   }
 
-  // Obtener likes totales
+  // Obtener número total de likes del perfil
   let likes = 0;
   try {
     const likesText = await page.$eval('strong[data-e2e="likes-count"]', el => el.textContent || '0');
     likes = parseTikTokFollowers(likesText);
   } catch {
+    // Si no se encuentra el elemento, asignar 0
     likes = 0;
   }
 
-  // Obtener descripción del perfil
+  // Obtener la descripción/biografía del perfil
   let description = '';
   try {
     description = await page.$eval('h2[data-e2e="user-bio"]', el => el.textContent || '');
   } catch {
+    // Si no tiene descripción, dejar vacío
     description = '';
   }
 
-  // Obtener nombre mostrado
+  // Obtener el nombre mostrado del usuario
   let displayName = '';
   try {
     displayName = await page.$eval('h1[data-e2e="user-title"]', el => el.textContent || '');
   } catch {
+    // Si no se encuentra, usar el ID como fallback
     displayName = tiktokId; // Fallback al ID si no se encuentra
   }
 
-  // Obtener URL del avatar
+  // Obtener la URL de la imagen de perfil (avatar)
   let avatarUrl = '';
   try {
     avatarUrl = await page.$eval('img.css-1zpj2q-ImgAvatar, img[class*="ImgAvatar"]', el => el.src || '');
   } catch {
+    // Si no se encuentra, dejar vacío
     avatarUrl = '';
   }
 
+  // Cerrar el navegador para liberar recursos
   await browser.close();
 
+  // Retornar todos los datos extraídos
   return { 
     followers, 
     following, 
@@ -83,61 +101,103 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
   };
 }
 
+/**
+ * Función para convertir texto de seguidores de TikTok a número
+ * TikTok muestra números como "1.2M" o "500K", esta función los convierte a números enteros
+ * @param text - Texto del número de seguidores (ej: "1.2M", "500K", "1234")
+ * @returns Número entero correspondiente
+ */
 function parseTikTokFollowers(text: string): number {
-  // Ejemplo: "1.2M" => 1200000
+  // Si no hay texto, retornar 0
   if (!text) return 0;
+  
+  // Buscar patrón de número seguido opcionalmente de M o K
   const match = text.match(/([\d.]+)([MK]?)$/i);
+  
+  // Si no coincide con el patrón, extraer solo números
   if (!match) return parseInt(text.replace(/\D/g, ''), 10) || 0;
+  
+  // Extraer el número y el sufijo (M o K)
   let [, num, suffix] = match;
   let n = parseFloat(num);
-  if (suffix === 'M' || suffix === 'm') n *= 1_000_000;
-  if (suffix === 'K' || suffix === 'k') n *= 1_000;
-  return Math.round(n);
+  
+  // Convertir según el sufijo
+  if (suffix === 'M' || suffix === 'm') n *= 1_000_000; // Millones
+  if (suffix === 'K' || suffix === 'k') n *= 1_000;     // Miles
+  
+  return Math.round(n); // Redondear a número entero
 }
 
+/**
+ * Función helper para crear delays/pausas en la ejecución
+ * Útil para evitar ser detectado como bot por hacer requests muy rápidos
+ * @param ms - Milisegundos a esperar
+ * @returns Promise que se resuelve después del tiempo especificado
+ */
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Servicio principal para el scraping de TikTok
+ * Se encarga de actualizar automáticamente los datos de los equipos desde sus perfiles de TikTok
+ */
 @Injectable()
 export class TiktokScraperService {
+  // Logger para registrar eventos y errores
   private readonly logger = new Logger(TiktokScraperService.name);
 
   constructor(
+    // Inyección de dependencia del servicio de base de datos
     @Inject(DATABASE_PROVIDER)
     private readonly databaseService: DatabaseService,
   ) {}
 
-  @Cron('0 * * * *') // Cada hora
+  /**
+   * Tarea programada que se ejecuta cada hora (cron: '0 * * * *')
+   * Actualiza los datos de TikTok de los equipos de manera inteligente:
+   * 1. Primero actualiza equipos que nunca han sido scrapeados
+   * 2. Luego actualiza los que tienen datos más antiguos
+   * 3. Procesa máximo 10 equipos por ejecución para no sobrecargar
+   */
+  @Cron('0 * * * *') // Cada hora en punto (minuto 0)
   async updateFollowers() {
     const db = this.databaseService.db;
-    // Primero obtener equipos que nunca han sido scrapeados (lastScrapedAt es NULL)
+    
+    // PASO 1: Obtener equipos que nunca han sido scrapeados (lastScrapedAt es NULL)
     const unscrapedTeams = await db
       .select()
       .from(teamTable)
-      .where(isNull(teamTable.lastScrapedAt))
-      .limit(10);
+      .where(isNull(teamTable.lastScrapedAt)) // Donde lastScrapedAt es null
+      .limit(10); // Máximo 10 equipos
     
     let batch = unscrapedTeams;
     
-    // Si no hay suficientes equipos sin scrapear, completar con los más antiguos
+    // PASO 2: Si no hay suficientes equipos sin scrapear, completar con los más antiguos
     if (batch.length < 10) {
-      const remainingSlots = 10 - batch.length;
+      const remainingSlots = 10 - batch.length; // Calcular cuántos faltan
       const oldestScrapedTeams = await db
         .select()
         .from(teamTable)
-        .where(isNotNull(teamTable.lastScrapedAt))
-        .orderBy(asc(teamTable.lastScrapedAt))
-        .limit(remainingSlots);
+        .where(isNotNull(teamTable.lastScrapedAt)) // Donde lastScrapedAt no es null
+        .orderBy(asc(teamTable.lastScrapedAt)) // Ordenar por fecha más antigua primero
+        .limit(remainingSlots); // Solo los que faltan para completar 10
       
+      // Combinar ambas listas
       batch = [...batch, ...oldestScrapedTeams];
     }
     
-    const scrapedIds = new Set<number>();
+    // PASO 3: Procesar cada equipo en el lote
+    const scrapedIds = new Set<number>(); // Para evitar duplicados
     for (const team of batch) {
-      if (scrapedIds.has(team.id)) continue; // Evita duplicados si cambia el orden
+      // Saltar si ya procesamos este equipo (prevención de duplicados)
+      if (scrapedIds.has(team.id)) continue;
+      
       try {
+        // Hacer scraping del perfil de TikTok del equipo
         const { followers, following, likes, description, displayName, profileUrl, avatarUrl } = await scrapeTikTokProfile(team.tiktokId);
+        
+        // Actualizar la base de datos con los nuevos datos
         await db
           .update(teamTable)
           .set({ 
@@ -148,23 +208,38 @@ export class TiktokScraperService {
             displayName, 
             profileUrl, 
             avatarUrl, 
-            lastScrapedAt: new Date() 
+            lastScrapedAt: new Date() // Marcar como scrapeado ahora
           })
           .where(eq(teamTable.id, team.id));
+          
+        // Marcar como procesado
         scrapedIds.add(team.id);
+        
+        // Log de éxito
         this.logger.log(`Actualizado ${team.name}: ${followers} seguidores, ${following} siguiendo, ${likes} likes, desc: ${description}`);
       } catch (e) {
+        // Log de error si falla el scraping
         this.logger.error(`Error actualizando ${team.name}: ${e}`);
       }
-      // Espera aleatoria entre 10 y 30 segundos
+      
+      // IMPORTANTE: Espera aleatoria entre 10 y 30 segundos para evitar ser detectado como bot
       await delay(10000 + Math.random() * 20000);
     }
+    
+    // Retornar resumen de la operación
     return { updated: scrapedIds.size };
   }
 
+  /**
+   * Método que se ejecuta cuando el módulo se inicializa
+   * Se llama automáticamente cuando NestJS carga este servicio
+   */
   async onModuleInit() {
-    // Comentado para evitar scraping automático al iniciar el servidor
-    // this.updateFollowers(); // sin await, para no bloquear el arranque ni el event loop
+    // NOTA: El scraping automático al iniciar está comentado para evitar sobrecarga
+    // Si se descomenta, ejecutaría el scraping inmediatamente al arrancar el servidor
+     this.updateFollowers(); // sin await, para no bloquear el arranque ni el event loop
+    
+    // Log informativo del estado del servicio
     this.logger.log('TikTok Scraper Service iniciado. El scraping se ejecutará según el cron schedule.');
   }
 }

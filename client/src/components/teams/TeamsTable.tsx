@@ -49,45 +49,39 @@ const columns: ColumnsType<Team> = [
     width: 60
   },
   { 
-    title: 'Avatar', 
-    dataIndex: 'avatarUrl', 
-    key: 'avatarUrl', 
-    render: (avatarUrl: string, record: Team) => (
-      avatarUrl ? (
-        <img 
-          src={avatarUrl} 
-          alt={record.displayName || record.name} 
-          style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
-        />
-      ) : (
-        <div style={{ 
-          width: 40, 
-          height: 40, 
-          borderRadius: '50%', 
-          backgroundColor: '#f0f0f0', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          fontSize: '14px',
-          fontWeight: 'bold',
-          color: '#666'
-        }}>
-          {(record.displayName || record.name).charAt(0).toUpperCase()}
-        </div>
-      )
-    ),
-    width: 60
-  },
-  { 
     title: 'Equipo', 
     dataIndex: 'name', 
     key: 'name',
     render: (name: string, record: Team) => (
-      <div>
-        <div style={{ fontWeight: 'bold' }}>{name}</div>
-        {record.displayName && record.displayName !== name && (
-          <div style={{ fontSize: '12px', color: '#666' }}>{record.displayName}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {record.avatarUrl ? (
+          <img 
+            src={record.avatarUrl} 
+            alt={record.displayName || record.name} 
+            style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+          />
+        ) : (
+          <div style={{ 
+            width: 40, 
+            height: 40, 
+            borderRadius: '50%', 
+            backgroundColor: '#f0f0f0', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            color: '#666'
+          }}>
+            {(record.displayName || record.name).charAt(0).toUpperCase()}
+          </div>
         )}
+        <div>
+          <div style={{ fontWeight: 'bold' }}>{name}</div>
+          {record.displayName && record.displayName !== name && (
+            <div style={{ fontSize: '12px', color: '#666' }}>{record.displayName}</div>
+          )}
+        </div>
       </div>
     )
   },
@@ -118,7 +112,7 @@ const columns: ColumnsType<Team> = [
     render: (following: number) => formatNumber(following) || '-'
   },
   { 
-    title: 'Me gustas', 
+    title: 'Likes', 
     dataIndex: 'likes', 
     key: 'likes',
     render: (likes: number) => formatNumber(likes) || '-'
@@ -131,7 +125,7 @@ const columns: ColumnsType<Team> = [
     width: 200
   },
   { 
-    title: 'Último Scrapeo', 
+    title: 'Última Actualización', 
     dataIndex: 'lastScrapedAt', 
     key: 'lastScrapedAt', 
     render: formatFecha,
