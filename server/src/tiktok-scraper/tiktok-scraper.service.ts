@@ -237,7 +237,7 @@ export class TiktokScraperService {
   async onModuleInit() {
     // NOTA: El scraping automático al iniciar está comentado para evitar sobrecarga
     // Si se descomenta, ejecutaría el scraping inmediatamente al arrancar el servidor
-     this.updateFollowers(); // sin await, para no bloquear el arranque ni el event loop
+    // this.updateFollowers(); // sin await, para no bloquear el arranque ni el event loop
     
     // Log informativo del estado del servicio
     this.logger.log('TikTok Scraper Service iniciado. El scraping se ejecutará según el cron schedule.');

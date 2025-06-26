@@ -14,6 +14,7 @@ interface Team {
   profileUrl?: string;
   avatarUrl?: string;
   lastScrapedAt?: string;
+  position?: number; // Agregamos position como opcional
 }
 
 function formatFecha(fechaIso?: string) {
@@ -45,13 +46,15 @@ const columns: ColumnsType<Team> = [
     title: 'Pos', 
     dataIndex: 'position', 
     key: 'position', 
-    render: (_, __, i) => i + 1,
+    sorter: (a, b) => (a.position || 0) - (b.position || 0),
+    render: (position: number) => position,
     width: 60
   },
   { 
     title: 'Equipo', 
     dataIndex: 'name', 
     key: 'name',
+    sorter: (a, b) => a.name.localeCompare(b.name),
     render: (name: string, record: Team) => (
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {record.avatarUrl ? (
@@ -109,12 +112,14 @@ const columns: ColumnsType<Team> = [
     title: 'Siguiendo', 
     dataIndex: 'following', 
     key: 'following',
+    sorter: (a, b) => (b.following || 0) - (a.following || 0),
     render: (following: number) => formatNumber(following) || '-'
   },
   { 
     title: 'Likes', 
     dataIndex: 'likes', 
     key: 'likes',
+    sorter: (a, b) => (b.likes || 0) - (a.likes || 0),
     render: (likes: number) => formatNumber(likes) || '-'
   },
   { 
@@ -128,6 +133,14 @@ const columns: ColumnsType<Team> = [
     title: 'Última Actualización', 
     dataIndex: 'lastScrapedAt', 
     key: 'lastScrapedAt', 
+    sorter: (a, b) => {
+      // Si alguno no tiene fecha, ponerlo al final
+      if (!a.lastScrapedAt && !b.lastScrapedAt) return 0;
+      if (!a.lastScrapedAt) return 1;
+      if (!b.lastScrapedAt) return -1;
+      // Comparar fechas (más reciente primero)
+      return new Date(b.lastScrapedAt).getTime() - new Date(a.lastScrapedAt).getTime();
+    },
     render: formatFecha,
     width: 150
   },
