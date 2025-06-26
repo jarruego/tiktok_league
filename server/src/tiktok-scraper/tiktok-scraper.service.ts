@@ -1,13 +1,21 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { teamTable } from '../database/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, isNull, isNotNull, asc } from 'drizzle-orm';
 import { DATABASE_PROVIDER } from '../database/database.module';
 import { DatabaseService } from '../database/database.service';
 import puppeteer from 'puppeteer';
 
 // Scraper real de TikTok usando puppeteer
-async function scrapeTikTokProfile(tiktokId: string): Promise<{ followers: number; description: string }> {
+async function scrapeTikTokProfile(tiktokId: string): Promise<{ 
+  followers: number; 
+  following: number;
+  likes: number;
+  description: string;
+  displayName: string;
+  profileUrl: string;
+  avatarUrl: string;
+}> {
   const url = `https://www.tiktok.com/@${tiktokId}`;
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
@@ -15,19 +23,64 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{ followers: numbe
 
   // Espera a que cargue el número de seguidores
   await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 15000 });
+  
+  // Obtener seguidores
   const followersText = await page.$eval('strong[data-e2e="followers-count"]', el => el.textContent || '0');
-  // Extrae la descripción del perfil
+  const followers = parseTikTokFollowers(followersText);
+
+  // Obtener siguiendo
+  let following = 0;
+  try {
+    const followingText = await page.$eval('strong[data-e2e="following-count"]', el => el.textContent || '0');
+    following = parseTikTokFollowers(followingText);
+  } catch {
+    following = 0;
+  }
+
+  // Obtener likes totales
+  let likes = 0;
+  try {
+    const likesText = await page.$eval('strong[data-e2e="likes-count"]', el => el.textContent || '0');
+    likes = parseTikTokFollowers(likesText);
+  } catch {
+    likes = 0;
+  }
+
+  // Obtener descripción del perfil
   let description = '';
   try {
     description = await page.$eval('h2[data-e2e="user-bio"]', el => el.textContent || '');
   } catch {
     description = '';
   }
+
+  // Obtener nombre mostrado
+  let displayName = '';
+  try {
+    displayName = await page.$eval('h1[data-e2e="user-title"]', el => el.textContent || '');
+  } catch {
+    displayName = tiktokId; // Fallback al ID si no se encuentra
+  }
+
+  // Obtener URL del avatar
+  let avatarUrl = '';
+  try {
+    avatarUrl = await page.$eval('img.css-1zpj2q-ImgAvatar, img[class*="ImgAvatar"]', el => el.src || '');
+  } catch {
+    avatarUrl = '';
+  }
+
   await browser.close();
 
-  // Convierte el texto de seguidores a número
-  const followers = parseTikTokFollowers(followersText);
-  return { followers, description };
+  return { 
+    followers, 
+    following, 
+    likes, 
+    description, 
+    displayName, 
+    profileUrl: url, 
+    avatarUrl 
+  };
 }
 
 function parseTikTokFollowers(text: string): number {
@@ -58,21 +111,48 @@ export class TiktokScraperService {
   @Cron('0 * * * *') // Cada hora
   async updateFollowers() {
     const db = this.databaseService.db;
-    // Obtener los equipos ordenados del último al primero por id
-    const allTeams = await db.select().from(teamTable).orderBy(desc(teamTable.id));
-    // Seleccionar los 10 últimos (o menos si hay pocos)
-    const batch = allTeams.slice(0, 10);
+    // Primero obtener equipos que nunca han sido scrapeados (lastScrapedAt es NULL)
+    const unscrapedTeams = await db
+      .select()
+      .from(teamTable)
+      .where(isNull(teamTable.lastScrapedAt))
+      .limit(10);
+    
+    let batch = unscrapedTeams;
+    
+    // Si no hay suficientes equipos sin scrapear, completar con los más antiguos
+    if (batch.length < 10) {
+      const remainingSlots = 10 - batch.length;
+      const oldestScrapedTeams = await db
+        .select()
+        .from(teamTable)
+        .where(isNotNull(teamTable.lastScrapedAt))
+        .orderBy(asc(teamTable.lastScrapedAt))
+        .limit(remainingSlots);
+      
+      batch = [...batch, ...oldestScrapedTeams];
+    }
+    
     const scrapedIds = new Set<number>();
     for (const team of batch) {
       if (scrapedIds.has(team.id)) continue; // Evita duplicados si cambia el orden
       try {
-        const { followers, description } = await scrapeTikTokProfile(team.tiktokId);
+        const { followers, following, likes, description, displayName, profileUrl, avatarUrl } = await scrapeTikTokProfile(team.tiktokId);
         await db
           .update(teamTable)
-          .set({ followers, description, lastScrapedAt: new Date() })
+          .set({ 
+            followers, 
+            following, 
+            likes, 
+            description, 
+            displayName, 
+            profileUrl, 
+            avatarUrl, 
+            lastScrapedAt: new Date() 
+          })
           .where(eq(teamTable.id, team.id));
         scrapedIds.add(team.id);
-        this.logger.log(`Actualizado ${team.name}: ${followers} seguidores, desc: ${description}`);
+        this.logger.log(`Actualizado ${team.name}: ${followers} seguidores, ${following} siguiendo, ${likes} likes, desc: ${description}`);
       } catch (e) {
         this.logger.error(`Error actualizando ${team.name}: ${e}`);
       }
@@ -83,6 +163,8 @@ export class TiktokScraperService {
   }
 
   async onModuleInit() {
-    this.updateFollowers(); // sin await, para no bloquear el arranque ni el event loop
+    // Comentado para evitar scraping automático al iniciar el servidor
+    // this.updateFollowers(); // sin await, para no bloquear el arranque ni el event loop
+    this.logger.log('TikTok Scraper Service iniciado. El scraping se ejecutará según el cron schedule.');
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schema": "./src/db/schema.ts",
+  "schema": "./src/database/schema.ts",
   "out": "./drizzle",
   "dialect": "postgresql",
   "url": "postgres://postgres:postgres@localhost:5432/tiktok_teams"

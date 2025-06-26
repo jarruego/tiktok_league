@@ -6,8 +6,13 @@ interface Team {
   id: number;
   name: string;
   tiktokId: string;
+  displayName?: string;
   followers: number;
+  following?: number;
+  likes?: number;
   description?: string;
+  profileUrl?: string;
+  avatarUrl?: string;
   lastScrapedAt?: string;
 }
 
@@ -25,13 +30,113 @@ function formatFecha(fechaIso?: string) {
   return `${dia} de ${mes} a las ${hora}:${min}`;
 }
 
+function formatNumber(num?: number) {
+  if (!num) return '0';
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(1) + 'K';
+  }
+  return num.toString();
+}
+
 const columns: ColumnsType<Team> = [
-  { title: 'Posición', dataIndex: 'position', key: 'position', render: (_, __, i) => i + 1 },
-  { title: 'Equipo', dataIndex: 'name', key: 'name' },
-  { title: 'Cuenta TikTok', dataIndex: 'tiktokId', key: 'tiktokId' },
-  { title: 'Seguidores', dataIndex: 'followers', key: 'followers', sorter: (a, b) => b.followers - a.followers },
-  { title: 'Descripción', dataIndex: 'description', key: 'description' },
-  { title: 'Último Scrapeo', dataIndex: 'lastScrapedAt', key: 'lastScrapedAt', render: formatFecha },
+  { 
+    title: 'Pos', 
+    dataIndex: 'position', 
+    key: 'position', 
+    render: (_, __, i) => i + 1,
+    width: 60
+  },
+  { 
+    title: 'Avatar', 
+    dataIndex: 'avatarUrl', 
+    key: 'avatarUrl', 
+    render: (avatarUrl: string, record: Team) => (
+      avatarUrl ? (
+        <img 
+          src={avatarUrl} 
+          alt={record.displayName || record.name} 
+          style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+        />
+      ) : (
+        <div style={{ 
+          width: 40, 
+          height: 40, 
+          borderRadius: '50%', 
+          backgroundColor: '#f0f0f0', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          color: '#666'
+        }}>
+          {(record.displayName || record.name).charAt(0).toUpperCase()}
+        </div>
+      )
+    ),
+    width: 60
+  },
+  { 
+    title: 'Equipo', 
+    dataIndex: 'name', 
+    key: 'name',
+    render: (name: string, record: Team) => (
+      <div>
+        <div style={{ fontWeight: 'bold' }}>{name}</div>
+        {record.displayName && record.displayName !== name && (
+          <div style={{ fontSize: '12px', color: '#666' }}>{record.displayName}</div>
+        )}
+      </div>
+    )
+  },
+  { 
+    title: 'Cuenta TikTok', 
+    dataIndex: 'tiktokId', 
+    key: 'tiktokId',
+    render: (tiktokId: string, record: Team) => {
+      const tiktokUrl = record.profileUrl || `https://www.tiktok.com/@${tiktokId}`;
+      return (
+        <a href={tiktokUrl} target="_blank" rel="noopener noreferrer">
+          @{tiktokId}
+        </a>
+      );
+    }
+  },
+  { 
+    title: 'Seguidores', 
+    dataIndex: 'followers', 
+    key: 'followers', 
+    sorter: (a, b) => b.followers - a.followers,
+    render: (followers: number) => formatNumber(followers)
+  },
+  { 
+    title: 'Siguiendo', 
+    dataIndex: 'following', 
+    key: 'following',
+    render: (following: number) => formatNumber(following) || '-'
+  },
+  { 
+    title: 'Me gustas', 
+    dataIndex: 'likes', 
+    key: 'likes',
+    render: (likes: number) => formatNumber(likes) || '-'
+  },
+  { 
+    title: 'Descripción', 
+    dataIndex: 'description', 
+    key: 'description',
+    ellipsis: true,
+    width: 200
+  },
+  { 
+    title: 'Último Scrapeo', 
+    dataIndex: 'lastScrapedAt', 
+    key: 'lastScrapedAt', 
+    render: formatFecha,
+    width: 150
+  },
 ];
 
 export default function TeamsTable() {
@@ -55,6 +160,8 @@ export default function TeamsTable() {
       loading={loading}
       pagination={false}
       className="ranking-table"
+      scroll={{ x: 1200 }}
+      size="middle"
     />
   );
 }
