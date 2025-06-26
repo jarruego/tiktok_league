@@ -1,11 +1,12 @@
-import TeamsTable from './components/teams/TeamsTable';
-import './styles/Ranking.css';
+import { Routes, Route } from 'react-router-dom';
+import HomePage from './pages/HomePage';
+import TeamDetail from './pages/TeamDetail';
 
 export default function App() {
   return (
-    <div className="ranking-container">
-      <h1 className="ranking-title">Ranking de Equipos en TikTok</h1>
-      <TeamsTable />
-    </div>
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/team/:id" element={<TeamDetail />} />
+    </Routes>
   );
 }

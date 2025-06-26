@@ -137,12 +137,20 @@ export class TeamService {
         founded: teamTable.founded,
         website: teamTable.website,
         footballDataId: teamTable.footballDataId,
+        competitionId: teamTable.competitionId,
         // Información de TikTok
         tiktokId: teamTable.tiktokId,
         displayName: teamTable.displayName,
         followers: teamTable.followers,
         following: teamTable.following,
         likes: teamTable.likes,
+        description: teamTable.description,
+        profileUrl: teamTable.profileUrl,
+        avatarUrl: teamTable.avatarUrl,
+        lastScrapedAt: teamTable.lastScrapedAt,
+        // Timestamps
+        createdAt: teamTable.createdAt,
+        updatedAt: teamTable.updatedAt,
         // Entrenador
         coach: {
           id: coachTable.id,

@@ -50,3 +50,13 @@
   color: #40a9ff;
   text-decoration: underline;
 }
+
+/* Estilos para filas clickeables */
+.ranking-table .ant-table-tbody > tr:hover {
+  background-color: #f0f8ff !important;
+  transition: background-color 0.2s ease;
+}
+
+.ranking-table .ant-table-tbody > tr {
+  transition: background-color 0.2s ease;
+}

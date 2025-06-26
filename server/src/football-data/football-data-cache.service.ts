@@ -1,4 +1,5 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DatabaseService } from '../database/database.service';
 import { footballDataCacheTable } from '../database/schema';
 import { eq, desc } from 'drizzle-orm';
@@ -7,6 +8,8 @@ import { DATABASE_PROVIDER } from '../database/database.module';
 
 @Injectable()
 export class FootballDataCacheService {
+  private readonly logger = new Logger(FootballDataCacheService.name);
+
   constructor(
     @Inject(DATABASE_PROVIDER)
     private readonly databaseService: DatabaseService,
@@ -185,5 +188,34 @@ export class FootballDataCacheService {
   // Obtener competiciones principales disponibles
   getMainCompetitions() {
     return this.MAIN_COMPETITIONS;
+  }
+
+  // === CRON JOBS ===
+
+  // Ejecutar cache automático diariamente a las 3:00 AM
+  @Cron('0 3 * * *') // Cada día a las 3:00 AM
+  async dailyCacheUpdate() {
+    this.logger.log('🕒 Iniciando actualización automática diaria del cache de Football-Data...');
+    
+    try {
+      const result = await this.cacheAllMainCompetitions();
+      
+      this.logger.log(`✅ Cache automático completado: ${result.successful}/${result.total} competiciones actualizadas`);
+      
+      if (result.failed && result.failed.length > 0) {
+        this.logger.warn(`⚠️ Competiciones que fallaron: ${result.failed.map((f: any) => f.name).join(', ')}`);
+      }
+      
+      return result;
+    } catch (error) {
+      this.logger.error('❌ Error en la actualización automática del cache:', error.message);
+      throw error;
+    }
+  }
+
+  // Método para ejecutar cache manualmente (útil para testing)
+  async forceCacheUpdate() {
+    this.logger.log('🔄 Ejecutando actualización manual del cache...');
+    return this.dailyCacheUpdate();
   }
 }

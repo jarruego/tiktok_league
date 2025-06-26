@@ -66,4 +66,13 @@ export class FootballDataController {
   getAvailableCompetitions() {
     return this.footballDataCacheService.getMainCompetitions();
   }
+
+  // === CRON & MANTENIMIENTO ===
+  
+  // Forzar actualización del cache (útil para testing o actualizaciones manuales)
+  @UseGuards(JwtAuthGuard)
+  @Post('cache/force-update')
+  async forceCacheUpdate() {
+    return this.footballDataCacheService.forceCacheUpdate();
+  }
 }

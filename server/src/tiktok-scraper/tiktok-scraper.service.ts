@@ -5,6 +5,8 @@ import { teamTable } from '../database/schema'; // Esquema de la tabla de equipo
 import { eq, desc, isNull, isNotNull, asc } from 'drizzle-orm'; // Operadores de consulta de Drizzle ORM
 import { DATABASE_PROVIDER } from '../database/database.module'; // Proveedor de base de datos
 import { DatabaseService } from '../database/database.service'; // Servicio de base de datos
+import { FootballDataCacheService } from '../football-data/football-data-cache.service'; // Servicio de cache
+import { PlayerService } from '../players/player.service'; // Servicio de jugadores
 import puppeteer from 'puppeteer'; // Librería para automatización de navegador (web scraping)
 
 /**
@@ -31,12 +33,61 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
   
   // Navegar a la página del perfil con timeout de 30 segundos
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  
+  console.log(`🔍 Iniciando scraping de: ${url}`);
 
   // Esperar a que aparezca el elemento que contiene el número de seguidores
-  await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 15000 });
+  try {
+    await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 15000 });
+  } catch (error) {
+    console.error(`❌ No se encontró el selector de seguidores para ${tiktokId}`);
+    // Intentar con selectores alternativos
+    const alternativeSelectors = [
+      'strong[title*="Follower"]',
+      'strong[title*="follower"]', 
+      'div[data-e2e="followers-count"]',
+      'span[data-e2e="followers-count"]'
+    ];
+    
+    let found = false;
+    for (const selector of alternativeSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 5000 });
+        console.log(`✅ Encontrado selector alternativo: ${selector}`);
+        found = true;
+        break;
+      } catch {
+        continue;
+      }
+    }
+    
+    if (!found) {
+      console.error(`❌ Ningún selector funcionó para ${tiktokId}, tomando screenshot para debug`);
+      await page.screenshot({ path: `debug-${tiktokId}.png` });
+      await browser.close();
+      throw new Error(`No se pudieron encontrar los elementos de TikTok para ${tiktokId}`);
+    }
+  }
   
   // Extraer el texto del número de seguidores y convertirlo a número
-  const followersText = await page.$eval('strong[data-e2e="followers-count"]', el => el.textContent || '0');
+  let followersText = '';
+  try {
+    followersText = await page.$eval('strong[data-e2e="followers-count"]', el => el.textContent || '0');
+  } catch {
+    // Intentar selectores alternativos
+    const selectors = ['strong[title*="Follower"]', 'div[data-e2e="followers-count"]', 'span[data-e2e="followers-count"]'];
+    for (const selector of selectors) {
+      try {
+        followersText = await page.$eval(selector, el => el.textContent || '0');
+        console.log(`✅ Seguidores obtenidos con selector alternativo: ${selector} -> ${followersText}`);
+        break;
+      } catch {
+        continue;
+      }
+    }
+  }
+  
+  console.log(`📊 Texto de seguidores capturado: "${followersText}"`);
   const followers = parseTikTokFollowers(followersText);
 
   // Obtener número de cuentas que sigue (siguiendo)
@@ -51,12 +102,36 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
 
   // Obtener número total de likes del perfil
   let likes = 0;
+  let likesText = '';
   try {
-    const likesText = await page.$eval('strong[data-e2e="likes-count"]', el => el.textContent || '0');
+    likesText = await page.$eval('strong[data-e2e="likes-count"]', el => el.textContent || '0');
+    console.log(`❤️ Texto de likes capturado: "${likesText}"`);
     likes = parseTikTokFollowers(likesText);
-  } catch {
-    // Si no se encuentra el elemento, asignar 0
-    likes = 0;
+  } catch (error) {
+    console.warn(`⚠️ No se encontró el selector principal de likes para ${tiktokId}, intentando alternativas...`);
+    
+    // Intentar selectores alternativos para likes
+    const alternativeSelectors = [
+      'strong[title*="Like"]',
+      'strong[title*="like"]', 
+      'div[data-e2e="likes-count"]',
+      'span[data-e2e="likes-count"]'
+    ];
+    
+    for (const selector of alternativeSelectors) {
+      try {
+        likesText = await page.$eval(selector, el => el.textContent || '0');
+        console.log(`✅ Likes obtenidos con selector alternativo: ${selector} -> "${likesText}"`);
+        likes = parseTikTokFollowers(likesText);
+        break;
+      } catch {
+        continue;
+      }
+    }
+    
+    if (likes === 0) {
+      console.error(`❌ No se pudieron obtener los likes para ${tiktokId}`);
+    }
   }
 
   // Obtener la descripción/biografía del perfil
@@ -89,6 +164,14 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
   // Cerrar el navegador para liberar recursos
   await browser.close();
 
+  console.log(`✅ Scraping completado para ${tiktokId}:`, {
+    followers,
+    following, 
+    likes,
+    displayName,
+    description: description.substring(0, 50) + '...'
+  });
+
   // Retornar todos los datos extraídos
   return { 
     followers, 
@@ -103,29 +186,39 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
 
 /**
  * Función para convertir texto de seguidores de TikTok a número
- * TikTok muestra números como "1.2M" o "500K", esta función los convierte a números enteros
- * @param text - Texto del número de seguidores (ej: "1.2M", "500K", "1234")
+ * TikTok muestra números como "1.2M" o "500K" o "1.6B", esta función los convierte a números enteros
+ * @param text - Texto del número de seguidores (ej: "1.2M", "500K", "1.6B", "1234")
  * @returns Número entero correspondiente
  */
 function parseTikTokFollowers(text: string): number {
   // Si no hay texto, retornar 0
   if (!text) return 0;
   
-  // Buscar patrón de número seguido opcionalmente de M o K
-  const match = text.match(/([\d.]+)([MK]?)$/i);
+  // Limpiar el texto removiendo espacios y caracteres no deseados
+  const cleanText = text.trim();
+  
+  // Buscar patrón de número seguido opcionalmente de B, M o K
+  const match = cleanText.match(/([\d.]+)([BMK]?)$/i);
   
   // Si no coincide con el patrón, extraer solo números
-  if (!match) return parseInt(text.replace(/\D/g, ''), 10) || 0;
+  if (!match) {
+    const numberOnly = parseInt(cleanText.replace(/\D/g, ''), 10) || 0;
+    console.log(`Parsed number without suffix: ${cleanText} -> ${numberOnly}`);
+    return numberOnly;
+  }
   
-  // Extraer el número y el sufijo (M o K)
+  // Extraer el número y el sufijo (B, M o K)
   let [, num, suffix] = match;
   let n = parseFloat(num);
   
   // Convertir según el sufijo
+  if (suffix === 'B' || suffix === 'b') n *= 1_000_000_000; // Billones (miles de millones)
   if (suffix === 'M' || suffix === 'm') n *= 1_000_000; // Millones
   if (suffix === 'K' || suffix === 'k') n *= 1_000;     // Miles
   
-  return Math.round(n); // Redondear a número entero
+  const result = Math.round(n);
+  console.log(`Parsed TikTok number: ${cleanText} -> ${result}`);
+  return result; // Redondear a número entero
 }
 
 /**
@@ -151,7 +244,68 @@ export class TiktokScraperService {
     // Inyección de dependencia del servicio de base de datos
     @Inject(DATABASE_PROVIDER)
     private readonly databaseService: DatabaseService,
+    // Servicios para importación automática desde cache
+    private readonly footballDataCacheService: FootballDataCacheService,
+    private readonly playerService: PlayerService,
   ) {}
+
+  /**
+   * Método para importar automáticamente datos de Football-Data desde cache
+   * Se ejecuta después del scraping de TikTok si el equipo tiene IDs configurados
+   */
+  private async autoImportFromCache(team: any): Promise<{ imported: boolean; message: string }> {
+    // Verificar si el equipo tiene footballDataId y competitionId configurados
+    if (!team.footballDataId || !team.competitionId) {
+      return { 
+        imported: false, 
+        message: `Equipo ${team.name} no tiene footballDataId (${team.footballDataId}) o competitionId (${team.competitionId}) configurados` 
+      };
+    }
+
+    try {
+      // 1. Verificar que la competición esté cacheada
+      const cachedData = await this.footballDataCacheService.getCachedCompetition(team.competitionId);
+      
+      // 2. Buscar el equipo específico en los datos cacheados
+      const teams = cachedData.competition.teams;
+      const teamData = teams.find((t: any) => t.id === team.footballDataId);
+      
+      if (!teamData) {
+        return {
+          imported: false,
+          message: `Equipo con Football-Data ID ${team.footballDataId} no encontrado en competición cacheada ${team.competitionId}`
+        };
+      }
+
+      // 3. Importar usando el servicio existente
+      const importResult = await this.playerService.importFromFootballData(teamData, {
+        teamId: team.id,
+        footballDataTeamId: team.footballDataId,
+        competitionId: team.competitionId,
+        source: `auto-import-after-tiktok-scraping`
+      });
+
+      if (importResult.imported > 0) {
+        this.logger.log(`✅ Auto-import exitoso para ${team.name}: ${importResult.imported} jugadores importados`);
+      } else {
+        this.logger.log(`✅ Auto-import exitoso para ${team.name}: información del equipo actualizada, jugadores ya existentes`);
+      }
+      
+      return {
+        imported: true,
+        message: importResult.imported > 0 
+          ? `Importados ${importResult.imported} jugadores nuevos y datos del equipo desde cache`
+          : `Información del equipo actualizada desde cache, ${importResult.players?.length || 0} jugadores ya existentes`
+      };
+
+    } catch (error) {
+      this.logger.warn(`⚠️ Error en auto-import para ${team.name}: ${error.message}`);
+      return {
+        imported: false,
+        message: `Error en auto-import: ${error.message}`
+      };
+    }
+  }
 
   /**
    * Tarea programada que se ejecuta cada 2 minutos
@@ -214,8 +368,16 @@ export class TiktokScraperService {
         // Marcar como procesado
         scrapedIds.add(team.id);
         
-        // Log de éxito
-        this.logger.log(`Actualizado ${team.name}: ${followers} seguidores, ${following} siguiendo, ${likes} likes, desc: ${description}`);
+        // Log de éxito del scraping
+        this.logger.log(`📱 TikTok actualizado ${team.name}: ${followers} seguidores, ${following} siguiendo, ${likes} likes`);
+        
+        // Auto-importar desde cache si tiene Football-Data IDs configurados
+        const importResult = await this.autoImportFromCache(team);
+        if (importResult.imported) {
+          this.logger.log(`⚽ ${importResult.message}`);
+        } else {
+          this.logger.debug(`⏭️ Sin auto-import: ${importResult.message}`);
+        }
       } catch (e) {
         // Log de error si falla el scraping
         this.logger.error(`Error actualizando ${team.name}: ${e}`);
@@ -227,6 +389,28 @@ export class TiktokScraperService {
     
     // Retornar resumen de la operación
     return { updated: scrapedIds.size };
+  }
+
+  /**
+   * Método para forzar auto-import de un equipo específico (útil para testing)
+   */
+  async forceAutoImportForTeam(teamId: number): Promise<any> {
+    const db = this.databaseService.db;
+    
+    // Obtener los datos del equipo
+    const [team] = await db.select().from(teamTable).where(eq(teamTable.id, teamId));
+    
+    if (!team) {
+      throw new Error(`Equipo con ID ${teamId} no encontrado`);
+    }
+
+    const importResult = await this.autoImportFromCache(team);
+    
+    return {
+      teamId,
+      teamName: team.name,
+      ...importResult
+    };
   }
 
   /**

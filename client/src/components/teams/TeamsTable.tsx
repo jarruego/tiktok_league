@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -15,6 +16,23 @@ interface Team {
   avatarUrl?: string;
   lastScrapedAt?: string;
   position?: number; // Agregamos position como opcional
+  // Campos de Football-Data
+  shortName?: string;
+  tla?: string;
+  crest?: string;
+  venue?: string;
+  founded?: number;
+  website?: string;
+  footballDataId?: number;
+  competitionId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  coach?: {
+    id: number;
+    name: string;
+    nationality?: string;
+    footballDataId?: number;
+  };
 }
 
 function formatFecha(fechaIso?: string) {
@@ -32,11 +50,17 @@ function formatFecha(fechaIso?: string) {
 }
 
 function formatNumber(num?: number) {
-  if (!num) return '0';
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M';
+  if (!num || num === 0) return '0';
+  
+  if (num >= 1000000000) {
+    const billions = num / 1000000000;
+    return (billions % 1 === 0 ? billions.toFixed(0) : billions.toFixed(1)) + 'B';
+  } else if (num >= 1000000) {
+    const millions = num / 1000000;
+    return (millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)) + 'M';
   } else if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K';
+    const thousands = num / 1000;
+    return (thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1)) + 'K';
   }
   return num.toString();
 }
@@ -149,6 +173,7 @@ const columns: ColumnsType<Team> = [
 export default function TeamsTable() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setLoading(true);
@@ -160,6 +185,10 @@ export default function TeamsTable() {
       });
   }, []);
 
+  const handleRowClick = (record: Team) => {
+    navigate(`/team/${record.id}`);
+  };
+
   return (
     <Table
       columns={columns}
@@ -169,6 +198,10 @@ export default function TeamsTable() {
       className="ranking-table"
       scroll={{ x: 1200 }}
       size="middle"
+      onRow={(record) => ({
+        onClick: () => handleRowClick(record),
+        style: { cursor: 'pointer' }
+      })}
     />
   );
 }
