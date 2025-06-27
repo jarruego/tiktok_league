@@ -1,4 +1,5 @@
 import type { Division, Season, TeamInLeague } from '../types/league.types';
+import { authService } from './authApi';
 
 const API_BASE_URL = 'http://localhost:3000';
 
@@ -72,9 +73,7 @@ export const leagueApi = {
   }> {
     const response = await fetch(`${API_BASE_URL}/league-system/initialize`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: authService.getAuthHeaders(),
     });
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -89,9 +88,7 @@ export const leagueApi = {
   }> {
     const response = await fetch(`${API_BASE_URL}/league-system/reset`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: authService.getAuthHeaders(),
     });
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -109,9 +106,7 @@ export const leagueApi = {
   }): Promise<Season> {
     const response = await fetch(`${API_BASE_URL}/league-system/seasons`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: authService.getAuthHeaders(),
       body: JSON.stringify(seasonData),
     });
     if (!response.ok) {
@@ -130,9 +125,7 @@ export const leagueApi = {
   }> {
     const response = await fetch(`${API_BASE_URL}/league-system/assign-teams/${seasonId}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: authService.getAuthHeaders(),
     });
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);

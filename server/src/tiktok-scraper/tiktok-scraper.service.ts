@@ -285,17 +285,24 @@ export class TiktokScraperService {
         source: `auto-import-after-tiktok-scraping`
       });
 
-      if (importResult.imported > 0) {
-        this.logger.log(`✅ Auto-import exitoso para ${team.name}: ${importResult.imported} jugadores importados`);
+      // Adaptarse a la nueva estructura de respuesta
+      const syncStats = importResult.synchronization?.summary || {};
+      const newPlayersCount = syncStats.added || 0;
+      const departedPlayers = syncStats.departed || 0;
+      const updatedPlayers = syncStats.updated || 0;
+      const hasUpdates = newPlayersCount > 0 || departedPlayers > 0 || updatedPlayers > 0;
+
+      if (hasUpdates) {
+        this.logger.log(`✅ Auto-import exitoso para ${team.name}: ${newPlayersCount} nuevos, ${departedPlayers} dados de baja, ${updatedPlayers} actualizados`);
       } else {
-        this.logger.log(`✅ Auto-import exitoso para ${team.name}: información del equipo actualizada, jugadores ya existentes`);
+        this.logger.log(`✅ Auto-import exitoso para ${team.name}: información del equipo actualizada, sin cambios en jugadores`);
       }
       
       return {
         imported: true,
-        message: importResult.imported > 0 
-          ? `Importados ${importResult.imported} jugadores nuevos y datos del equipo desde cache`
-          : `Información del equipo actualizada desde cache, ${importResult.players?.length || 0} jugadores ya existentes`
+        message: hasUpdates 
+          ? `Sincronización completa: ${newPlayersCount} nuevos, ${departedPlayers} dados de baja, ${updatedPlayers} actualizados`
+          : `Información del equipo actualizada desde cache, sin cambios en jugadores`
       };
 
     } catch (error) {

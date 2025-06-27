@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete, UseGuards } from '@nestjs/common';
 import { LeagueSystemService } from './league-system.service';
 import { CreateSeasonDto } from './dto/create-season.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('league-system')
 export class LeagueSystemController {
@@ -20,11 +21,13 @@ export class LeagueSystemController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('initialize')
   async initializeLeagueSystem() {
     return this.leagueSystemService.initializeLeagueSystem();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete('reset')
   async resetLeagueSystem() {
     return this.leagueSystemService.resetLeagueSystem();
@@ -42,6 +45,7 @@ export class LeagueSystemController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('seasons')
   async createSeason(@Body() createSeasonDto: CreateSeasonDto) {
     return this.leagueSystemService.createSeason(createSeasonDto);
@@ -62,6 +66,7 @@ export class LeagueSystemController {
     return this.leagueSystemService.getLeagueSystemStructure();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('assign-teams/:seasonId')
   async assignTeamsToLeagues(@Param('seasonId', ParseIntPipe) seasonId: number) {
     return this.leagueSystemService.assignTeamsToLeaguesByTikTokFollowers(seasonId);
@@ -75,6 +80,7 @@ export class LeagueSystemController {
     return this.leagueSystemService.getTeamsInLeague(leagueId, seasonId);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('assign-new-teams/:seasonId')
   async assignNewTeamsToAvailableSlots(
     @Param('seasonId', ParseIntPipe) seasonId: number,

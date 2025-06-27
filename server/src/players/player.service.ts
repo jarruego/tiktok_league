@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { playerTable, teamTable } from '../database/schema';
-import { eq, and, inArray, SQL } from 'drizzle-orm';
+import { eq, and, inArray, SQL, sql } from 'drizzle-orm';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
 import { GetPlayersQueryDto } from './dto/get-players-query.dto';
@@ -22,14 +22,16 @@ export class PlayerService {
   async create(createPlayerDto: CreatePlayerDto) {
     const db = this.databaseService.db;
     
-    // Verificar que el equipo existe
-    const [team] = await db.select().from(teamTable).where(eq(teamTable.id, createPlayerDto.teamId));
-    if (!team) {
-      throw new NotFoundException('Team not found');
+    // Verificar que el equipo existe (solo si teamId no es null)
+    if (createPlayerDto.teamId) {
+      const [team] = await db.select().from(teamTable).where(eq(teamTable.id, createPlayerDto.teamId));
+      if (!team) {
+        throw new NotFoundException('Team not found');
+      }
     }
 
     // Verificar que no haya otro jugador con el mismo número de camiseta en el equipo
-    if (createPlayerDto.shirtNumber) {
+    if (createPlayerDto.shirtNumber && createPlayerDto.teamId) {
       const [existingPlayer] = await db
         .select()
         .from(playerTable)
@@ -163,20 +165,22 @@ export class PlayerService {
     // Verificar conflicto de número de camiseta
     if (updatePlayerDto.shirtNumber) {
       const teamIdToCheck = updatePlayerDto.teamId || existingPlayer.teamId;
-      const [conflictingPlayer] = await db
-        .select()
-        .from(playerTable)
-        .where(
-          and(
-            eq(playerTable.teamId, teamIdToCheck),
-            eq(playerTable.shirtNumber, updatePlayerDto.shirtNumber),
-            // Excluir el jugador actual
-            eq(playerTable.id, id)
-          )
-        );
-      
-      if (conflictingPlayer && conflictingPlayer.id !== id) {
-        throw new ConflictException('Shirt number already taken in this team');
+      if (teamIdToCheck) { // Solo verificar si hay un teamId válido
+        const [conflictingPlayer] = await db
+          .select()
+          .from(playerTable)
+          .where(
+            and(
+              eq(playerTable.teamId, teamIdToCheck),
+              eq(playerTable.shirtNumber, updatePlayerDto.shirtNumber),
+              // Excluir el jugador actual
+              eq(playerTable.id, id)
+            )
+          );
+        
+        if (conflictingPlayer && conflictingPlayer.id !== id) {
+          throw new ConflictException('Shirt number already taken in this team');
+        }
       }
     }
 
@@ -207,12 +211,15 @@ export class PlayerService {
   async createMany(createPlayersDto: CreatePlayerDto[]) {
     const db = this.databaseService.db;
     
-    // Verificar que todos los equipos existen
-    const teamIds = [...new Set(createPlayersDto.map(p => p.teamId))];
-    const teams = await db.select().from(teamTable).where(inArray(teamTable.id, teamIds));
+    // Verificar que todos los equipos existen (filtrar valores null/undefined)
+    const teamIds = [...new Set(createPlayersDto.map(p => p.teamId).filter((id): id is number => id !== null && id !== undefined))];
     
-    if (teams.length !== teamIds.length) {
-      throw new NotFoundException('One or more teams not found');
+    if (teamIds.length > 0) {
+      const teams = await db.select().from(teamTable).where(inArray(teamTable.id, teamIds));
+      
+      if (teams.length !== teamIds.length) {
+        throw new NotFoundException('One or more teams not found');
+      }
     }
 
     // Insertar jugadores en lote
@@ -287,8 +294,8 @@ export class PlayerService {
       importDto.competitionId
     );
 
-    // 2. Convertir jugadores de Football-Data a nuestro formato
-    const createPlayersDto: CreatePlayerDto[] = teamData.squad.map(player => ({
+    // 2. Convertir jugadores de Football-Data a nuestro formato con footballDataId
+    const incomingPlayers = teamData.squad.map(player => ({
       teamId: importDto.teamId,
       name: player.name,
       position: player.position,
@@ -296,73 +303,145 @@ export class PlayerService {
       nationality: player.nationality,
       shirtNumber: player.shirtNumber,
       role: player.role || 'PLAYER',
+      footballDataId: player.id // IMPORTANTE: Guardar el ID de Football-Data
     }));
 
-    // 3. Obtener jugadores actuales del equipo
+    // 3. Obtener jugadores actuales del equipo con footballDataId
     const existingPlayers = await db
       .select()
       .from(playerTable)
       .where(eq(playerTable.teamId, importDto.teamId));
 
-    // 4. Filtrar jugadores que ya existen (por nombre)
-    const newPlayers = createPlayersDto.filter(newPlayer => 
-      !existingPlayers.some(existing => 
-        existing.name.toLowerCase().trim() === newPlayer.name.toLowerCase().trim()
-      )
+    // 4. NUEVA LÓGICA: Sincronización completa
+    const syncResults = {
+      added: [] as any[],
+      updated: [] as any[],
+      departed: [] as any[], // Jugadores que ya no están en el equipo
+      unchanged: [] as any[]
+    };
+
+    // Crear mapas para facilitar las comparaciones
+    const incomingPlayersMap = new Map(
+      incomingPlayers.map(p => [p.footballDataId, p])
+    );
+    const existingPlayersMap = new Map(
+      existingPlayers
+        .filter(p => p.footballDataId) // Solo jugadores con footballDataId
+        .map(p => [p.footballDataId, p])
     );
 
-    if (newPlayers.length === 0) {
-      return { 
-        message: 'Team information updated, but no new players to import', 
-        imported: 0,
-        teamInfo: {
-          name: teamData.name,
-          venue: teamData.venue,
-          founded: teamData.founded,
-          coach: teamData.coach?.name,
-          updated: true
-        },
-        teamUpdateResult: teamUpdateResult
-      };
-    }
-
-    // 5. Manejar conflictos de números de camiseta
-    const playersToImport: CreatePlayerDto[] = [];
-    const conflictingNumbers: Array<{
-      playerName: string;
-      number: number;
-      conflictWith: string;
-    }> = [];
-
-    for (const player of newPlayers) {
-      if (player.shirtNumber) {
-        const existingWithNumber = existingPlayers.find(
-          existing => existing.shirtNumber === player.shirtNumber
-        );
+    // A. Detectar jugadores que ya no están en el equipo (BAJAS/TRANSFERENCIAS)
+    for (const existingPlayer of existingPlayers) {
+      if (existingPlayer.footballDataId && !incomingPlayersMap.has(existingPlayer.footballDataId)) {
+        // Este jugador ya no está en la plantilla según Football-Data
+        await db
+          .update(playerTable)
+          .set({ 
+            teamId: null, // Dejar teamId en null (transferido/liberado)
+            updatedAt: new Date() 
+          })
+          .where(eq(playerTable.id, existingPlayer.id));
         
-        if (existingWithNumber) {
-          // Si hay conflicto, importar sin número de camiseta
-          conflictingNumbers.push({
-            playerName: player.name,
-            number: player.shirtNumber,
-            conflictWith: existingWithNumber.name
-          });
-          playersToImport.push({ ...player, shirtNumber: undefined });
-        } else {
-          playersToImport.push(player);
-        }
-      } else {
-        playersToImport.push(player);
+        syncResults.departed.push({
+          id: existingPlayer.id,
+          name: existingPlayer.name,
+          footballDataId: existingPlayer.footballDataId,
+          action: 'departed'
+        });
       }
     }
 
-    // 6. Insertar jugadores nuevos
-    const players = await db.insert(playerTable).values(playersToImport).returning();
+    // B. Procesar jugadores actuales de Football-Data
+    for (const incomingPlayer of incomingPlayers) {
+      const existingPlayer = existingPlayersMap.get(incomingPlayer.footballDataId);
 
+      if (!existingPlayer) {
+        // NUEVO JUGADOR: No existe en nuestra BD
+        // Verificar si el jugador existe en otra parte (por footballDataId)
+        const [playerInOtherTeam] = await db
+          .select()
+          .from(playerTable)
+          .where(eq(playerTable.footballDataId, incomingPlayer.footballDataId));
+
+        if (playerInOtherTeam) {
+          // TRANSFERENCIA: Jugador venía de otro equipo
+          await db
+            .update(playerTable)
+            .set({ 
+              teamId: importDto.teamId,
+              position: incomingPlayer.position,
+              shirtNumber: incomingPlayer.shirtNumber,
+              role: incomingPlayer.role,
+              updatedAt: new Date()
+            })
+            .where(eq(playerTable.id, playerInOtherTeam.id));
+
+          syncResults.added.push({
+            id: playerInOtherTeam.id,
+            name: incomingPlayer.name,
+            footballDataId: incomingPlayer.footballDataId,
+            action: 'transferred_in',
+            previousTeamId: playerInOtherTeam.teamId
+          });
+        } else {
+          // FICHAJE NUEVO: Crear nuevo jugador
+          const [newPlayer] = await db
+            .insert(playerTable)
+            .values(incomingPlayer)
+            .returning();
+
+          syncResults.added.push({
+            id: newPlayer.id,
+            name: newPlayer.name,
+            footballDataId: newPlayer.footballDataId,
+            action: 'new_signing'
+          });
+        }
+      } else {
+        // JUGADOR EXISTENTE: Actualizar datos si han cambiado
+        const hasChanges = 
+          existingPlayer.position !== incomingPlayer.position ||
+          existingPlayer.shirtNumber !== incomingPlayer.shirtNumber ||
+          existingPlayer.role !== incomingPlayer.role;
+
+        if (hasChanges) {
+          await db
+            .update(playerTable)
+            .set({
+              position: incomingPlayer.position,
+              shirtNumber: incomingPlayer.shirtNumber,
+              role: incomingPlayer.role,
+              updatedAt: new Date()
+            })
+            .where(eq(playerTable.id, existingPlayer.id));
+
+          syncResults.updated.push({
+            id: existingPlayer.id,
+            name: existingPlayer.name,
+            footballDataId: existingPlayer.footballDataId,
+            action: 'updated',
+            changes: {
+              position: { from: existingPlayer.position, to: incomingPlayer.position },
+              shirtNumber: { from: existingPlayer.shirtNumber, to: incomingPlayer.shirtNumber },
+              role: { from: existingPlayer.role, to: incomingPlayer.role }
+            }
+          });
+        } else {
+          syncResults.unchanged.push({
+            id: existingPlayer.id,
+            name: existingPlayer.name,
+            footballDataId: existingPlayer.footballDataId,
+            action: 'unchanged'
+          });
+        }
+      }
+    }
+
+    // C. Manejar jugadores sin footballDataId (importados manualmente)
+    const playersWithoutFootballDataId = existingPlayers.filter(p => !p.footballDataId);
+    
     return {
-      message: `Successfully imported ${players.length} players and updated team information from Football-Data.org`,
-      imported: players.length,
-      players: players,
+      message: `Squad synchronization completed: ${syncResults.added.length} added, ${syncResults.updated.length} updated, ${syncResults.departed.length} departed`,
       teamInfo: {
         name: teamData.name,
         venue: teamData.venue,
@@ -371,11 +450,41 @@ export class PlayerService {
         updated: true
       },
       teamUpdateResult: teamUpdateResult,
-      conflicts: conflictingNumbers.length > 0 ? {
-        message: 'Some players were imported without shirt numbers due to conflicts',
-        details: conflictingNumbers
-      } : null,
-      source: 'football-data.org'
+      synchronization: {
+        summary: {
+          total: incomingPlayers.length,
+          added: syncResults.added.length,
+          updated: syncResults.updated.length,
+          departed: syncResults.departed.length,
+          unchanged: syncResults.unchanged.length,
+          manualPlayers: playersWithoutFootballDataId.length
+        },
+        details: syncResults
+      },
+      source: 'football-data.org-sync'
     };
+  }
+
+  /**
+   * Obtiene todos los equipos que tienen footballDataId y competitionId configurados
+   */
+  async getTeamsWithFootballDataConfig() {
+    const db = this.databaseService.db;
+    
+    return await db
+      .select({
+        id: teamTable.id,
+        name: teamTable.name,
+        shortName: teamTable.shortName,
+        footballDataId: teamTable.footballDataId,
+        competitionId: teamTable.competitionId,
+        tiktokId: teamTable.tiktokId,
+        followers: teamTable.followers
+      })
+      .from(teamTable)
+      .where(
+        sql`${teamTable.footballDataId} IS NOT NULL AND ${teamTable.competitionId} IS NOT NULL`
+      )
+      .orderBy(teamTable.name);
   }
 }

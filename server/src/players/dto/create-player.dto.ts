@@ -2,8 +2,8 @@ import { IsString, IsNotEmpty, IsOptional, IsInt, Min, Max, IsDateString, IsIn }
 
 export class CreatePlayerDto {
   @IsInt()
-  @IsNotEmpty()
-  teamId: number;
+  @IsOptional() // Cambiado para permitir transferencias (teamId null)
+  teamId?: number;
 
   @IsString()
   @IsNotEmpty()
@@ -31,4 +31,8 @@ export class CreatePlayerDto {
   @IsIn(['PLAYER', 'CAPTAIN', 'VICE_CAPTAIN'])
   @IsOptional()
   role?: string;
+
+  @IsInt()
+  @IsOptional()
+  footballDataId?: number;
 }

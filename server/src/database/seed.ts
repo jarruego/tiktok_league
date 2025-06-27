@@ -1,17 +1,17 @@
 import { eq } from 'drizzle-orm';
 import { teamTable } from './tables/team.table';
+import { userTable } from './tables/user.table';
 import { DatabaseService } from './database.service';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import * as bcrypt from 'bcryptjs';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
 // Ejemplo de cuentas famosas de TikTok asociadas a equipos
 const teams = [
-  { name: 'Team Messi', tiktokId: 'leomessi', followers: 0 },
   { name: 'Team PSG', tiktokId: 'psg', followers: 0 },
   { name: 'Team Real Madrid', tiktokId: 'realmadrid', followers: 0 },
-  { name: 'Team NBA', tiktokId: 'nba', followers: 0 },
   { name: 'Team Liverpool', tiktokId: 'liverpoolfc', followers: 0 },
 ];
 
@@ -23,6 +23,26 @@ async function seed() {
   const dbInstance = drizzle(databaseUrl);
   const databaseService = new DatabaseService(dbInstance);
   const db = databaseService.db;
+
+  // Crear usuario admin por defecto
+  try {
+    const existingAdmin = await db.select().from(userTable).where(eq(userTable.username, 'admin'));
+    if (existingAdmin.length === 0) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await db.insert(userTable).values({
+        username: 'admin',
+        password: hashedPassword,
+        role: 'admin'
+      });
+      console.log('Usuario admin creado con credenciales: admin/admin123');
+    } else {
+      console.log('Usuario admin ya existe');
+    }
+  } catch (error) {
+    console.log('Error creando usuario admin (tabla puede no existir aún):', error.message);
+  }
+
+  // Crear equipos de ejemplo
 
   for (const team of teams) {
     // Verifica si el equipo ya existe por tiktokId

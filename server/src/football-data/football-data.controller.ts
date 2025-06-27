@@ -50,18 +50,21 @@ export class FootballDataController {
   }
 
   // Obtener datos cacheados de una competición
+  @UseGuards(JwtAuthGuard)
   @Get('cache/competition/:id')
   async getCachedCompetition(@Param('id', ParseIntPipe) id: number) {
     return this.footballDataCacheService.getCachedCompetition(id);
   }
 
   // Listar todas las competiciones cacheadas
+  @UseGuards(JwtAuthGuard)
   @Get('cache/competitions')
   async listCachedCompetitions() {
     return this.footballDataCacheService.listCachedCompetitions();
   }
 
   // Ver competiciones principales disponibles
+  @UseGuards(JwtAuthGuard)
   @Get('competitions/available')
   getAvailableCompetitions() {
     return this.footballDataCacheService.getMainCompetitions();

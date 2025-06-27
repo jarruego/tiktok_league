@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { Table, Select, Spin, Alert, Typography, Card, Tag, Button, message, Tooltip } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
+import { authApi } from '../../api/authApi';
+import { LoginModal } from '../LoginModal';
+import { AuthStatus } from '../AuthStatus';
 import type { Division, Season, TeamInLeague } from '../../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
 import { formatNumber } from '../../utils/formatters';
@@ -196,6 +199,31 @@ export default function DivisionView() {
   const [loading, setLoading] = useState(true);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [systemInitialized, setSystemInitialized] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [pendingAdminAction, setPendingAdminAction] = useState<(() => Promise<void>) | null>(null);
+
+  // Helper para verificar autenticación antes de operaciones administrativas
+  const executeWithAuth = async (action: () => Promise<void>) => {
+    if (!authApi.isAuthenticated()) {
+      setPendingAdminAction(() => action);
+      setShowLoginModal(true);
+      return;
+    }
+    await action();
+  };
+
+  // Callback para cuando el login es exitoso
+  const handleLoginSuccess = async () => {
+    if (pendingAdminAction) {
+      try {
+        await pendingAdminAction();
+      } catch (error) {
+        console.error('Error ejecutando acción administrativa:', error);
+      } finally {
+        setPendingAdminAction(null);
+      }
+    }
+  };
 
   // Cargar datos iniciales
   const loadInitialData = async () => {
@@ -264,95 +292,109 @@ export default function DivisionView() {
   };
 
   const handleInitializeSystem = async () => {
-    try {
-      setLoading(true);
-      
-      // Verificar estado del sistema primero
-      const systemStatus = await leagueApi.getSystemStatus();
-      
-      if (systemStatus.isInitialized && systemStatus.hasAssignments) {
-        message.info('El sistema ya está inicializado y tiene asignaciones. Se verificará la estructura.');
-      }
-      
-      // Inicializar sistema (idempotente)
-      const initResult = await leagueApi.initializeLeagueSystem();
-      
-      if (initResult.isNewSystem) {
-        message.success('Sistema de ligas inicializado correctamente');
-      } else {
-        message.info(`Sistema ya inicializado. Asignaciones existentes: ${initResult.existingAssignments || 0}`);
-      }
-      
-      // Obtener o crear temporada
-      let currentSeason: any = null;
-      
+    await executeWithAuth(async () => {
       try {
-        currentSeason = await leagueApi.getActiveSeason();
-        message.info(`Usando temporada existente: ${currentSeason.name}`);
-      } catch (error) {
-        // Crear temporada si no existe
-        const currentYear = new Date().getFullYear();
-        currentSeason = await leagueApi.createSeason({
-          name: `Temporada ${currentYear}-${String(currentYear + 1).slice(2)}`,
-          year: currentYear,
-          isActive: true
-        });
-        message.success('Temporada creada correctamente');
-      }
-      
-      // Verificar si ya hay asignaciones para esta temporada
-      const assignmentStatus = await leagueApi.getAssignmentStatus(currentSeason.id);
-      
-      if (assignmentStatus.hasAssignments) {
-        message.info('Ya hay equipos asignados en esta temporada.');
-      } else {
-        // Asignar equipos solo si no hay asignaciones
-        const assignResult = await leagueApi.assignTeamsByTikTokFollowers(currentSeason.id);
+        setLoading(true);
         
-        if (assignResult.assignedTeams > 0) {
-          message.success(`${assignResult.assignedTeams} equipos asignados a divisiones según seguidores de TikTok`);
-        } else {
-          message.info('Todos los equipos ya estaban asignados');
+        // Verificar estado del sistema primero
+        const systemStatus = await leagueApi.getSystemStatus();
+        
+        if (systemStatus.isInitialized && systemStatus.hasAssignments) {
+          message.info('El sistema ya está inicializado y tiene asignaciones. Se verificará la estructura.');
         }
+        
+        // Inicializar sistema (idempotente)
+        const initResult = await leagueApi.initializeLeagueSystem();
+        
+        if (initResult.isNewSystem) {
+          message.success('Sistema de ligas inicializado correctamente');
+        } else {
+          message.info(`Sistema ya inicializado. Asignaciones existentes: ${initResult.existingAssignments || 0}`);
+        }
+        
+        // Obtener o crear temporada
+        let currentSeason: any = null;
+        
+        try {
+          currentSeason = await leagueApi.getActiveSeason();
+          message.info(`Usando temporada existente: ${currentSeason.name}`);
+        } catch (error) {
+          // Crear temporada si no existe
+          const currentYear = new Date().getFullYear();
+          currentSeason = await leagueApi.createSeason({
+            name: `Temporada ${currentYear}-${String(currentYear + 1).slice(2)}`,
+            year: currentYear,
+            isActive: true
+          });
+          message.success('Temporada creada correctamente');
+        }
+        
+        // Verificar si ya hay asignaciones para esta temporada
+        const assignmentStatus = await leagueApi.getAssignmentStatus(currentSeason.id);
+        
+        if (assignmentStatus.hasAssignments) {
+          message.info('Ya hay equipos asignados en esta temporada.');
+        } else {
+          // Asignar equipos solo si no hay asignaciones
+          const assignResult = await leagueApi.assignTeamsByTikTokFollowers(currentSeason.id);
+          
+          if (assignResult.assignedTeams > 0) {
+            message.success(`${assignResult.assignedTeams} equipos asignados a divisiones según seguidores de TikTok`);
+          } else {
+            message.info('Todos los equipos ya estaban asignados');
+          }
+        }
+        
+        // Recargar datos
+        await loadInitialData();
+        
+      } catch (error) {
+        console.error('Error inicializando sistema:', error);
+        if (error instanceof Error && error.message.includes('401')) {
+          message.error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+          authApi.logout();
+        } else {
+          message.error('Error inicializando el sistema de ligas');
+        }
+      } finally {
+        setLoading(false);
       }
-      
-      // Recargar datos
-      await loadInitialData();
-      
-    } catch (error) {
-      console.error('Error inicializando sistema:', error);
-      message.error('Error inicializando el sistema de ligas');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const handleResetSystem = async () => {
-    if (!confirm('⚠️ PELIGRO: Esto eliminará TODAS las divisiones, ligas y asignaciones. ¿Estás seguro?')) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
+    await executeWithAuth(async () => {
+      if (!confirm('⚠️ PELIGRO: Esto eliminará TODAS las divisiones, ligas y asignaciones. ¿Estás seguro?')) {
+        return;
+      }
       
-      const resetResult = await leagueApi.resetLeagueSystem();
-      message.warning(resetResult.warning);
-      message.info(resetResult.message);
-      
-      // Limpiar estado local
-      setDivisions([]);
-      setSelectedDivision(null);
-      setSelectedLeague(null);
-      setTeams([]);
-      setSeason(null);
-      setSystemInitialized(false);
-      
-    } catch (error) {
-      console.error('Error reseteando sistema:', error);
-      message.error('Error reseteando el sistema de ligas');
-    } finally {
-      setLoading(false);
-    }
+      try {
+        setLoading(true);
+        
+        const resetResult = await leagueApi.resetLeagueSystem();
+        message.warning(resetResult.warning);
+        message.info(resetResult.message);
+        
+        // Limpiar estado local
+        setDivisions([]);
+        setSelectedDivision(null);
+        setSelectedLeague(null);
+        setTeams([]);
+        setSeason(null);
+        setSystemInitialized(false);
+        
+      } catch (error) {
+        console.error('Error reseteando sistema:', error);
+        if (error instanceof Error && error.message.includes('401')) {
+          message.error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+          authApi.logout();
+        } else {
+          message.error('Error reseteando el sistema de ligas');
+        }
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   const handleDivisionChange = (divisionLevel: number) => {
@@ -393,22 +435,43 @@ export default function DivisionView() {
 
   if (!systemInitialized) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <Alert
-          message="Sistema de Ligas no Inicializado"
-          description="El sistema de ligas aún no ha sido configurado. Haz clic en el botón para inicializar la estructura de divisiones y asignar equipos."
-          type="info"
-          style={{ marginBottom: '20px' }}
-        />
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-          <Button type="primary" size="large" onClick={handleInitializeSystem}>
-            Inicializar Sistema de Ligas
-          </Button>
-          {import.meta.env.DEV && (
-            <Button type="default" danger onClick={handleResetSystem}>
-              🔄 Reset Sistema (Dev)
+      <div style={{ padding: '20px' }}>
+        {/* Header superior con autenticación */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '20px',
+          padding: '12px 16px',
+          backgroundColor: '#fafafa',
+          borderRadius: '6px',
+          border: '1px solid #e0e0e0'
+        }}>
+          <div>
+            <Text strong style={{ fontSize: '16px' }}>⚽ Sistema de Ligas FoodBall</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '12px' }}>Panel de Administración</Text>
+          </div>
+          <AuthStatus size="small" />
+        </div>
+
+        <div style={{ textAlign: 'center' }}>
+          <Alert
+            message="Sistema de Ligas no Inicializado"
+            description="El sistema de ligas aún no ha sido configurado. Haz clic en el botón para inicializar la estructura de divisiones y asignar equipos."
+            type="info"
+            style={{ marginBottom: '20px' }}
+          />
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <Button type="primary" size="large" onClick={handleInitializeSystem}>
+              Inicializar Sistema de Ligas
             </Button>
-          )}
+            {import.meta.env.DEV && (
+              <Button type="default" danger onClick={handleResetSystem}>
+                🔄 Reset Sistema (Dev)
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -416,11 +479,32 @@ export default function DivisionView() {
 
   if (!season) {
     return (
-      <Alert
-        message="No hay temporada activa"
-        description="No se encontró una temporada activa en el sistema."
-        type="warning"
-      />
+      <div style={{ padding: '20px' }}>
+        {/* Header superior con autenticación */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '20px',
+          padding: '12px 16px',
+          backgroundColor: '#fafafa',
+          borderRadius: '6px',
+          border: '1px solid #e0e0e0'
+        }}>
+          <div>
+            <Text strong style={{ fontSize: '16px' }}>⚽ Sistema de Ligas FoodBall</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '12px' }}>Panel de Administración</Text>
+          </div>
+          <AuthStatus size="small" />
+        </div>
+
+        <Alert
+          message="No hay temporada activa"
+          description="No se encontró una temporada activa en el sistema."
+          type="warning"
+        />
+      </div>
     );
   }
 
@@ -428,6 +512,25 @@ export default function DivisionView() {
 
   return (
     <div style={{ padding: '20px' }}>
+      {/* Header superior con autenticación */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '16px',
+        padding: '12px 16px',
+        backgroundColor: '#fafafa',
+        borderRadius: '6px',
+        border: '1px solid #e0e0e0'
+      }}>
+        <div>
+          <Text strong style={{ fontSize: '16px' }}>⚽ Sistema de Ligas FoodBall</Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: '12px' }}>Panel de Administración</Text>
+        </div>
+        <AuthStatus size="small" />
+      </div>
+
       {/* Header con información de la temporada */}
       <div style={{ marginBottom: '24px' }}>
         <Title level={2}>Sistema de Ligas - {season.name}</Title>
@@ -591,6 +694,16 @@ export default function DivisionView() {
           type="info"
         />
       )}
+
+      {/* Modal de Login para operaciones administrativas */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => {
+          setShowLoginModal(false);
+          setPendingAdminAction(null);
+        }}
+        onLogin={handleLoginSuccess}
+      />
     </div>
   );
 }
