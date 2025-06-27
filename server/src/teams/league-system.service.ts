@@ -23,10 +23,76 @@ export class LeagueSystemService {
   ) {}
 
   /**
-   * Inicializa la estructura completa de divisiones y ligas según las especificaciones
+   * Verifica si el sistema de ligas ya está inicializado
    */
-  async initializeLeagueSystem() {
+  async isSystemInitialized(): Promise<boolean> {
     const db = this.databaseService.db;
+    
+    const divisionCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(divisionTable);
+    
+    return divisionCount[0].count > 0;
+  }
+
+  /**
+   * Verifica si hay asignaciones existentes para una temporada
+   */
+  async hasExistingAssignments(seasonId?: number): Promise<boolean> {
+    const db = this.databaseService.db;
+    
+    if (seasonId) {
+      const assignmentCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamLeagueAssignmentTable)
+        .where(eq(teamLeagueAssignmentTable.seasonId, seasonId));
+      
+      return assignmentCount[0].count > 0;
+    } else {
+      const assignmentCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamLeagueAssignmentTable);
+      
+      return assignmentCount[0].count > 0;
+    }
+  }
+
+  /**
+   * Resetea completamente el sistema de ligas (PELIGROSO - solo usar en desarrollo)
+   */
+  async resetLeagueSystem(): Promise<{ message: string; warning: string }> {
+    const db = this.databaseService.db;
+    
+    // Eliminar en orden correcto por las claves foráneas
+    await db.delete(teamLeagueAssignmentTable);
+    await db.delete(leagueTable);
+    await db.delete(divisionTable);
+    
+    return { 
+      message: 'Sistema de ligas reseteado completamente',
+      warning: 'Todas las asignaciones y configuraciones han sido eliminadas'
+    };
+  }
+
+  /**
+   * Inicializa la estructura completa de divisiones y ligas según las especificaciones
+   * Ahora es idempotente y preserva datos existentes
+   */
+  async initializeLeagueSystem(): Promise<{ 
+    message: string; 
+    isNewSystem: boolean; 
+    existingAssignments?: number 
+  }> {
+    const db = this.databaseService.db;
+    
+    // Verificar si el sistema ya está inicializado
+    const systemExists = await this.isSystemInitialized();
+    const existingAssignmentsCount = systemExists ? 
+      (await db.select({ count: sql<number>`count(*)` }).from(teamLeagueAssignmentTable))[0].count : 0;
+    
+    if (systemExists) {
+      console.log(`Sistema ya inicializado. Asignaciones existentes: ${existingAssignmentsCount}`);
+    }
     
     // Configuración de divisiones según las especificaciones
     const divisionsConfig = [
@@ -107,68 +173,110 @@ export class LeagueSystemService {
           ? divisionConfig.name 
           : `${divisionConfig.name} - Grupo ${groupCode}`;
 
+        const leagueData = {
+          name: leagueName,
+          groupCode: groupCode,
+          divisionId: division.id,
+          maxTeams: divisionConfig.teamsPerLeague,
+          description: `Grupo ${groupCode} de ${divisionConfig.name}`
+        };
+
         await db
           .insert(leagueTable)
-          .values({
-            name: leagueName,
-            groupCode: groupCode,
-            divisionId: division.id,
-            maxTeams: divisionConfig.teamsPerLeague,
-            description: `Grupo ${groupCode} de ${divisionConfig.name}`
-          })
-          .onConflictDoNothing();
+          .values(leagueData)
+          .onConflictDoUpdate({
+            target: [leagueTable.divisionId, leagueTable.groupCode],
+            set: {
+              name: leagueData.name,
+              maxTeams: leagueData.maxTeams,
+              description: leagueData.description
+            }
+          });
       }
     }
 
-    return { message: 'Sistema de ligas inicializado correctamente' };
+    const finalExistingAssignments = (await db.select({ count: sql<number>`count(*)` }).from(teamLeagueAssignmentTable))[0].count;
+
+    return { 
+      message: systemExists ? 
+        'Sistema de ligas ya estaba inicializado - estructura verificada' : 
+        'Sistema de ligas inicializado correctamente',
+      isNewSystem: !systemExists,
+      existingAssignments: finalExistingAssignments
+    };
   }
 
   /**
-   * Asigna todos los equipos a ligas basándose en sus seguidores de TikTok
+   * Asigna equipos a ligas basándose en sus seguidores de TikTok
+   * Es idempotente: solo asigna equipos que no estén ya asignados
    */
-  async assignTeamsToLeaguesByTikTokFollowers(seasonId: number) {
+  async assignTeamsToLeaguesByTikTokFollowers(seasonId: number): Promise<{
+    message: string;
+    assignedTeams: number;
+    skippedTeams: number;
+    totalTeams: number;
+    wasAlreadyAssigned: boolean;
+  }> {
     const db = this.databaseService.db;
 
-    // Obtener todos los equipos ordenados por seguidores de TikTok (descendente)
-    const teams = await db
+    // Verificar si ya hay asignaciones para esta temporada
+    const existingAssignments = await this.hasExistingAssignments(seasonId);
+    
+    if (existingAssignments) {
+      const existingCount = (await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamLeagueAssignmentTable)
+        .where(eq(teamLeagueAssignmentTable.seasonId, seasonId)))[0].count;
+      
+      console.log(`Ya existen ${existingCount} asignaciones para la temporada ${seasonId}`);
+    }
+
+    // Obtener equipos que NO están asignados en esta temporada
+    const teamsAlreadyAssigned = await db
+      .select({ teamId: teamLeagueAssignmentTable.teamId })
+      .from(teamLeagueAssignmentTable)
+      .where(eq(teamLeagueAssignmentTable.seasonId, seasonId));
+
+    const assignedTeamIds = teamsAlreadyAssigned.map(a => a.teamId);
+
+    // Obtener todos los equipos no asignados, ordenados por seguidores de TikTok (descendente)
+    const availableTeams = await db
       .select()
       .from(teamTable)
+      .where(
+        assignedTeamIds.length > 0 
+          ? sql`${teamTable.id} NOT IN (${assignedTeamIds.join(',')})`
+          : sql`1=1` // Sin filtro si no hay equipos asignados
+      )
       .orderBy(desc(teamTable.followers));
 
-    if (teams.length === 0) {
-      throw new BadRequestException('No hay equipos para asignar');
+    if (availableTeams.length === 0) {
+      const totalTeams = (await db.select({ count: sql<number>`count(*)` }).from(teamTable))[0].count;
+      return {
+        message: 'Todos los equipos ya están asignados a ligas en esta temporada',
+        assignedTeams: 0,
+        skippedTeams: assignedTeamIds.length,
+        totalTeams,
+        wasAlreadyAssigned: true
+      };
     }
 
-    // Obtener todas las ligas ordenadas por nivel de división y grupo
-    const leagues = await db
-      .select({
-        id: leagueTable.id,
-        name: leagueTable.name,
-        groupCode: leagueTable.groupCode,
-        maxTeams: leagueTable.maxTeams,
-        divisionId: leagueTable.divisionId,
-        divisionLevel: divisionTable.level
-      })
-      .from(leagueTable)
-      .innerJoin(divisionTable, eq(leagueTable.divisionId, divisionTable.id))
-      .orderBy(asc(divisionTable.level), asc(leagueTable.groupCode));
+    // Obtener ligas con espacios disponibles
+    const leaguesWithSpace = await this.getLeaguesWithAvailableSpace(seasonId);
 
-    // Calcular cuántos equipos caben en total
-    const totalCapacity = leagues.reduce((sum, league) => sum + league.maxTeams, 0);
-    
-    if (teams.length > totalCapacity) {
-      throw new BadRequestException(
-        `Hay ${teams.length} equipos pero solo capacidad para ${totalCapacity}`
-      );
+    if (leaguesWithSpace.length === 0) {
+      throw new BadRequestException('No hay espacios disponibles en ninguna liga');
     }
 
-    // Asignar equipos a ligas
-    let teamIndex = 0;
+    // Asignar equipos disponibles a espacios disponibles
     const assignments: any[] = [];
+    let teamIndex = 0;
 
-    for (const league of leagues) {
-      for (let i = 0; i < league.maxTeams && teamIndex < teams.length; i++) {
-        const team = teams[teamIndex];
+    for (const league of leaguesWithSpace) {
+      const availableSpaces = league.maxTeams - league.currentTeams;
+      
+      for (let i = 0; i < availableSpaces && teamIndex < availableTeams.length; i++) {
+        const team = availableTeams[teamIndex];
         
         assignments.push({
           teamId: team.id,
@@ -182,16 +290,59 @@ export class LeagueSystemService {
       }
     }
 
-    // Insertar asignaciones en lotes
+    // Insertar nuevas asignaciones
     if (assignments.length > 0) {
       await db.insert(teamLeagueAssignmentTable).values(assignments);
     }
 
+    const totalTeams = (await db.select({ count: sql<number>`count(*)` }).from(teamTable))[0].count;
+
     return {
-      message: `${assignments.length} equipos asignados a ligas`,
+      message: assignments.length > 0 ? 
+        `${assignments.length} equipos nuevos asignados a ligas` :
+        'No hay equipos nuevos para asignar',
       assignedTeams: assignments.length,
-      totalTeams: teams.length
+      skippedTeams: assignedTeamIds.length,
+      totalTeams,
+      wasAlreadyAssigned: existingAssignments
     };
+  }
+
+  /**
+   * Obtiene ligas con espacios disponibles, ordenadas por prioridad
+   */
+  private async getLeaguesWithAvailableSpace(seasonId: number) {
+    const db = this.databaseService.db;
+
+    // Subconsulta para contar equipos actuales por liga
+    const currentTeamCounts = db
+      .select({
+        leagueId: teamLeagueAssignmentTable.leagueId,
+        currentTeams: sql<number>`count(*)`.as('currentTeams')
+      })
+      .from(teamLeagueAssignmentTable)
+      .where(eq(teamLeagueAssignmentTable.seasonId, seasonId))
+      .groupBy(teamLeagueAssignmentTable.leagueId)
+      .as('currentCounts');
+
+    // Obtener ligas con información de espacios disponibles
+    const leagues = await db
+      .select({
+        id: leagueTable.id,
+        name: leagueTable.name,
+        groupCode: leagueTable.groupCode,
+        maxTeams: leagueTable.maxTeams,
+        divisionId: leagueTable.divisionId,
+        divisionLevel: divisionTable.level,
+        currentTeams: sql<number>`COALESCE(${currentTeamCounts.currentTeams}, 0)`.as('currentTeams')
+      })
+      .from(leagueTable)
+      .innerJoin(divisionTable, eq(leagueTable.divisionId, divisionTable.id))
+      .leftJoin(currentTeamCounts, eq(leagueTable.id, currentTeamCounts.leagueId))
+      .orderBy(asc(divisionTable.level), asc(leagueTable.groupCode));
+
+    // Filtrar solo ligas con espacios disponibles
+    return leagues.filter(league => league.currentTeams < league.maxTeams);
   }
 
   /**

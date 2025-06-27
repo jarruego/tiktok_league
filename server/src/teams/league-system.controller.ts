@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete } from '@nestjs/common';
 import { LeagueSystemService } from './league-system.service';
 import { CreateSeasonDto } from './dto/create-season.dto';
 
@@ -6,9 +6,40 @@ import { CreateSeasonDto } from './dto/create-season.dto';
 export class LeagueSystemController {
   constructor(private readonly leagueSystemService: LeagueSystemService) {}
 
+  @Get('status')
+  async getSystemStatus() {
+    const isInitialized = await this.leagueSystemService.isSystemInitialized();
+    const hasAssignments = await this.leagueSystemService.hasExistingAssignments();
+    
+    return {
+      isInitialized,
+      hasAssignments,
+      message: isInitialized 
+        ? 'Sistema inicializado' 
+        : 'Sistema no inicializado'
+    };
+  }
+
   @Post('initialize')
   async initializeLeagueSystem() {
     return this.leagueSystemService.initializeLeagueSystem();
+  }
+
+  @Delete('reset')
+  async resetLeagueSystem() {
+    return this.leagueSystemService.resetLeagueSystem();
+  }
+
+  @Get('assignments/:seasonId/status')
+  async getAssignmentStatus(@Param('seasonId', ParseIntPipe) seasonId: number) {
+    const hasAssignments = await this.leagueSystemService.hasExistingAssignments(seasonId);
+    return {
+      seasonId,
+      hasAssignments,
+      message: hasAssignments 
+        ? 'Ya hay asignaciones para esta temporada' 
+        : 'No hay asignaciones para esta temporada'
+    };
   }
 
   @Post('seasons')
