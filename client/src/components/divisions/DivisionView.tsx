@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import { Table, Select, Spin, Alert, Typography, Card, Tag, Button, message, Tooltip } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
-import { authApi } from '../../api/authApi';
+import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
+import { Permission } from '../../types/permissions';
 import { LoginModal } from '../LoginModal';
 import { AuthStatus } from '../AuthStatus';
+import { ProtectedContent } from '../ProtectedContent';
 import type { Division, Season, TeamInLeague } from '../../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
 import { formatNumber } from '../../utils/formatters';
@@ -191,6 +194,8 @@ const createColumns = (selectedDivision: Division | null, navigate: any): Column
 
 export default function DivisionView() {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const permissions = usePermissions();
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [selectedDivision, setSelectedDivision] = useState<Division | null>(null);
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
@@ -202,13 +207,20 @@ export default function DivisionView() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingAdminAction, setPendingAdminAction] = useState<(() => Promise<void>) | null>(null);
 
-  // Helper para verificar autenticación antes de operaciones administrativas
-  const executeWithAuth = async (action: () => Promise<void>) => {
-    if (!authApi.isAuthenticated()) {
+  // Helper para verificar autenticación y permisos antes de operaciones administrativas
+  const executeWithAuth = async (action: () => Promise<void>, requiredPermission?: Permission) => {
+    if (!permissions.isAuthenticated) {
       setPendingAdminAction(() => action);
       setShowLoginModal(true);
       return;
     }
+    
+    // Verificar permiso específico si se proporciona
+    if (requiredPermission && !permissions.hasPermission(requiredPermission)) {
+      message.error(`No tienes permisos para realizar esta acción. Se requiere: ${requiredPermission}`);
+      return;
+    }
+    
     await action();
   };
 
@@ -352,7 +364,7 @@ export default function DivisionView() {
         console.error('Error inicializando sistema:', error);
         if (error instanceof Error && error.message.includes('401')) {
           message.error('Sesión expirada. Por favor, inicia sesión nuevamente.');
-          authApi.logout();
+          auth.logout();
         } else {
           message.error('Error inicializando el sistema de ligas');
         }
@@ -387,7 +399,7 @@ export default function DivisionView() {
         console.error('Error reseteando sistema:', error);
         if (error instanceof Error && error.message.includes('401')) {
           message.error('Sesión expirada. Por favor, inicia sesión nuevamente.');
-          authApi.logout();
+          auth.logout();
         } else {
           message.error('Error reseteando el sistema de ligas');
         }
@@ -463,13 +475,17 @@ export default function DivisionView() {
             style={{ marginBottom: '20px' }}
           />
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <Button type="primary" size="large" onClick={handleInitializeSystem}>
-              Inicializar Sistema de Ligas
-            </Button>
-            {import.meta.env.DEV && (
-              <Button type="default" danger onClick={handleResetSystem}>
-                🔄 Reset Sistema (Dev)
+            <ProtectedContent requiredPermission={Permission.INITIALIZE_SYSTEM}>
+              <Button type="primary" size="large" onClick={handleInitializeSystem}>
+                Inicializar Sistema de Ligas
               </Button>
+            </ProtectedContent>
+            {import.meta.env.DEV && (
+              <ProtectedContent requiredPermission={Permission.RESET_SYSTEM}>
+                <Button type="default" danger onClick={handleResetSystem}>
+                  🔄 Reset Sistema (Dev)
+                </Button>
+              </ProtectedContent>
             )}
           </div>
         </div>
@@ -538,11 +554,13 @@ export default function DivisionView() {
           Equipos organizados por divisiones según popularidad en TikTok
         </Text>
         {import.meta.env.DEV && (
-          <div style={{ marginTop: '8px' }}>
-            <Button type="text" danger size="small" onClick={handleResetSystem}>
-              🔄 Reset Sistema (Solo Desarrollo)
-            </Button>
-          </div>
+          <ProtectedContent requiredPermission={Permission.RESET_SYSTEM}>
+            <div style={{ marginTop: '8px' }}>
+              <Button type="text" danger size="small" onClick={handleResetSystem}>
+                🔄 Reset Sistema (Solo Desarrollo)
+              </Button>
+            </div>
+          </ProtectedContent>
         )}
       </div>
 

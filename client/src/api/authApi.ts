@@ -5,13 +5,14 @@ export interface LoginResponse {
   user: {
     id: number;
     username: string;
+    role: string;
   };
 }
 
 export interface AuthState {
   isAuthenticated: boolean;
   token: string | null;
-  user: { id: number; username: string } | null;
+  user: { id: number; username: string; role: string } | null;
 }
 
 class AuthService {
@@ -21,6 +22,7 @@ class AuthService {
     token: null,
     user: null
   };
+  private listeners: Set<() => void> = new Set();
 
   private constructor() {
     // Cargar token desde localStorage al inicializar
@@ -52,7 +54,7 @@ class AuthService {
     }
   }
 
-  private saveTokenToStorage(token: string, user: { id: number; username: string }): void {
+  private saveTokenToStorage(token: string, user: { id: number; username: string; role: string }): void {
     localStorage.setItem('auth_token', token);
     localStorage.setItem('auth_user', JSON.stringify(user));
   }
@@ -65,6 +67,18 @@ class AuthService {
     };
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    this.notifyListeners();
+  }
+
+  private notifyListeners(): void {
+    this.listeners.forEach(listener => listener());
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   async login(username: string, password: string): Promise<LoginResponse> {
@@ -91,6 +105,7 @@ class AuthService {
     };
     
     this.saveTokenToStorage(data.access_token, data.user);
+    this.notifyListeners();
     
     return data;
   }
@@ -123,7 +138,7 @@ class AuthService {
     return this.state.token;
   }
 
-  getUser(): { id: number; username: string } | null {
+  getUser(): { id: number; username: string; role: string } | null {
     return this.state.user;
   }
 }

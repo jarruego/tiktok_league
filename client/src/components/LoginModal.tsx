@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Form, Input, Button, Alert, Typography, Card } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { authApi } from '../api/authApi';
+import { useAuth } from '../context/AuthContext';
 
 const { Text } = Typography;
 
@@ -15,13 +15,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
   const [form] = Form.useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const auth = useAuth();
 
   const handleSubmit = async (values: { username: string; password: string }) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      await authApi.login(values.username, values.password);
+      await auth.login(values.username, values.password);
       form.resetFields();
       onLogin();
       onClose();

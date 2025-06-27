@@ -42,6 +42,42 @@ async function seed() {
     console.log('Error creando usuario admin (tabla puede no existir aún):', error.message);
   }
 
+  // Crear usuario moderador
+  try {
+    const existingModerator = await db.select().from(userTable).where(eq(userTable.username, 'moderador'));
+    if (existingModerator.length === 0) {
+      const hashedPassword = await bcrypt.hash('mod123', 10);
+      await db.insert(userTable).values({
+        username: 'moderador',
+        password: hashedPassword,
+        role: 'moderator'
+      });
+      console.log('Usuario moderador creado con credenciales: moderador/mod123');
+    } else {
+      console.log('Usuario moderador ya existe');
+    }
+  } catch (error) {
+    console.log('Error creando usuario moderador:', error.message);
+  }
+
+  // Crear usuario normal
+  try {
+    const existingUser = await db.select().from(userTable).where(eq(userTable.username, 'usuario'));
+    if (existingUser.length === 0) {
+      const hashedPassword = await bcrypt.hash('user123', 10);
+      await db.insert(userTable).values({
+        username: 'usuario',
+        password: hashedPassword,
+        role: 'user'
+      });
+      console.log('Usuario normal creado con credenciales: usuario/user123');
+    } else {
+      console.log('Usuario normal ya existe');
+    }
+  } catch (error) {
+    console.log('Error creando usuario normal:', error.message);
+  }
+
   // Crear equipos de ejemplo
 
   for (const team of teams) {
