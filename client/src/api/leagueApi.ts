@@ -1,7 +1,7 @@
 import type { Division, Season, TeamInLeague } from '../types/league.types';
 import { authService } from './authApi';
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const leagueApi = {
   // Verificar estado del sistema
