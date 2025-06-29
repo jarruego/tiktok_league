@@ -11,7 +11,9 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.NODE_ENV === 'development'
       ? ['http://localhost:5173', 'http://localhost:4173']
-      : 'https://foodball-frontend.vercel.app',
+      : process.env.CORS_ORIGIN
+        ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+        : [],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
