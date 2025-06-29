@@ -31,8 +31,16 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
   const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   const page = await browser.newPage();
 
-  // Establecer un User-Agent realista
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+  // Establecer un User-Agent móvil y cabeceras adicionales
+  await page.setUserAgent('Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36');
+  await page.setExtraHTTPHeaders({
+    'accept-language': 'es-ES,es;q=0.9,en;q=0.8',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'sec-ch-ua': '"Google Chrome";v="124", "Chromium";v="124", ";Not A Brand";v="99"',
+    'sec-ch-ua-mobile': '?1',
+    'sec-ch-ua-platform': '"Android"',
+    'upgrade-insecure-requests': '1'
+  });
 
   // Navegar a la página del perfil con timeout extendido y espera de red
   await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
