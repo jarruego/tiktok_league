@@ -12,7 +12,7 @@
 ### 1. Base de Datos (Neon)
 - [x] Cuenta creada en neon.tech
 - [x] PostgreSQL database creada
-- [x] Nombre: `foodball-db`
+- [x] Nombre: `tu-app-db`
 - [x] Connection string copiada y guardada
 - [x] SSL mode configurado: `?sslmode=require&channel_binding=require`
 
@@ -21,7 +21,7 @@
 - [ ] GitHub conectado a Render
 - [ ] Web Service creado desde repositorio
 - [ ] Configuración:
-  - [ ] Name: `foodball-backend`
+  - [ ] Name: `tu-app-backend`
   - [ ] Environment: `Node`
   - [ ] Build Command: `cd server && npm install && npm run build`
   - [ ] Start Command: `cd server && npm run start:prod`
@@ -30,10 +30,10 @@
   - [ ] `NODE_ENV=production`
   - [ ] `PORT=10000`
   - [ ] `DATABASE_URL=[neon-connection-string]`
-  - [ ] `JWT_SECRET=c7tho2j3ClDfuDA7zIzbKUy0zwpv0BplRbSZFISJfmE=`
-  - [ ] `CORS_ORIGIN=https://foodball-frontend.vercel.app`
+  - [ ] `JWT_SECRET=[TU_JWT_SECRET_GENERADO]`
+  - [ ] `CORS_ORIGIN=https://tu-frontend.vercel.app`
 - [ ] Deploy automático exitoso
-- [ ] URL del backend funcionando: `https://foodball-backend.onrender.com`
+- [ ] URL del backend funcionando: `https://tu-app-backend.onrender.com`
 
 ### 3. Migraciones de Base de Datos
 - [ ] Migraciones ejecutadas desde local o Shell de Render
@@ -50,8 +50,8 @@
 - [ ] Output Directory: `dist`
 - [ ] Variables de entorno configuradas:
   - [ ] `VITE_NODE_ENV=production`
-  - [ ] `VITE_API_BASE_URL=https://foodball-backend.onrender.com`
-  - [ ] `VITE_APP_TITLE=Foodball - Liga de Fútbol`
+  - [ ] `VITE_API_BASE_URL=https://tu-app-backend.onrender.com`
+  - [ ] `VITE_APP_TITLE=Tu Aplicación`
   - [ ] `VITE_API_TIMEOUT=10000`
 - [ ] Deploy automático exitoso
 - [ ] URL del frontend funcionando: `https://[proyecto].vercel.app`
@@ -67,7 +67,7 @@
 - [ ] Variables de entorno configuradas:
   - [ ] `VITE_NODE_ENV=production`
   - [ ] `VITE_API_BASE_URL=https://[tu-railway].up.railway.app`
-  - [ ] `VITE_APP_TITLE=Foodball - Liga de Fútbol`
+  - [ ] `VITE_APP_TITLE=Tu Aplicación`
   - [ ] `VITE_API_TIMEOUT=10000`
 - [ ] Deploy automático exitoso
 - [ ] URL del frontend funcionando: `https://[proyecto].vercel.app`

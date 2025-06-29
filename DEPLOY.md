@@ -12,7 +12,7 @@
    git commit -m "Initial commit - preparar para deploy"
    
    # Crear repo en GitHub y conectar:
-   git remote add origin https://github.com/tu-usuario/foodball.git
+   git remote add origin https://github.com/tu-usuario/tu-proyecto.git
    git push -u origin main
    ```
 
@@ -41,9 +41,9 @@
    
 2. **Configuración de la BD:**
    ```
-   Name: foodball-db
-   Database: foodball_prod
-   User: foodball_user
+   Name: tu-app-db
+   Database: tu_app_prod
+   User: tu_app_user
    Region: Oregon (US West) o el más cercano a ti
    Plan: Free (para empezar)
    ```
@@ -61,11 +61,11 @@
 1. **Crear Web Service para Backend:**
    - Dashboard → "New +" → "Web Service"
    - Seleccionar "Build and deploy from a Git repository"
-   - Conectar tu repositorio `foodball`
+   - Conectar tu repositorio `tu-proyecto`
 
 2. **Configuración del Backend:**
    ```
-   Name: foodball-backend
+   Name: tu-app-backend
    Region: Oregon (US West) - mismo que la BD
    Branch: main
    Root Directory: server
@@ -82,11 +82,11 @@
    PORT = 10000
    DATABASE_URL = [pegar aquí la External Database URL de tu PostgreSQL]
    JWT_SECRET = tu_clave_super_secreta_minimo_32_caracteres_aqui
-   CORS_ORIGIN = https://foodball-frontend.onrender.com
+   CORS_ORIGIN = https://tu-frontend.onrender.com
    ```
    
    **⚠️ Importante:** 
-   - Cambia `foodball-frontend` por el nombre que vayas a usar para tu frontend
+   - Cambia `tu-frontend` por el nombre que vayas a usar para tu frontend
    - Genera un JWT_SECRET seguro (puedes usar: `openssl rand -base64 32`)
 
 4. **Crear el servicio:**
@@ -262,8 +262,8 @@
    NODE_ENV = production
    PORT = 3000
    DATABASE_URL = [tu-neon-connection-string]
-   JWT_SECRET = c7tho2j3ClDfuDA7zIzbKUy0zwpv0BplRbSZFISJfmE=
-   CORS_ORIGIN = https://foodball-frontend.vercel.app
+   JWT_SECRET = [tu-jwt-secret-generado-con-openssl]
+   CORS_ORIGIN = https://tu-frontend.vercel.app
    ```
 
 5. **Deploy:**

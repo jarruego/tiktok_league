@@ -12,6 +12,9 @@ node_modules/
 .env.production
 !.env.example
 
+# Security documentation with real secrets (keep only locally)
+ENV-SECURITY.md
+
 # Build outputs
 **/dist/
 **/build/

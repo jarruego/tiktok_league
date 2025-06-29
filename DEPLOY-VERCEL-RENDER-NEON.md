@@ -10,7 +10,7 @@
 
 ### ✅ Paso 1: Base de Datos (Ya tienes Neon configurado)
 ```
-DATABASE_URL=postgresql://foodball-db_owner:npg_gJy4B2kVXfOQ@ep-divine-dew-a90qfo80-pooler.gwc.azure.neon.tech/foodball-db?sslmode=require&channel_binding=require
+DATABASE_URL=postgresql://username:password@host:port/database
 ```
 
 ### 🎯 Paso 2: Backend en Render
@@ -20,7 +20,7 @@ DATABASE_URL=postgresql://foodball-db_owner:npg_gJy4B2kVXfOQ@ep-divine-dew-a90qf
 3. **New Web Service**
 4. **Configuración:**
    ```
-   Name: foodball-backend
+   Name: tu-app-backend
    Root Directory: server
    Build Command: npm install && npm run build
    Start Command: npm run start:prod
@@ -31,9 +31,10 @@ DATABASE_URL=postgresql://foodball-db_owner:npg_gJy4B2kVXfOQ@ep-divine-dew-a90qf
    ```
    NODE_ENV=production
    PORT=10000
-   DATABASE_URL=postgresql://foodball-db_owner:npg_gJy4B2kVXfOQ@ep-divine-dew-a90qfo80-pooler.gwc.azure.neon.tech/foodball-db?sslmode=require&channel_binding=require
-   JWT_SECRET=c7tho2j3ClDfuDA7zIzbKUy0zwpv0BplRbSZFISJfmE=
-   CORS_ORIGIN=https://foodball-frontend.vercel.app
+   DATABASE_URL=postgresql://username:password@host:port/database
+   JWT_SECRET=your-super-secret-jwt-key-here
+   CORS_ORIGIN=https://tu-frontend.vercel.app
+   FOOTBALL_DATA_API_KEY=your-api-key-here
    ```
 
 ### 🚀 Paso 3: Frontend en Vercel
@@ -51,8 +52,8 @@ DATABASE_URL=postgresql://foodball-db_owner:npg_gJy4B2kVXfOQ@ep-divine-dew-a90qf
 4. **Variables de Entorno:**
    ```
    VITE_NODE_ENV=production
-   VITE_API_BASE_URL=https://foodball-backend.onrender.com
-   VITE_APP_TITLE=Foodball - Liga de Fútbol
+   VITE_API_BASE_URL=https://tu-backend.onrender.com
+   VITE_APP_TITLE=Tu Aplicación
    VITE_API_TIMEOUT=10000
    ```
 
