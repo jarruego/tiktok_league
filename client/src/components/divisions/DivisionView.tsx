@@ -206,6 +206,8 @@ export default function DivisionView() {
   const [systemInitialized, setSystemInitialized] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [pendingAdminAction, setPendingAdminAction] = useState<(() => Promise<void>) | null>(null);
+  // --- NUEVO: Poblar caché de competiciones principales (solo admin) ---
+  const [caching, setCaching] = useState(false);
 
   // Helper para verificar autenticación y permisos antes de operaciones administrativas
   const executeWithAuth = async (action: () => Promise<void>, requiredPermission?: Permission) => {
@@ -426,6 +428,29 @@ export default function DivisionView() {
     setSelectedLeague(leagueId);
   };
 
+  // NUEVO: Función para poblar la caché de competiciones principales
+  const handleCacheAllCompetitions = async () => {
+    await executeWithAuth(async () => {
+      try {
+        setCaching(true);
+        const token = auth.token;
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/football-data/cache/all-competitions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!response.ok) throw new Error(`Error ${response.status}`);
+        message.success('Caché de competiciones principales poblada correctamente');
+      } catch (error) {
+        message.error('Error al poblar la caché de competiciones');
+      } finally {
+        setCaching(false);
+      }
+    });
+  };
+
   // Efectos
   useEffect(() => {
     loadInitialData();
@@ -544,7 +569,16 @@ export default function DivisionView() {
           <br />
           <Text type="secondary" style={{ fontSize: '12px' }}>Panel de Administración</Text>
         </div>
-        <AuthStatus size="small" />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <AuthStatus size="small" />
+          {permissions.isAdmin && (
+            <Tooltip title="Poblar caché de competiciones principales (solo admin)">
+              <Button type="primary" size="small" loading={caching} onClick={handleCacheAllCompetitions}>
+                Poblar Caché Competiciones
+              </Button>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {/* Header con información de la temporada */}
