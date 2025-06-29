@@ -56,6 +56,22 @@ DATABASE_URL=postgresql://foodball-db_owner:npg_gJy4B2kVXfOQ@ep-divine-dew-a90qf
    VITE_API_TIMEOUT=10000
    ```
 
+## 🚨 **Solución Error 127**
+
+Si ves `bash: line 1: cd: server: No such file or directory`:
+
+1. **Verificar que los cambios estén subidos:**
+   ```bash
+   git status
+   git add .
+   git commit -m "Actualizar estructura para deploy"
+   git push origin main
+   ```
+
+2. **Redesplegar en Render:**
+   - Dashboard → tu servicio → "Manual Deploy"
+   - Render usará el commit más reciente
+
 ## 💡 Ventajas de esta Arquitectura
 
 - ✅ **100% Gratuito**

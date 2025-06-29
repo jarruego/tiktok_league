@@ -1,0 +1,18 @@
+services:
+  # Backend Service
+  - type: web
+    name: foodball-backend
+    env: node
+    plan: free
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # SECURITY: No incluir secrets aquí - configurar manualmente en Render Dashboard
+      # - DATABASE_URL: configurar en Render Dashboard
+      # - JWT_SECRET: configurar en Render Dashboard
+      # - CORS_ORIGIN: configurar en Render Dashboard
+    healthCheckPath: /
