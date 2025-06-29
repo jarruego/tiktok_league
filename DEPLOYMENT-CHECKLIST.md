@@ -1,39 +1,60 @@
-# ✅ Checklist de Despliegue: Vercel + Railway + Neon
+# ✅ Checklist de Despliegue: Vercel + Render + Neon
 
 ## 📋 Lista de Verificación Completa
 
 ### Pre-requisitos
 - [ ] Código en GitHub
 - [ ] Archivos `.env.production` actualizados
-- [ ] `vercel.json` y `railway.toml` configurados
+- [ ] `vercel.json` y `render.yaml` configurados
 - [ ] Scripts de build funcionando localmente
 - [ ] JWT Secret generado
 
 ### 1. Base de Datos (Neon)
-- [ ] Cuenta creada en neon.tech
-- [ ] PostgreSQL database creada
-- [ ] Nombre: `foodball-db`
-- [ ] Connection string copiada y guardada
-- [ ] SSL mode configurado: `?sslmode=require`
+- [x] Cuenta creada en neon.tech
+- [x] PostgreSQL database creada
+- [x] Nombre: `foodball-db`
+- [x] Connection string copiada y guardada
+- [x] SSL mode configurado: `?sslmode=require&channel_binding=require`
 
-### 2. Backend (Railway)
-- [ ] Cuenta creada en railway.app
-- [ ] GitHub conectado a Railway
-- [ ] Proyecto creado desde repositorio
-- [ ] Root Directory: `server`
+### 2. Backend (Render)
+- [ ] Cuenta creada en render.com
+- [ ] GitHub conectado a Render
+- [ ] Web Service creado desde repositorio
+- [ ] Configuración:
+  - [ ] Name: `foodball-backend`
+  - [ ] Environment: `Node`
+  - [ ] Build Command: `cd server && npm install && npm run build`
+  - [ ] Start Command: `cd server && npm run start:prod`
+  - [ ] Plan: `Free`
 - [ ] Variables de entorno configuradas:
   - [ ] `NODE_ENV=production`
-  - [ ] `PORT=3000`
+  - [ ] `PORT=10000`
   - [ ] `DATABASE_URL=[neon-connection-string]`
-  - [ ] `JWT_SECRET=[clave-segura]`
-  - [ ] `CORS_ORIGIN=https://[tu-vercel].vercel.app`
+  - [ ] `JWT_SECRET=c7tho2j3ClDfuDA7zIzbKUy0zwpv0BplRbSZFISJfmE=`
+  - [ ] `CORS_ORIGIN=https://foodball-frontend.vercel.app`
 - [ ] Deploy automático exitoso
-- [ ] URL del backend funcionando: `https://[proyecto].up.railway.app`
+- [ ] URL del backend funcionando: `https://foodball-backend.onrender.com`
 
 ### 3. Migraciones de Base de Datos
-- [ ] Migraciones ejecutadas desde local o Railway CLI
+- [ ] Migraciones ejecutadas desde local o Shell de Render
 - [ ] Comando: `npm run db:migrate`
 - [ ] Base de datos inicializada con tablas
+
+### 4. Frontend (Vercel)
+- [ ] Cuenta creada en vercel.com
+- [ ] GitHub conectado a Vercel
+- [ ] Proyecto importado desde repositorio
+- [ ] Framework: Vite detectado automáticamente
+- [ ] Root Directory: `client`
+- [ ] Build Command: `npm run build`
+- [ ] Output Directory: `dist`
+- [ ] Variables de entorno configuradas:
+  - [ ] `VITE_NODE_ENV=production`
+  - [ ] `VITE_API_BASE_URL=https://foodball-backend.onrender.com`
+  - [ ] `VITE_APP_TITLE=Foodball - Liga de Fútbol`
+  - [ ] `VITE_API_TIMEOUT=10000`
+- [ ] Deploy automático exitoso
+- [ ] URL del frontend funcionando: `https://[proyecto].vercel.app`
 
 ### 4. Frontend (Vercel)
 - [ ] Cuenta creada en vercel.com

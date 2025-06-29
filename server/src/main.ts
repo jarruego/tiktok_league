@@ -7,11 +7,11 @@ import 'dotenv/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // CORS configuration for Vercel frontend + Railway backend
+  // CORS configuration for Vercel frontend + Render backend
   app.enableCors({
     origin: process.env.CORS_ORIGIN || process.env.NODE_ENV === 'development' 
-      ? ['http://localhost:5173', 'http://localhost:4173', 'https://localhost:3000'] 
-      : ['https://*.vercel.app', 'https://*.up.railway.app'],
+      ? ['http://localhost:5173', 'http://localhost:4173'] 
+      : ['https://*.vercel.app', 'https://*.onrender.com'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -35,7 +35,7 @@ async function bootstrap() {
     SwaggerModule.setup('documentation', app, document);
   }
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 10000;
   await app.listen(port, '0.0.0.0');
   
   console.log(`🚀 Server running on port ${port}`);

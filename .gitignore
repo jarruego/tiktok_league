@@ -58,8 +58,9 @@ temp/
 archive/
 *.backup
 
-# Platform specific (archived)
+# Platform specific configurations
 render.yaml
+railway.toml
 .DS_Store?
 ._*
 .Spotlight-V100
