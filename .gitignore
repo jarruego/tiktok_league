@@ -64,3 +64,6 @@ archive/
 
 # Platform specific configurations
 railway.toml
+
+# Puppeteer cache
+.cache/
