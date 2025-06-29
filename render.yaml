@@ -9,8 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
+      # PORT es proporcionado automáticamente por Render
       # SECURITY: No incluir secrets aquí - configurar manualmente en Render Dashboard
       # - DATABASE_URL: configurar en Render Dashboard
       # - JWT_SECRET: configurar en Render Dashboard
