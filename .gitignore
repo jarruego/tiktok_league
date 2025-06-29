@@ -5,12 +5,12 @@ foodball.code-workspace
 # Node modules
 node_modules/
 
-# Environment files (keep .env.example files)
+# Environment files (keep .env.example files only)
 .env
 .env.local
 .env.*.local
+.env.production
 !.env.example
-!.env.production
 
 # Build outputs
 **/dist/
