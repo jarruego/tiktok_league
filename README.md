@@ -198,3 +198,35 @@ Si encuentras algún problema:
 - ✅ **UI moderna** - Ant Design + TypeScript
 - ✅ **Backend robusto** - NestJS + PostgreSQL
 - ✅ **Permisos granulares** - Control de acceso por roles
+
+## 🚀 Despliegue en Producción
+
+### Guías Completas
+- **[DEPLOY.md](./DEPLOY.md)** - Guía paso a paso para Render
+- **[DEPLOYMENT-CHECKLIST.md](./DEPLOYMENT-CHECKLIST.md)** - Lista de verificación completa
+
+### Scripts Útiles
+```bash
+# Generar JWT Secret seguro
+./scripts/generate-jwt-secret.sh
+# o en Windows:
+./scripts/generate-jwt-secret.ps1
+
+# Verificar configuración pre-deploy
+./scripts/pre-deploy-check.sh
+```
+
+### Comandos de Build
+```bash
+# Build completo (ambos proyectos)
+npm run build
+
+# Solo backend
+npm run build:server
+
+# Solo frontend  
+npm run build:client
+
+# Limpiar builds
+npm run clean
+```

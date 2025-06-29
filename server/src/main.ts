@@ -7,19 +7,37 @@ import 'dotenv/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors();
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  // CORS configuration for production
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN || process.env.NODE_ENV === 'development' 
+      ? ['http://localhost:5173', 'http://localhost:4173'] 
+      : false,
+    credentials: true,
+  });
 
-  const config = new DocumentBuilder()
-    .setTitle('Football Teams API')
-    .setDescription(
-      'API para gestión y scraping de equipos de fútbol en TikTok',
-    )
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('documentation', app, document);
+  app.useGlobalPipes(new ValidationPipe({ 
+    whitelist: true, 
+    transform: true,
+    forbidNonWhitelisted: true 
+  }));
 
-  await app.listen(process.env.PORT ?? 3000);
+  // Swagger only in development
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Football Teams API')
+      .setDescription(
+        'API para gestión y scraping de equipos de fútbol en TikTok',
+      )
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('documentation', app, document);
+  }
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
+  
+  console.log(`🚀 Server running on port ${port}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 }
 
 void bootstrap();
