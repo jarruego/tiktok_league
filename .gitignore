@@ -14,6 +14,7 @@ node_modules/
 
 # Security documentation with real secrets (keep only locally)
 ENV-SECURITY.md
+INSTRUCCIONES-PRIVADAS.md
 
 # Build outputs
 **/dist/
