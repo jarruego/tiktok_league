@@ -199,42 +199,197 @@
 # /* /index.html 200
 ```
 
-# 🚀 Guía de Despliegue en Render
+# 🚀 Guía de Despliegue: Vercel + Railway + Neon
 
-## Preparación para Producción
+## Arquitectura de Producción
 
-### 1. Variables de Entorno Importantes
+- **Frontend (React)**: Vercel
+- **Backend (NestJS)**: Railway  
+- **Base de Datos**: Neon PostgreSQL
 
-**Backend (.env.production):**
-```bash
-NODE_ENV=production
-PORT=10000
-DATABASE_URL=postgresql://[render-generated-url]
-JWT_SECRET=[genera-una-clave-segura-mínimo-32-caracteres]
-CORS_ORIGIN=https://tu-frontend.onrender.com
-```
+## 📋 Despliegue Paso a Paso desde Cero
 
-**Frontend (.env.production):**
-```bash
-VITE_NODE_ENV=production
-VITE_API_BASE_URL=https://tu-backend.onrender.com
-```
+### Paso 0: Preparación Previa (IMPORTANTE)
 
-## 🔧 Pasos para Desplegar
-
-### Opción A: Despliegue Automático con render.yaml
-
-1. **Subir a GitHub/GitLab**
+1. **Asegúrate de que tu código esté en GitHub**
    ```bash
    git add .
-   git commit -m "Preparar para producción en Render"
+   git commit -m "Preparar para deploy con Vercel + Railway + Neon"
    git push origin main
    ```
 
-2. **Conectar en Render**
-   - Ve a [render.com](https://render.com)
-   - Conecta tu repositorio
-   - Render detectará automáticamente el `render.yaml`
+2. **Generar JWT Secret** (si no lo tienes)
+   ```bash
+   .\scripts\generate-jwt-secret.ps1
+   ```
+
+### Paso 1: Crear Base de Datos en Neon
+
+1. **Registrarse en Neon**
+   - Ve a [neon.tech](https://neon.tech)
+   - Clic en "Sign Up" y regístrate con GitHub
+
+2. **Crear Base de Datos:**
+   ```
+   Project Name: foodball-db
+   Database Name: foodball_prod
+   Region: US East (Ohio) o el más cercano
+   Plan: Free Tier
+   ```
+
+3. **Copiar Connection String:**
+   ```
+   ⚠️ COPIA Y GUARDA:
+   DATABASE_URL: postgresql://[user]:[password]@[host].neon.tech/[db]?sslmode=require
+   ```
+
+### Paso 2: Desplegar Backend en Railway
+
+1. **Registrarse en Railway**
+   - Ve a [railway.app](https://railway.app)
+   - Conecta con GitHub
+
+2. **Crear Nuevo Proyecto:**
+   - "New Project" → "Deploy from GitHub repo"
+   - Seleccionar tu repositorio `foodball`
+   - Root Directory: `server`
+
+3. **Configuración Automática:**
+   Railway detectará NestJS automáticamente
+
+4. **Variables de Entorno:**
+   ```
+   NODE_ENV = production
+   PORT = 3000
+   DATABASE_URL = [tu-neon-connection-string]
+   JWT_SECRET = c7tho2j3ClDfuDA7zIzbKUy0zwpv0BplRbSZFISJfmE=
+   CORS_ORIGIN = https://foodball-frontend.vercel.app
+   ```
+
+5. **Deploy:**
+   - Railway ejecutará automáticamente:
+     - `npm install`
+     - `npm run build`
+     - `npm run start:prod`
+
+### Paso 3: Ejecutar Migraciones de Base de Datos
+
+1. **Acceder al Railway Dashboard:**
+   - Ve a tu proyecto backend
+   - Clic en "Deploy Logs" para verificar que arrancó
+
+2. **Conectar a la BD desde local** (temporal):
+   ```bash
+   # Usar la connection string de Neon
+   cd server
+   DATABASE_URL="tu-neon-url" npm run db:migrate
+   ```
+
+   O usar Railway CLI:
+   ```bash
+   railway login
+   railway link [tu-proyecto-id]
+   railway run npm run db:migrate
+   ```
+
+### Paso 4: Desplegar Frontend en Vercel
+
+1. **Registrarse en Vercel**
+   - Ve a [vercel.com](https://vercel.com)
+   - Conecta con GitHub
+
+2. **Importar Proyecto:**
+   - "New Project" → Seleccionar `foodball`
+   - Framework Preset: "Vite"
+   - Root Directory: `client`
+
+3. **Configuración de Build:**
+   ```
+   Build Command: npm run build
+   Output Directory: dist
+   Install Command: npm install
+   ```
+
+4. **Variables de Entorno:**
+   ```
+   VITE_NODE_ENV = production
+   VITE_API_BASE_URL = https://[tu-backend].up.railway.app
+   VITE_APP_TITLE = Foodball - Liga de Fútbol
+   VITE_API_TIMEOUT = 10000
+   ```
+
+5. **Deploy:**
+   - Clic en "Deploy"
+   - Vercel construirá y desplegará automáticamente
+
+### Paso 5: Actualizar CORS en Backend
+
+1. **Obtener URL de Vercel:**
+   - Copia la URL final (ej: `https://foodball-frontend.vercel.app`)
+
+2. **Actualizar CORS_ORIGIN en Railway:**
+   - Ve a tu proyecto backend en Railway
+   - Variables → Editar `CORS_ORIGIN`
+   - Valor: URL exacta de Vercel
+   - Redeploy automático
+
+### Paso 6: Verificar y Probar
+
+1. **URLs Finales:**
+   - Frontend: `https://[proyecto].vercel.app`
+   - Backend: `https://[proyecto].up.railway.app`
+   - Database: Neon (conectada al backend)
+
+2. **Pruebas:**
+   - Visitar frontend
+   - Probar login/logout
+   - Verificar que carga datos
+
+## ⚡ Ventajas de la Nueva Arquitectura
+
+### Vercel (Frontend)
+- ✅ Deploy automático desde Git
+- ✅ CDN global ultra-rápido
+- ✅ SSL automático
+- ✅ Rollbacks instantáneos
+
+### Railway (Backend)
+- ✅ Deploy automático desde Git
+- ✅ Logs en tiempo real
+- ✅ Variables de entorno seguras
+- ✅ Scaling automático
+
+### Neon (Database)
+- ✅ PostgreSQL sin servidor
+- ✅ Branching de BD
+- ✅ Scaling automático
+- ✅ Backups automáticos
+
+## 🚨 Errores Comunes y Soluciones
+
+### Error 1: "Cannot connect to database"
+```bash
+# Verificar que DATABASE_URL incluye ?sslmode=require
+# Formato: postgresql://user:pass@host.neon.tech/db?sslmode=require
+```
+
+### Error 2: "CORS error"
+```bash
+# Verificar CORS_ORIGIN en Railway = URL exacta de Vercel
+# No incluir "/" al final
+```
+
+### Error 3: "Build failed en Vercel"
+```bash
+# Verificar que client/package.json tiene "build" script
+# Verificar que todas las deps están en "dependencies"
+```
+
+### Error 4: "Railway no encuentra archivos"
+```bash
+# Verificar Root Directory = "server" en Railway
+# Verificar que server/package.json existe
+```
 
 ### Opción B: Despliegue Manual
 

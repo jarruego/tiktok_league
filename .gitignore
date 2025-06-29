@@ -16,6 +16,7 @@ node_modules/
 **/dist/
 **/build/
 **/.next/
+**/.vercel/
 
 # Logs
 *.log
@@ -52,6 +53,13 @@ Thumbs.db
 # Temporary folders
 tmp/
 temp/
+
+# Archive and backup files
+archive/
+*.backup
+
+# Platform specific (archived)
+render.yaml
 .DS_Store?
 ._*
 .Spotlight-V100

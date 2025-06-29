@@ -1,0 +1,14 @@
+# Railway Configuration
+build:
+  provider: nodejs
+  commands:
+    - cd server
+    - npm install
+    - npm run build
+
+run:
+  command: cd server && npm run start:prod
+
+environment:
+  NODE_ENV: production
+  PORT: 3000

@@ -7,12 +7,14 @@ import 'dotenv/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // CORS configuration for production
+  // CORS configuration for Vercel frontend + Railway backend
   app.enableCors({
     origin: process.env.CORS_ORIGIN || process.env.NODE_ENV === 'development' 
-      ? ['http://localhost:5173', 'http://localhost:4173'] 
-      : false,
+      ? ['http://localhost:5173', 'http://localhost:4173', 'https://localhost:3000'] 
+      : ['https://*.vercel.app', 'https://*.up.railway.app'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   app.useGlobalPipes(new ValidationPipe({ 
@@ -38,6 +40,7 @@ async function bootstrap() {
   
   console.log(`🚀 Server running on port ${port}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 CORS enabled for: ${process.env.CORS_ORIGIN || 'development origins'}`);
 }
 
 void bootstrap();

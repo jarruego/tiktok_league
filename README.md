@@ -201,19 +201,25 @@ Si encuentras algún problema:
 
 ## 🚀 Despliegue en Producción
 
+### Arquitectura de Producción
+- **Frontend**: Vercel (React + Vite)
+- **Backend**: Railway (NestJS + Node.js)  
+- **Base de Datos**: Neon (PostgreSQL)
+
 ### Guías Completas
-- **[DEPLOY.md](./DEPLOY.md)** - Guía paso a paso para Render
+- **[DEPLOY.md](./DEPLOY.md)** - Guía paso a paso para Vercel + Railway + Neon
 - **[DEPLOYMENT-CHECKLIST.md](./DEPLOYMENT-CHECKLIST.md)** - Lista de verificación completa
+- **[MIGRATION-FROM-RENDER.md](./MIGRATION-FROM-RENDER.md)** - Si migras desde Render
 
 ### Scripts Útiles
 ```bash
 # Generar JWT Secret seguro
-./scripts/generate-jwt-secret.sh
+.\scripts\generate-jwt-secret.ps1
 # o en Windows:
-./scripts/generate-jwt-secret.ps1
+.\scripts\generate-jwt-secret.ps1
 
 # Verificar configuración pre-deploy
-./scripts/pre-deploy-check.sh
+.\scripts\pre-deploy-check.sh
 ```
 
 ### Comandos de Build
@@ -230,3 +236,8 @@ npm run build:client
 # Limpiar builds
 npm run clean
 ```
+
+### URLs de Producción
+- **Frontend**: `https://[proyecto].vercel.app`
+- **Backend**: `https://[proyecto].up.railway.app`
+- **Database**: Neon PostgreSQL (conectada automáticamente)

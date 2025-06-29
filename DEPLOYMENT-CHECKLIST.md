@@ -1,82 +1,87 @@
-# ✅ Checklist de Despliegue en Render
+# ✅ Checklist de Despliegue: Vercel + Railway + Neon
 
 ## 📋 Lista de Verificación Completa
 
 ### Pre-requisitos
-- [ ] Código en GitHub/GitLab
-- [ ] Archivos `.env.production` creados
-- [ ] `render.yaml` configurado
+- [ ] Código en GitHub
+- [ ] Archivos `.env.production` actualizados
+- [ ] `vercel.json` y `railway.toml` configurados
 - [ ] Scripts de build funcionando localmente
+- [ ] JWT Secret generado
 
-### 1. Configuración Inicial
-- [ ] Cuenta creada en render.com
-- [ ] GitHub conectado a Render
-- [ ] Repositorio accesible desde Render
-
-### 2. Base de Datos
-- [ ] PostgreSQL creado en Render
+### 1. Base de Datos (Neon)
+- [ ] Cuenta creada en neon.tech
+- [ ] PostgreSQL database creada
 - [ ] Nombre: `foodball-db`
-- [ ] DATABASE_URL copiada y guardada
-- [ ] Credenciales anotadas
+- [ ] Connection string copiada y guardada
+- [ ] SSL mode configurado: `?sslmode=require`
 
-### 3. Backend (API)
-- [ ] Web Service creado
-- [ ] Nombre: `foodball-backend`
+### 2. Backend (Railway)
+- [ ] Cuenta creada en railway.app
+- [ ] GitHub conectado a Railway
+- [ ] Proyecto creado desde repositorio
 - [ ] Root Directory: `server`
-- [ ] Build Command: `npm install && npm run build`
-- [ ] Start Command: `npm run start:prod`
 - [ ] Variables de entorno configuradas:
   - [ ] `NODE_ENV=production`
-  - [ ] `PORT=10000`
-  - [ ] `DATABASE_URL=[url-postgresql]`
+  - [ ] `PORT=3000`
+  - [ ] `DATABASE_URL=[neon-connection-string]`
   - [ ] `JWT_SECRET=[clave-segura]`
-  - [ ] `CORS_ORIGIN=https://[tu-frontend].onrender.com`
-- [ ] Despliegue exitoso (sin errores)
-- [ ] URL del backend funcionando
+  - [ ] `CORS_ORIGIN=https://[tu-vercel].vercel.app`
+- [ ] Deploy automático exitoso
+- [ ] URL del backend funcionando: `https://[proyecto].up.railway.app`
 
-### 4. Migraciones
-- [ ] Acceso al Shell del backend
-- [ ] Migraciones ejecutadas: `npm run db:migrate`
-- [ ] Base de datos inicializada
+### 3. Migraciones de Base de Datos
+- [ ] Migraciones ejecutadas desde local o Railway CLI
+- [ ] Comando: `npm run db:migrate`
+- [ ] Base de datos inicializada con tablas
 
-### 5. Frontend
-- [ ] Static Site creado
-- [ ] Nombre: `foodball-frontend`
+### 4. Frontend (Vercel)
+- [ ] Cuenta creada en vercel.com
+- [ ] GitHub conectado a Vercel
+- [ ] Proyecto importado desde repositorio
+- [ ] Framework: Vite detectado automáticamente
 - [ ] Root Directory: `client`
-- [ ] Build Command: `npm install && npm run build`
-- [ ] Publish Directory: `dist`
+- [ ] Build Command: `npm run build`
+- [ ] Output Directory: `dist`
 - [ ] Variables de entorno configuradas:
   - [ ] `VITE_NODE_ENV=production`
-  - [ ] `VITE_API_BASE_URL=https://[tu-backend].onrender.com`
-- [ ] Headers de caché configurados (opcional)
-- [ ] Despliegue exitoso (sin errores)
+  - [ ] `VITE_API_BASE_URL=https://[tu-railway].up.railway.app`
+  - [ ] `VITE_APP_TITLE=Foodball - Liga de Fútbol`
+  - [ ] `VITE_API_TIMEOUT=10000`
+- [ ] Deploy automático exitoso
+- [ ] URL del frontend funcionando: `https://[proyecto].vercel.app`
 
-### 6. Configuración Final
-- [ ] CORS_ORIGIN actualizado con URL real del frontend
-- [ ] Redirect rules configurados: `/* /index.html 200`
-- [ ] SSL/HTTPS funcionando automáticamente
+### 5. Configuración Final
+- [ ] CORS_ORIGIN actualizado en Railway con URL real de Vercel
+- [ ] SSL/HTTPS funcionando automáticamente en ambos servicios
+- [ ] Domains customizados configurados (opcional)
 
-### 7. Pruebas
+### 6. Pruebas de Integración
 - [ ] Frontend carga correctamente
-- [ ] API responde desde frontend
+- [ ] API responde desde frontend (verificar Network tab)
 - [ ] Login/logout funciona
-- [ ] Datos se cargan correctamente
-- [ ] No hay errores en consola del navegador
+- [ ] Datos se cargan correctamente desde la BD
+- [ ] No hay errores CORS en consola del navegador
+- [ ] No hay errores de certificados SSL
 
-### 8. Monitoreo
-- [ ] Logs del backend sin errores críticos
-- [ ] Logs del frontend sin errores críticos
-- [ ] URLs finales anotadas:
-  - Frontend: `https://[nombre].onrender.com`
-  - Backend: `https://[nombre].onrender.com`
+### 7. Monitoreo y Logs
+- [ ] Logs de Railway sin errores críticos
+- [ ] Logs de Vercel sin errores de build
+- [ ] Neon dashboard muestra conexiones activas
+- [ ] URLs finales documentadas:
+  - Frontend: `https://[nombre].vercel.app`
+  - Backend: `https://[nombre].up.railway.app`
+  - Database: Neon connection monitoreado
 
 ## 🔧 Comandos Útiles
 
 ### Generar JWT Secret
 ```bash
-# En tu terminal local:
-openssl rand -base64 32
-# o usa: https://generate-secret.vercel.app/32
+# Windows PowerShell:
+.\scripts\generate-jwt-secret.ps1
+
+# Node.js alternativo:
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
 ### Verificar Build Local
@@ -88,38 +93,84 @@ cd server && npm run build && npm run start:prod
 cd client && npm run build && npm run preview
 ```
 
-### Logs en Tiempo Real
+### Railway CLI (Opcional)
+```bash
+# Instalar Railway CLI
+npm install -g @railway/cli
+
+# Login y conectar
+railway login
+railway link [project-id]
+
+# Ejecutar comandos en Railway
+railway run npm run db:migrate
+railway logs
 ```
-1. Ve a tu servicio en Render Dashboard
-2. Clic en "Logs" 
-3. Mantén abierto mientras pruebas
+
+### Vercel CLI (Opcional)
+```bash
+# Instalar Vercel CLI
+npm install -g vercel
+
+# Login y deploy
+vercel login
+vercel --prod
 ```
 
-## 🚨 Si Algo Sale Mal
+## 🚨 Solución de Problemas
 
-### Backend no inicia
-1. Revisar logs del build
-2. Verificar que todas las deps están en `dependencies`
-3. Verificar DATABASE_URL
-4. Verificar formato del JWT_SECRET
+### Backend (Railway) no inicia
+1. Verificar logs en Railway Dashboard
+2. Comprobar que `server/package.json` tiene script `start:prod`
+3. Verificar DATABASE_URL con `?sslmode=require`
+4. Comprobar que todas las deps están en `dependencies`
 
-### Frontend no carga
-1. Revisar logs del build
-2. Verificar VITE_API_BASE_URL
-3. Verificar que `dist` se genera correctamente
-4. Agregar redirect rules
+### Frontend (Vercel) no carga
+1. Verificar logs de build en Vercel Dashboard
+2. Comprobar que `client/package.json` tiene script `build`
+3. Verificar VITE_API_BASE_URL apunta a Railway
+4. Verificar que `dist/` se genera correctamente
 
 ### Errores CORS
 1. URL exacta en CORS_ORIGIN (sin `/` final)
-2. Reiniciar backend después de cambiar CORS
-3. Verificar que frontend llama a la URL correcta
+2. Redeploy backend en Railway después de cambiar CORS
+3. Verificar que frontend llama a la URL correcta de Railway
+4. Comprobar que ambos usan HTTPS
 
 ### Base de datos no conecta
-1. Usar External Database URL, no Internal
-2. Verificar formato: `postgresql://user:pass@host:port/db`
-3. Verificar que la BD está en la misma región
+1. Usar External Connection String de Neon
+2. Verificar formato: `postgresql://user:pass@host.neon.tech/db?sslmode=require`
+3. Comprobar que la BD no está pausada en Neon
+4. Verificar límites de conexiones en plan gratuito
+
+### Deploys automáticos no funcionan
+1. Verificar webhooks en GitHub están configurados
+2. Comprobar que los servicios están conectados al branch correcto
+3. Verificar permisos de GitHub en Vercel/Railway
+
+## 💰 Planes Gratuitos - Límites
+
+### Vercel Free
+- ✅ 100GB bandwidth/mes
+- ✅ Deploy automático
+- ✅ SSL custom domains
+- ⚠️ Límite: 10 deployments/día
+
+### Railway Free
+- ✅ $5 crédito mensual
+- ✅ Deploy automático  
+- ✅ 512MB RAM
+- ⚠️ Límite: Se agota con uso 24/7
+
+### Neon Free
+- ✅ 3GB storage
+- ✅ 1 database
+- ✅ SSL connections
+- ⚠️ Límite: Database se pausa tras inactividad
 
 ## 📞 Soporte
-- [Documentación Render](https://render.com/docs)
-- [Discord de Render](https://discord.gg/render)
-- [Status de Render](https://status.render.com/)
+- [Vercel Docs](https://vercel.com/docs)
+- [Railway Docs](https://docs.railway.app/)
+- [Neon Docs](https://neon.tech/docs)
+- [Discord Railway](https://discord.gg/railway)
+- [Discord Vercel](https://discord.gg/vercel)
