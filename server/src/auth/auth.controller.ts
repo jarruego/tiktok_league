@@ -12,4 +12,10 @@ export class AuthController {
     if (!user) throw new UnauthorizedException('Credenciales incorrectas');
     return this.authService.login(user);
   }
+
+  // Endpoint para login con TikTok OAuth
+  @Post('tiktok')
+  async tiktokLogin(@Body() body: { code: string }) {
+    return this.authService.loginWithTikTok(body.code);
+  }
 }

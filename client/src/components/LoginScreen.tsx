@@ -28,8 +28,18 @@ export const LoginScreen: React.FC = () => {
   };
 
   const handleTikTokLogin = () => {
-    // TODO: Implementar login con TikTok en el futuro
-    console.log('Login con TikTok - Próximamente');
+    const client_id = import.meta.env.VITE_TIKTOK_CLIENT_ID || '';
+    const redirect_uri = encodeURIComponent(window.location.origin + '/callback');
+    const scope = 'user.info.basic';
+    const state = Math.random().toString(36).substring(2, 15); // CSRF protection
+    const authUrl =
+      `https://www.tiktok.com/v2/auth/authorize?` +
+      `client_key=${client_id}` +
+      `&response_type=code` +
+      `&scope=${scope}` +
+      `&redirect_uri=${redirect_uri}` +
+      `&state=${state}`;
+    window.location.href = authUrl;
   };
 
   return (
@@ -137,15 +147,11 @@ export const LoginScreen: React.FC = () => {
                 justifyContent: 'center',
                 gap: '8px'
               }}
-              disabled={true}
               onClick={handleTikTokLogin}
             >
               <span style={{ fontSize: '16px' }}>🎵</span>
               Continuar con TikTok
             </Button>
-            <div style={{ marginTop: '8px', fontSize: '12px', color: '#999' }}>
-              Próximamente disponible
-            </div>
           </div>
         </Card>
       </Content>
