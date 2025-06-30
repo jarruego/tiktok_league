@@ -147,6 +147,18 @@ export const LoginScreen: React.FC = () => {
           </div>
         </Card>
       </Content>
+      <footer style={{
+        textAlign: 'center',
+        marginTop: '16px',
+        fontSize: '12px',
+        color: '#888',
+        width: '100%'
+      }}>
+        <span>
+          <a href="/terms" target="_blank" rel="noopener noreferrer">Términos de Servicio</a> |{' '}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer">Política de Privacidad</a>
+        </span>
+      </footer>
     </Layout>
   );
 };
