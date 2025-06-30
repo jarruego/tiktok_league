@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Form, Input, Button, Alert, Typography, Card } from 'antd';
+import { Modal, Form, Input, Button, Alert, Typography, Card, Divider } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 
@@ -116,6 +116,35 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
           </div>
         </Form.Item>
       </Form>
+
+      <Divider>o</Divider>
+
+      <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+        <Button 
+          size="large"
+          style={{ 
+            width: '100%',
+            backgroundColor: '#000',
+            borderColor: '#000',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+          disabled={true}
+          onClick={() => {
+            // TODO: Implementar login con TikTok en el futuro
+            console.log('Login con TikTok - Próximamente');
+          }}
+        >
+          <span style={{ fontSize: '16px' }}>🎵</span>
+          Continuar con TikTok
+        </Button>
+        <div style={{ marginTop: '8px', fontSize: '12px', color: '#999' }}>
+          Próximamente disponible
+        </div>
+      </div>
 
       <Card 
         size="small" 

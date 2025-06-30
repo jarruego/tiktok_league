@@ -5,16 +5,38 @@ foodball.code-workspace
 # Node modules
 node_modules/
 
-# Environment files
+# Environment files (keep .env.example files only)
 .env
 .env.local
 .env.*.local
+.env.production
+!.env.example
+
+# Security documentation with real secrets (keep only locally)
+ENV-SECURITY.md
+INSTRUCCIONES-PRIVADAS.md
+
+# Build outputs
+**/dist/
+**/build/
+**/.next/
+**/.vercel/
 
 # Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
 
 # OS generated files
 .DS_Store
@@ -30,12 +52,18 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+*~
 
-# Build outputs
-dist/
-build/
-*.tgz
-*.tar.gz
+# Temporary folders
+tmp/
+temp/
 
-# VS Code workspace file
-foodball.code-workspace
+# Archive and backup files
+archive/
+*.backup
+
+# Platform specific configurations
+railway.toml
+
+# Puppeteer cache
+.cache/

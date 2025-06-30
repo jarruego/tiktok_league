@@ -28,17 +28,28 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
   const url = `https://www.tiktok.com/@${tiktokId}`;
   
   // Lanzar una instancia de navegador sin interfaz gráfica (headless)
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   const page = await browser.newPage();
-  
-  // Navegar a la página del perfil con timeout de 30 segundos
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  // Establecer un User-Agent móvil y cabeceras adicionales
+  await page.setUserAgent('Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36');
+  await page.setExtraHTTPHeaders({
+    'accept-language': 'es-ES,es;q=0.9,en;q=0.8',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'sec-ch-ua': '"Google Chrome";v="124", "Chromium";v="124", ";Not A Brand";v="99"',
+    'sec-ch-ua-mobile': '?1',
+    'sec-ch-ua-platform': '"Android"',
+    'upgrade-insecure-requests': '1'
+  });
+
+  // Navegar a la página del perfil con timeout extendido y espera de red
+  await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
   
   console.log(`🔍 Iniciando scraping de: ${url}`);
 
   // Esperar a que aparezca el elemento que contiene el número de seguidores
   try {
-    await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 15000 });
+    await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 20000 });
   } catch (error) {
     console.error(`❌ No se encontró el selector de seguidores para ${tiktokId}`);
     // Intentar con selectores alternativos
@@ -52,7 +63,7 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     let found = false;
     for (const selector of alternativeSelectors) {
       try {
-        await page.waitForSelector(selector, { timeout: 5000 });
+        await page.waitForSelector(selector, { timeout: 7000 });
         console.log(`✅ Encontrado selector alternativo: ${selector}`);
         found = true;
         break;
@@ -62,8 +73,11 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     }
     
     if (!found) {
-      console.error(`❌ Ningún selector funcionó para ${tiktokId}, tomando screenshot para debug`);
+      console.error(`❌ Ningún selector funcionó para ${tiktokId}, tomando screenshot y guardando HTML para debug`);
       await page.screenshot({ path: `debug-${tiktokId}.png` });
+      const html = await page.content();
+      const fs = require('fs');
+      fs.writeFileSync(`debug-${tiktokId}.html`, html);
       await browser.close();
       throw new Error(`No se pudieron encontrar los elementos de TikTok para ${tiktokId}`);
     }

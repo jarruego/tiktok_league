@@ -11,7 +11,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "npx puppeteer browsers install chrome && node dist/src/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -20,9 +20,12 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit push",
-    "db:seed": "ts-node src/database/seed.ts"
+    "db:seed": "ts-node src/database/seed.ts",
+    "postinstall": "npx puppeteer browsers install chrome",
+    "heroku-postbuild": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
+    "@nestjs/cli": "^11.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -35,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "dotenv": "^16.5.0",
+    "drizzle-kit": "^0.31.1",
     "drizzle-orm": "^0.44.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -42,12 +46,12 @@
     "puppeteer": "^24.10.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "typescript": "^5.7.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
-    "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@swc/cli": "^0.6.0",
@@ -58,7 +62,6 @@
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
-    "drizzle-kit": "^0.31.1",
     "globals": "^16.0.0",
     "jest": "^29.7.0",
     "prettier": "^3.4.2",
@@ -68,7 +71,6 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
   "jest": {

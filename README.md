@@ -1,53 +1,156 @@
-# ⚽ Foodball - Sistema de Ligas de Fútbol
+# ⚽ TikTok Football League
 
-> Sistema completo de gestión de ligas de fútbol con autenticación por roles, integración con Football-Data.org y métricas de TikTok.
+> Sistema de gestión de ligas de fútbol con organización automática de equipos basada en métricas de redes sociales.
 
-## 🚀 Características Principales
+## 🚀 Características
 
-- **Sistema de Ligas Inteligente**: Organización automática de equipos por divisiones basada en popularidad de TikTok
-- **Autenticación por Roles**: Admin, Moderador y Usuario con permisos granulares
-- **Integración Football-Data**: Sincronización completa de equipos, jugadores y entrenadores
-- **UI Reactiva**: Interfaz moderna con Ant Design y actualizaciones automáticas
-- **Backend Robusto**: API REST con NestJS, PostgreSQL y sistema de caché
+- **Sistema de Ligas Inteligente**: Organización automática por divisiones
+- **Autenticación por Roles**: Admin, Moderador, Usuario
+- **Integración Football-Data**: Equipos, jugadores y entrenadores reales
+- **UI Moderna**: React + TypeScript + Ant Design
+- **API REST**: NestJS + PostgreSQL
 
 ## 🏗️ Arquitectura
 
 ```
-foodball/
-├── client/          # Frontend React + TypeScript + Vite
+├── client/          # Frontend (React + Vite)
 │   ├── src/
-│   │   ├── api/             # Servicios de API
-│   │   ├── components/      # Componentes React
-│   │   ├── context/         # Contextos React (Auth)
-│   │   ├── hooks/           # Hooks personalizados
-│   │   ├── pages/           # Páginas principales
-│   │   └── types/           # Tipos TypeScript
-│   └── ...
-├── server/          # Backend NestJS + PostgreSQL
-│   ├── src/
-│   │   ├── auth/            # Autenticación JWT
-│   │   ├── database/        # Schema y configuración DB
-│   │   ├── players/         # Gestión jugadores/equipos
-│   │   ├── teams/           # Gestión equipos
-│   │   └── football-data/   # Integración Football-Data
-│   └── ...
-└── DOCUMENTATION.md # Documentación técnica detallada
+│   │   ├── api/           # Servicios HTTP
+│   │   ├── components/    # Componentes React
+│   │   ├── context/       # Contextos (Auth)
+│   │   ├── pages/         # Páginas principales
+│   │   └── types/         # Tipos TypeScript
+└── server/          # Backend (NestJS + PostgreSQL)
+    ├── src/
+    │   ├── auth/          # JWT + Roles
+    │   ├── database/      # Schema DB
+    │   ├── teams/         # Gestión equipos
+    │   └── players/       # Gestión jugadores
 ```
 
-## 🛠️ Tecnologías
+## 🛠️ Stack Tecnológico
 
 ### Frontend
-- **React 18** + **TypeScript**
-- **Vite** - Build tool ultrarrápido
-- **Ant Design** - Biblioteca de componentes UI
-- **React Router** - Navegación
-- **Axios** - Cliente HTTP
+- React 18 + TypeScript + Vite
+- Ant Design + React Router
+- Axios para HTTP
 
-### Backend  
-- **NestJS** - Framework Node.js
-- **PostgreSQL** - Base de datos
-- **Drizzle ORM** - Object-Relational Mapping
-- **JWT** - Autenticación
+### Backend
+- NestJS + PostgreSQL
+- Drizzle ORM + JWT Auth
+- Football-Data.org API
+
+## 🚀 Inicio Rápido
+
+### Prerrequisitos
+- Node.js 18+
+- PostgreSQL 14+
+- npm/yarn
+
+### Instalación
+
+1. **Clonar repositorio**
+```bash
+git clone https://github.com/tu-usuario/tiktok-football-league.git
+cd tiktok-football-league
+```
+
+2. **Configurar Backend**
+```bash
+cd server
+npm install
+cp .env.example .env
+# Configurar variables en .env
+npm run db:migrate
+npm run start:dev
+```
+
+3. **Configurar Frontend**
+```bash
+cd client
+npm install
+cp .env.example .env
+# Configurar variables en .env
+npm run dev
+```
+
+### Variables de Entorno
+
+**Backend (.env)**
+```env
+DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
+JWT_SECRET=your-jwt-secret-here
+FOOTBALL_DATA_API_KEY=your-api-key (opcional)
+```
+
+**Frontend (.env)**
+```env
+VITE_API_BASE_URL=http://localhost:3000
+VITE_APP_TITLE=TikTok Football League
+```
+
+## 👥 Usuarios por Defecto
+
+- **admin/admin123** - Administrador
+- **moderador/mod123** - Moderador  
+- **usuario/user123** - Usuario
+
+## 📱 Funcionalidades Principales
+
+### Sistema de Ligas
+- Creación automática de divisiones
+- Asignación inteligente de equipos
+- Rankings y clasificaciones
+
+### Gestión de Equipos
+- Información completa de equipos
+- Integración con Football-Data.org
+- Métricas de redes sociales
+
+### Autenticación
+- Login/logout seguro
+- Control de acceso por roles
+- JWT tokens
+
+## 🧪 Testing
+
+```bash
+# Backend
+cd server
+npm run test
+npm run test:e2e
+
+# Frontend  
+cd client
+npm run test
+```
+
+## 📦 Despliegue
+
+El proyecto está configurado para desplegarse en:
+- **Frontend**: Vercel/Netlify
+- **Backend**: Render/Railway
+- **Base de Datos**: Neon/Supabase
+
+Ver archivos de configuración incluidos para cada plataforma.
+
+## 🤝 Contribución
+
+1. Fork del proyecto
+2. Crear rama feature (`git checkout -b feature/nueva-funcionalidad`)
+3. Commit cambios (`git commit -m 'Agregar nueva funcionalidad'`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Abrir Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
+
+## 🔗 Enlaces
+
+- [Football-Data.org](https://www.football-data.org/) - API de datos de fútbol
+- [Ant Design](https://ant.design/) - Biblioteca de componentes
+- [NestJS](https://nestjs.com/) - Framework backend
 - **Football-Data.org API** - Datos de fútbol
 
 ## ⚡ Inicio Rápido
@@ -198,3 +301,32 @@ Si encuentras algún problema:
 - ✅ **UI moderna** - Ant Design + TypeScript
 - ✅ **Backend robusto** - NestJS + PostgreSQL
 - ✅ **Permisos granulares** - Control de acceso por roles
+
+## 🚀 Despliegue en Producción
+
+### Arquitectura Recomendada
+- **Frontend**: Vercel (React + Vite)
+- **Backend**: Render/Railway (NestJS + Node.js)  
+- **Base de Datos**: Neon (PostgreSQL)
+
+### Generar JWT Secret
+```bash
+# Comando directo para generar JWT secret
+openssl rand -base64 32
+
+# O en Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+### Comandos de Build
+```bash
+# Backend
+cd server && npm run build
+
+# Frontend  
+cd client && npm run build
+
+# Desarrollo
+cd server && npm run start:dev
+cd client && npm run dev
+```

@@ -1,0 +1,21 @@
+{
+  "name": "foodball",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de ligas de fútbol con autenticación por roles",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build", 
+    "build": "npm run build:server && npm run build:client",
+    "start:server": "cd server && npm run start:prod",
+    "start:client": "cd client && npm run preview",
+    "dev:server": "cd server && npm run start:dev",
+    "dev:client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "clean": "cd server && rm -rf dist && cd ../client && rm -rf dist"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}
