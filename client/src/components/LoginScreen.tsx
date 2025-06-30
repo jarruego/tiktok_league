@@ -29,7 +29,7 @@ export const LoginScreen: React.FC = () => {
 
   const handleTikTokLogin = () => {
     const client_id = import.meta.env.VITE_TIKTOK_CLIENT_ID || '';
-    const redirect_uri = encodeURIComponent(window.location.origin + '/callback');
+    const redirect_uri = encodeURIComponent(window.location.origin + '/tiktok-callback');
     const scope = 'user.info.basic';
     const state = Math.random().toString(36).substring(2, 15); // CSRF protection
     const authUrl =
