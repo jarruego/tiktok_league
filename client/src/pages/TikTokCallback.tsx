@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 // Esta página recoge el code de TikTok y lo envía al backend para intercambiarlo por un token
 const TikTokCallback: React.FC = () => {
   const navigate = useNavigate();
@@ -19,8 +21,7 @@ const TikTokCallback: React.FC = () => {
 
     if (code) {
       // Aquí deberías enviar el code a tu backend para intercambiarlo por un token
-      // Por ejemplo:
-      fetch('/api/auth/tiktok', {
+      fetch(`${API_BASE_URL}/api/auth/tiktok`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
