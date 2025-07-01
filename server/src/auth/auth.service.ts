@@ -47,7 +47,7 @@ export class AuthService {
 
     try {
       // 1. Intercambiar code por access_token
-      const tokenRes = await axios.post('https://open.tiktokapis.com/v2/oauth/token', {
+      const tokenRes = await axios.post('https://open.tiktokapis.com/oauth/access_token', {
         client_key,
         client_secret,
         code,
