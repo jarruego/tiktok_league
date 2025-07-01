@@ -15,7 +15,7 @@ export default function App() {
         <Route path="/team/:id" element={<AuthGuard><TeamDetail /></AuthGuard>} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/callback" element={<TikTokCallback />} />
+        <Route path="/tiktok-callback" element={<TikTokCallback />} />
       </Routes>
     </AuthProvider>
   );
