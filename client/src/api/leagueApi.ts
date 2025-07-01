@@ -10,7 +10,7 @@ export const leagueApi = {
     hasAssignments: boolean;
     message: string;
   }> {
-    const response = await fetch(`${API_BASE_URL}/league-system/status`);
+    const response = await fetch(`${API_BASE_URL}/api/league-system/status`);
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
@@ -23,7 +23,7 @@ export const leagueApi = {
     hasAssignments: boolean;
     message: string;
   }> {
-    const response = await fetch(`${API_BASE_URL}/league-system/assignments/${seasonId}/status`);
+    const response = await fetch(`${API_BASE_URL}/api/league-system/assignments/${seasonId}/status`);
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
@@ -31,7 +31,7 @@ export const leagueApi = {
   },
   // Obtener estructura de divisiones y ligas
   async getDivisionStructure(): Promise<Division[]> {
-    const response = await fetch(`${API_BASE_URL}/league-system/structure`);
+    const response = await fetch(`${API_BASE_URL}/api/league-system/structure`);
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
@@ -40,7 +40,7 @@ export const leagueApi = {
 
   // Obtener temporada activa
   async getActiveSeason(): Promise<Season> {
-    const response = await fetch(`${API_BASE_URL}/league-system/seasons/active`);
+    const response = await fetch(`${API_BASE_URL}/api/league-system/seasons/active`);
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
@@ -49,7 +49,7 @@ export const leagueApi = {
 
   // Obtener todas las temporadas
   async getAllSeasons(): Promise<Season[]> {
-    const response = await fetch(`${API_BASE_URL}/league-system/seasons`);
+    const response = await fetch(`${API_BASE_URL}/api/league-system/seasons`);
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
@@ -58,7 +58,7 @@ export const leagueApi = {
 
   // Obtener equipos de una liga específica
   async getTeamsInLeague(leagueId: number, seasonId: number): Promise<TeamInLeague[]> {
-    const response = await fetch(`${API_BASE_URL}/league-system/leagues/${leagueId}/teams/${seasonId}`);
+    const response = await fetch(`${API_BASE_URL}/api/league-system/leagues/${leagueId}/teams/${seasonId}`);
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
@@ -71,7 +71,7 @@ export const leagueApi = {
     isNewSystem: boolean;
     existingAssignments?: number;
   }> {
-    const response = await fetch(`${API_BASE_URL}/league-system/initialize`, {
+    const response = await fetch(`${API_BASE_URL}/api/league-system/initialize`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
     });
@@ -86,7 +86,7 @@ export const leagueApi = {
     message: string;
     warning: string;
   }> {
-    const response = await fetch(`${API_BASE_URL}/league-system/reset`, {
+    const response = await fetch(`${API_BASE_URL}/api/league-system/reset`, {
       method: 'DELETE',
       headers: authService.getAuthHeaders(),
     });
@@ -104,7 +104,7 @@ export const leagueApi = {
     startDate?: string;
     endDate?: string;
   }): Promise<Season> {
-    const response = await fetch(`${API_BASE_URL}/league-system/seasons`, {
+    const response = await fetch(`${API_BASE_URL}/api/league-system/seasons`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify(seasonData),
@@ -123,7 +123,7 @@ export const leagueApi = {
     totalTeams: number;
     wasAlreadyAssigned: boolean;
   }> {
-    const response = await fetch(`${API_BASE_URL}/league-system/assign-teams/${seasonId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/league-system/assign-teams/${seasonId}`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
     });
