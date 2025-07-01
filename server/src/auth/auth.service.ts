@@ -53,6 +53,9 @@ export class AuthService {
       headers: { 'Content-Type': 'application/json' }
     });
 
+    // Log para depuración: respuesta completa de TikTok
+    console.log('TikTok token response:', tokenRes.data);
+
     if (!tokenRes.data || !tokenRes.data.data || !tokenRes.data.data.access_token) {
       throw new UnauthorizedException('No se pudo obtener el access_token de TikTok');
     }
