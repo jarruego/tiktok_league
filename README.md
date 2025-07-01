@@ -1,4 +1,4 @@
-# ⚽ TikTok Football League
+# ⚽ TikTok Football League.
 
 > Sistema de gestión de ligas de fútbol con organización automática de equipos basada en métricas de redes sociales.
 
