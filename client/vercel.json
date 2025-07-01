@@ -11,6 +11,10 @@
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "https://foodball-backend.onrender.com/api/$1"
+    },
+    {
       "src": "/assets/(.*)",
       "headers": {
         "cache-control": "max-age=31536000, immutable"
