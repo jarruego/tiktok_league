@@ -42,12 +42,18 @@ export class AuthService {
     const client_secret = this.configService.get<string>('TIKTOK_CLIENT_SECRET');
     const redirect_uri = this.configService.get<string>('TIKTOK_REDIRECT_URI');
 
+    // Detectar entorno sandbox para mostrar mensaje amigable
+    const isSandbox = process.env.TIKTOK_CLIENT_KEY?.includes('sbawp') || process.env.NODE_ENV !== 'production';
+
+    // Usar el endpoint oficial de TikTok para producción y sandbox
+    const tokenEndpoint = 'https://open.tiktokapis.com/v2/oauth/token';
+
     // Log de variables de entorno
-    console.log('TikTok env:', { client_key, client_secret, redirect_uri, code });
+    console.log('TikTok env:', { client_key, client_secret, redirect_uri, code, isSandbox });
 
     try {
       // 1. Intercambiar code por access_token
-      const tokenRes = await axios.post('https://open.tiktokapis.com/oauth/access_token', {
+      const tokenRes = await axios.post(tokenEndpoint, {
         client_key,
         client_secret,
         code,
@@ -61,6 +67,10 @@ export class AuthService {
       console.log('TikTok token response:', tokenRes.data);
 
       if (!tokenRes.data || !tokenRes.data.data || !tokenRes.data.data.access_token) {
+        if (isSandbox) {
+          // Mensaje especial para sandbox
+          throw new UnauthorizedException('TikTok Sandbox: El flujo de login no puede completarse en modo Sandbox. El código y la integración son correctos, pero TikTok solo permite el flujo completo en producción.');
+        }
         throw new UnauthorizedException('No se pudo obtener el access_token de TikTok');
       }
       const access_token = tokenRes.data.data.access_token;
@@ -84,6 +94,11 @@ export class AuthService {
       // 4. Generar JWT y devolver
       return this.login(user);
     } catch (err) {
+      // Mostrar mensaje especial en sandbox
+      if (isSandbox) {
+        console.error('TikTok Sandbox error:', err?.response?.data || err);
+        throw new UnauthorizedException('TikTok Sandbox: El flujo de login no puede completarse en modo Sandbox. El código y la integración son correctos, pero TikTok solo permite el flujo completo en producción.');
+      }
       console.error('Error en loginWithTikTok:', err?.response?.data || err);
       throw new UnauthorizedException('Error en login con TikTok');
     }
