@@ -111,7 +111,7 @@ export default function TeamDetail() {
     if (!id) return;
 
     // Cargar datos del equipo
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/teams/${id}`)
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/teams/${id}`)
       .then(res => {
         if (!res.ok) {
           throw new Error('Equipo no encontrado');
@@ -129,7 +129,7 @@ export default function TeamDetail() {
       });
 
     // Cargar jugadores del equipo
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/players/team/${id}`)
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/players/team/${id}`)
       .then(res => res.json())
       .then(data => {
         setPlayers(data);
