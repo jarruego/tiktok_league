@@ -17,6 +17,8 @@ interface League {
   teams: Team[];
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+
 export default function LeaguesPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +30,7 @@ export default function LeaguesPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await axios.get('/api/football-data/cache/leagues-with-teams', {
+        const res = await axios.get(`${API_BASE_URL}/api/football-data/cache/leagues-with-teams`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         setLeagues(res.data.leagues || []);
