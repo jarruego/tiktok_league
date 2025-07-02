@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Alert, Typography, Card, Divider, Layout } from 'antd';
+import { Form, Input, Button, Alert, Card, Divider, Layout } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
-import AppLogo from './AppLogo';
 
-const { Title, Text } = Typography;
 const { Content } = Layout;
 
 export const LoginScreen: React.FC = () => {
@@ -62,16 +60,6 @@ export const LoginScreen: React.FC = () => {
             overflow: 'auto'
           }}
         >
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <AppLogo size={48} />
-            <Title level={2} style={{ margin: 0, color: '#1890ff', display: 'inline-block', marginLeft: 8, verticalAlign: 'middle' }}>
-              Social League
-            </Title>
-            <Text type="secondary">
-              Sistema de gestión de ligas de fútbol
-            </Text>
-          </div>
-
           <Form
             form={form}
             layout="vertical"

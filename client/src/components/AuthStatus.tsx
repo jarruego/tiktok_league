@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button, Dropdown, Avatar, Typography, Space, Tag } from 'antd';
-import { UserOutlined, LogoutOutlined, LoginOutlined, CrownOutlined, SafetyOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, CrownOutlined, SafetyOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
-import { LoginModal } from './LoginModal';
+import { Link } from 'react-router-dom';
 
 const { Text } = Typography;
 
@@ -13,17 +13,8 @@ interface AuthStatusProps {
 }
 
 export const AuthStatus: React.FC<AuthStatusProps> = ({ style, size = 'middle' }) => {
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const auth = useAuth();
   const permissions = usePermissions();
-
-  const handleLogin = () => {
-    setShowLoginModal(true);
-  };
-
-  const handleLoginSuccess = () => {
-    setShowLoginModal(false);
-  };
 
   const handleLogout = () => {
     auth.logout();
@@ -34,6 +25,10 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ style, size = 'middle' }
     if (permissions.isModerator) return <SafetyOutlined />;
     return <UserOutlined />;
   };
+
+  if (!permissions.isAuthenticated) {
+    return null;
+  }
 
   const dropdownItems = [
     {
@@ -64,6 +59,17 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ style, size = 'middle' }
       type: 'divider' as const,
     },
     {
+      key: 'account',
+      label: (
+        <Link to="/account" style={{ fontWeight: 500, color: '#222' }}>
+          Mi cuenta
+        </Link>
+      ),
+    },
+    {
+      type: 'divider' as const,
+    },
+    {
       key: 'logout',
       label: (
         <Space>
@@ -74,28 +80,6 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ style, size = 'middle' }
       onClick: handleLogout,
     },
   ];
-
-  if (!permissions.isAuthenticated) {
-    return (
-      <>
-        <Button
-          type="default"
-          icon={<LoginOutlined />}
-          onClick={handleLogin}
-          size={size}
-          style={style}
-        >
-          Iniciar Sesión
-        </Button>
-        
-        <LoginModal
-          isOpen={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          onLogin={handleLoginSuccess}
-        />
-      </>
-    );
-  }
 
   return (
     <Dropdown

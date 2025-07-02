@@ -4,6 +4,7 @@ import { Card, Button, Descriptions, Avatar, Spin, message, Table } from 'antd';
 import { ArrowLeftOutlined, TikTokOutlined, GlobalOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { formatNumber, formatFecha, calculateAge } from '../utils/formatters';
+import { LayoutContainer } from '../components/LayoutContainer';
 
 interface Team {
   id: number;
@@ -162,7 +163,7 @@ export default function TeamDetail() {
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <LayoutContainer>
       <Button 
         icon={<ArrowLeftOutlined />} 
         onClick={() => navigate('/')}
@@ -234,7 +235,7 @@ export default function TeamDetail() {
         </div>
       </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
         {/* Información de TikTok */}
         <Card title="Información de TikTok" size="small">
           <Descriptions column={1} size="small">
@@ -314,18 +315,20 @@ export default function TeamDetail() {
         style={{ marginTop: '24px' }}
         size="small"
       >
-        <Table
-          columns={playersColumns}
-          dataSource={players.map(player => ({ ...player, key: player.id }))}
-          loading={playersLoading}
-          pagination={false}
-          scroll={{ x: 600 }}
-          size="small"
-          locale={{
-            emptyText: 'No hay jugadores registrados para este equipo'
-          }}
-        />
+        <div style={{ width: '100%', overflowX: 'auto' }}>
+          <Table
+            columns={playersColumns}
+            dataSource={players.map(player => ({ ...player, key: player.id }))}
+            loading={playersLoading}
+            pagination={false}
+            scroll={{ x: '100%' }}
+            size="small"
+            locale={{
+              emptyText: 'No hay jugadores registrados para este equipo'
+            }}
+          />
+        </div>
       </Card>
-    </div>
+    </LayoutContainer>
   );
 }

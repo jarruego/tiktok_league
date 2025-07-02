@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LayoutContainer } from '../components/LayoutContainer';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -39,16 +40,21 @@ const TikTokCallback: React.FC = () => {
           }
         })
         .catch(() => {
-          alert('Error de red en el login con TikTok');
+          alert('Error al conectar con el backend');
           navigate('/');
         });
-    } else {
-      alert('No se recibió código de TikTok');
-      navigate('/');
     }
   }, [navigate]);
 
-  return <div>Procesando login con TikTok...</div>;
+  return (
+    <LayoutContainer>
+      <div style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
+        <h2 style={{ textAlign: 'center', marginTop: 60 }}>
+          Procesando inicio de sesión con TikTok...
+        </h2>
+      </div>
+    </LayoutContainer>
+  );
 };
 
 export default TikTokCallback;
