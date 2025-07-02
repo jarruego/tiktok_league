@@ -11,8 +11,8 @@
   ],
   "routes": [
     {
-      "src": "/tiktok-developers-site-verification.txt",
-      "dest": "/tiktok-developers-site-verification.txt"
+      "src": "/tiktokUxeNS6CjZ6htEXe9q3xSjor0TOWYTHYr.txt",
+      "dest": "/tiktokUxeNS6CjZ6htEXe9q3xSjor0TOWYTHYr.txt"
     },
     {
       "src": "/api/(.*)",
