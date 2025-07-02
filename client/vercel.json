@@ -11,6 +11,10 @@
   ],
   "routes": [
     {
+      "src": "/tiktok-developers-site-verification.txt",
+      "dest": "/tiktok-developers-site-verification.txt"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "https://foodball-backend.onrender.com/api/$1"
     },
