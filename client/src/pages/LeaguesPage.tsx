@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 interface Team {
   footballId: number;
@@ -20,13 +21,16 @@ export default function LeaguesPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { token } = useAuth();
 
   useEffect(() => {
     const fetchLeagues = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await axios.get('/football-data/cache/leagues-with-teams');
+        const res = await axios.get('/api/football-data/cache/leagues-with-teams', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         setLeagues(res.data.leagues || []);
       } catch (err: any) {
         setError('Error cargando las ligas');
@@ -35,7 +39,7 @@ export default function LeaguesPage() {
       }
     };
     fetchLeagues();
-  }, []);
+  }, [token]);
 
   if (loading) return <div>Cargando ligas...</div>;
   if (error) return <div style={{color:'red'}}>{error}</div>;
