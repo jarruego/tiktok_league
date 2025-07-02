@@ -49,8 +49,9 @@ export default function LeaguesPage() {
       <h1>Ligas y equipos (cache football-data)</h1>
       {leagues.map(league => (
         <div key={league.competitionId} style={{marginBottom:'2rem', border:'1px solid #eee', borderRadius:8, padding:'1rem'}}>
-          <h2>{league.competitionName} <span style={{color:'#888'}}>({league.competitionCode})</span></h2>
-          <div>Temporada: {league.season}</div>
+          <h2>{league.competitionName}</h2>
+          <div>ID Competición: {league.competitionId}</div>
+          <div>Id Temporada: {league.season}</div>
           <div>Equipos: {league.teams.length}</div>
           <table style={{width:'100%', marginTop:'1rem', borderCollapse:'collapse'}}>
             <thead>
