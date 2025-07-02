@@ -8,7 +8,7 @@ import TikTokCallback from './pages/TikTokCallback';
 import AccountPage from './pages/AccountPage';
 import MainHeader from './components/MainHeader';
 import WelcomePage from './pages/WelcomePage';
-// import HomePage from './pages/HomePage';
+import HomePage from './pages/HomePage';
 
 export default function App() {
   return (
@@ -20,8 +20,8 @@ export default function App() {
         <MainHeader />
         <main style={{ flex: 1 }}>
           <Routes>
-            <Route path="/" element={<WelcomePage />} />
-            {/* <Route path="/" element={<AuthGuard><HomePage /></AuthGuard>} /> */}
+            <Route path="/" element={<AuthGuard><HomePage /></AuthGuard>} />
+            <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/team/:id" element={<AuthGuard><TeamDetail /></AuthGuard>} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
