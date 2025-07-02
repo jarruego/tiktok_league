@@ -45,15 +45,6 @@ export class AuthService {
     // Detectar entorno sandbox para mostrar mensaje amigable
     const isSandbox = process.env.TIKTOK_CLIENT_KEY?.includes('sbawp') || process.env.NODE_ENV !== 'production';
 
-    if (isSandbox) {
-      // Simulación temporal para sandbox: usuario fijo de prueba
-      let user = await this.usersService.findByUsername('sandbox_tiktok_user');
-      if (!user) {
-        user = await this.usersService.createFromTikTok({ username: 'sandbox_tiktok_user' });
-      }
-      return this.login(user);
-    }
-
     // Usar el endpoint oficial de TikTok para producción y sandbox
     const tokenEndpoint = 'https://open.tiktokapis.com/v2/oauth/token';
 
