@@ -5,6 +5,7 @@ import { ArrowLeftOutlined, TikTokOutlined, GlobalOutlined } from '@ant-design/i
 import type { ColumnsType } from 'antd/es/table';
 import { formatNumber, formatFecha, calculateAge } from '../utils/formatters';
 import { LayoutContainer } from '../components/LayoutContainer';
+import { AdminGuard } from '../components/AdminGuard';
 
 interface Team {
   id: number;
@@ -290,23 +291,25 @@ export default function TeamDetail() {
         )}
 
         {/* Información del Sistema */}
-        <Card title="Información del Sistema" size="small">
-          <Descriptions column={1} size="small">
-            <Descriptions.Item label="ID del equipo">{team.id}</Descriptions.Item>
-            {team.footballDataId && (
-              <Descriptions.Item label="ID Football-Data">{team.footballDataId}</Descriptions.Item>
-            )}
-            {team.competitionId && (
-              <Descriptions.Item label="ID Competición">{team.competitionId}</Descriptions.Item>
-            )}
-            <Descriptions.Item label="Creado">
-              {formatFecha(team.createdAt)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Actualizado">
-              {formatFecha(team.updatedAt)}
-            </Descriptions.Item>
-          </Descriptions>
-        </Card>
+        <AdminGuard>
+          <Card title="Información del Sistema" size="small">
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="ID del equipo">{team.id}</Descriptions.Item>
+              {team.footballDataId && (
+                <Descriptions.Item label="ID Football-Data">{team.footballDataId}</Descriptions.Item>
+              )}
+              {team.competitionId && (
+                <Descriptions.Item label="ID Competición">{team.competitionId}</Descriptions.Item>
+              )}
+              <Descriptions.Item label="Creado">
+                {formatFecha(team.createdAt)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Actualizado">
+                {formatFecha(team.updatedAt)}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </AdminGuard>
       </div>
 
       {/* Sección de Jugadores */}
