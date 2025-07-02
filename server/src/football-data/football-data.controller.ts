@@ -70,6 +70,41 @@ export class FootballDataController {
     return this.footballDataCacheService.getMainCompetitions();
   }
 
+  // Endpoint: Listar todas las ligas y equipos (con sus ids)
+  @UseGuards(JwtAuthGuard)
+  @Get('cache/leagues-with-teams')
+  async getLeaguesWithTeams() {
+    // 1. Obtener todas las ligas cacheadas
+    const cached = await this.footballDataCacheService.listCachedCompetitions();
+    const competitions = cached.competitions || [];
+
+    // 2. Para cada liga, obtener los equipos desde el cache detallado
+    const result: any[] = [];
+    for (const comp of competitions) {
+      try {
+        const detail = await this.footballDataCacheService.getCachedCompetition(comp.competitionId);
+        const raw = detail.competition;
+        result.push({
+          competitionId: comp.competitionId,
+          competitionName: comp.competitionName,
+          competitionCode: comp.competitionCode,
+          season: comp.season,
+          teams: Array.isArray(raw.teams)
+            ? raw.teams.map(team => ({
+                footballId: team.id,
+                name: team.name,
+                shortName: team.shortName,
+                crest: team.crest,
+              }))
+            : [],
+        });
+      } catch (e) {
+        // Si falla una liga, la saltamos
+      }
+    }
+    return { total: result.length, leagues: result };
+  }
+
   // === CRON & MANTENIMIENTO ===
   
   // Forzar actualización del cache (útil para testing o actualizaciones manuales)

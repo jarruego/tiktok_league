@@ -1,4 +1,5 @@
 import { Card, Typography, Tag, Divider, Button } from 'antd';
+import { Link } from 'react-router-dom';
 import { LayoutContainer } from '../components/LayoutContainer';
 import { useAccountPageLogic } from '../hooks/useAccountPageLogic';
 
@@ -90,6 +91,11 @@ export default function AccountPage() {
                 <Button type="dashed" loading={caching} onClick={handleCacheAllCompetitions}>
                   Poblar Caché de Competiciones
                 </Button>
+                <Link to="/leagues">
+                  <Button type="default" style={{ width: '100%' }}>
+                    Ver Ligas y Equipos (cache football-data)
+                  </Button>
+                </Link>
               </div>
             </>
           )}
