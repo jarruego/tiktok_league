@@ -29,9 +29,12 @@ const TikTokCallback: React.FC = () => {
       })
         .then(res => res.json())
         .then(data => {
-          if (data.success) {
-            // Guardar token, redirigir, etc.
-            // Por ejemplo, guardar en localStorage y navegar
+          // Ajuste para aceptar la respuesta del backend (access_token y user)
+          if (data.access_token && data.user) {
+            localStorage.setItem('token', data.access_token);
+            navigate('/');
+          } else if (data.success && data.token) {
+            // Compatibilidad con respuesta antigua
             localStorage.setItem('token', data.token);
             navigate('/');
           } else {
