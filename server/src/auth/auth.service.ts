@@ -52,7 +52,13 @@ export class AuthService {
         user = await this.usersService.createFromTikTok({ username: 'sandbox_tiktok_user' });
       }
       user.role = 'user'; // Forzar rol en memoria para la simulación
-      return this.login(user);
+      const jwt = this.jwtService.sign({ username: user.username, sub: user.id, role: user.role });
+      return {
+        access_token: jwt,
+        token: jwt,
+        user,
+        success: true
+      };
     }
 
     // Usar el endpoint oficial de TikTok para producción y sandbox
