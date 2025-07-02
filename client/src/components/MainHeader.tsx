@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import AppLogo from './AppLogo';
 import { AuthStatus } from './AuthStatus';
 import { LayoutMaxWidth } from './LayoutContainer';
 
@@ -12,7 +11,7 @@ export default function MainHeader() {
       <LayoutMaxWidth>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <AppLogo size={36} />
+            <span style={{ fontSize: 32, lineHeight: 1 }} role="img" aria-label="balón de fútbol">⚽️</span>
             <Link to="/" style={{ fontWeight: 700, fontSize: 22, color: '#222', textDecoration: 'none' }}>
               Soccer Legends
             </Link>
