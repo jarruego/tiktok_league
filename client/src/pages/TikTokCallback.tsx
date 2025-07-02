@@ -29,13 +29,18 @@ const TikTokCallback: React.FC = () => {
       })
         .then(res => res.json())
         .then(data => {
-          // Ajuste para aceptar la respuesta del backend (access_token y user)
+          // Ajuste: guardar token y usuario en localStorage para AuthService
           if (data.access_token && data.user) {
-            localStorage.setItem('token', data.access_token);
+            localStorage.setItem('auth_token', data.access_token);
+            localStorage.setItem('auth_user', JSON.stringify(data.user));
+            navigate('/');
+          } else if (data.success && data.token && data.user) {
+            localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('auth_user', JSON.stringify(data.user));
             navigate('/');
           } else if (data.success && data.token) {
             // Compatibilidad con respuesta antigua
-            localStorage.setItem('token', data.token);
+            localStorage.setItem('auth_token', data.token);
             navigate('/');
           } else {
             alert('No se pudo iniciar sesión con TikTok');
