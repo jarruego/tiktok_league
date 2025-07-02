@@ -11,7 +11,7 @@ const WelcomePage: React.FC = () => {
           Has accedido correctamente.<br />
           ¡Disfruta de la experiencia y explora todas las funcionalidades de la app!
         </p>
-        <Button type="primary" size="large" disabled style={{ fontSize: 18 }}>
+        <Button type="primary" size="large" style={{ fontSize: 18 }}>
           Continuar
         </Button>
       </div>
