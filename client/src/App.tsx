@@ -8,7 +8,7 @@ import TikTokCallback from './pages/TikTokCallback';
 import AccountPage from './pages/AccountPage';
 import MainHeader from './components/MainHeader';
 import WelcomePage from './pages/WelcomePage';
-import HomePage from './pages/HomePage';
+// import HomePage from './pages/HomePage';
 
 export default function App() {
   return (
