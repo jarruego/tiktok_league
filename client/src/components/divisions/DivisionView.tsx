@@ -291,7 +291,7 @@ export default function DivisionView() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px', width: '100%' }}>
         <Spin size="large" />
       </div>
     );
@@ -299,13 +299,13 @@ export default function DivisionView() {
 
   if (!systemInitialized) {
     return (
-      <div style={{ padding: '20px' }}>
+      <div style={{ width: '100%' }}>
         <div style={{ textAlign: 'center' }}>
           <Alert
             message="Sistema de Ligas no Inicializado"
             description="El sistema de ligas aún no ha sido configurado. Solicita a un administrador que lo inicialice desde su cuenta."
             type="info"
-            style={{ marginBottom: '20px' }}
+            style={{ marginBottom: 0 }}
           />
         </div>
       </div>
@@ -314,11 +314,12 @@ export default function DivisionView() {
 
   if (!season) {
     return (
-      <div style={{ padding: '20px' }}>
+      <div style={{ width: '100%' }}>
         <Alert
           message="No hay temporada activa"
           description="No se encontró una temporada activa en el sistema."
           type="warning"
+          style={{ marginBottom: 0 }}
         />
       </div>
     );
@@ -328,12 +329,12 @@ export default function DivisionView() {
 
   return (
     <LayoutContainer>
-      <div style={{ padding: '20px' }}>
+      <div style={{ width: '100%' }}>
         {/* Card principal: selector y cabecera informativa de la liga */}
         {selectedLeagueData && (
           <Card
             title={
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, width: '100%' }}>
                 <span style={{ fontWeight: 500, fontSize: 18 }}>{selectedLeagueData.name}</span>
                 {selectedDivision && (
                   <Tag color="blue">{teams.length} / {selectedDivision.teamsPerLeague} equipos</Tag>
@@ -356,9 +357,10 @@ export default function DivisionView() {
                 )}
               </div>
             }
-            style={{ marginBottom: '24px' }}
+            style={{ marginBottom: 0, width: '100%' }}
+            bodyStyle={{ padding: 0, width: '100%' }}
           >
-            <div className="division-controls" style={{ marginBottom: 16, flexWrap: 'wrap', gap: 16, display: 'flex', alignItems: 'center' }}>
+            <div className="division-controls" style={{ flexWrap: 'wrap', gap: 16, display: 'flex', alignItems: 'center', width: '100%' }}>
               <div>
                 <Text strong style={{ marginRight: '8px' }}>División:</Text>
                 <Select
@@ -397,7 +399,7 @@ export default function DivisionView() {
 
         {/* Tabla de equipos */}
         {selectedLeagueData && (
-          <Card>
+          <Card style={{ marginTop: 0, width: '100%' }} bodyStyle={{ padding: 0, width: '100%' }}>
             <Table
               columns={createColumns(selectedDivision, navigate)}
               dataSource={teams}
@@ -405,7 +407,8 @@ export default function DivisionView() {
               loading={teamsLoading}
               pagination={false}
               size="middle"
-              scroll={{ x: 800 }}
+              scroll={{ x: '100%' }}
+              style={{ width: '100%' }}
               rowClassName={(record: ExtendedTeamInLeague) => {
                 if (!selectedDivision || !record.position) return '';
                 const status = getTeamStatus(record.position, selectedDivision, teams.length);
@@ -430,6 +433,7 @@ export default function DivisionView() {
             message="Selecciona una liga"
             description="Selecciona una liga para ver los equipos asignados."
             type="info"
+            style={{ marginTop: 0, marginBottom: 0 }}
           />
         )}
       </div>
