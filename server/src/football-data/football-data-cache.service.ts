@@ -192,10 +192,10 @@ export class FootballDataCacheService {
 
   // === CRON JOBS ===
 
-  // Ejecutar cache automático diariamente a las 3:00 AM
-  @Cron('0 3 * * *') // Cada día a las 3:00 AM
+  // Ejecutar cache automático cada hora
+  @Cron('0 * * * *') // Cada hora en el minuto 0
   async dailyCacheUpdate() {
-    this.logger.log('🕒 Iniciando actualización automática diaria del cache de Football-Data...');
+    this.logger.log('🕒 Iniciando actualización automática horaria del cache de Football-Data...');
     
     try {
       const result = await this.cacheAllMainCompetitions();

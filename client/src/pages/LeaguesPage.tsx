@@ -41,6 +41,8 @@ export default function LeaguesPage() {
   const [cachedComps, setCachedComps] = useState<any[]>([]);
   const [loadingCachedComps, setLoadingCachedComps] = useState(false);
   const [cachedCompsError, setCachedCompsError] = useState<string|null>(null);
+  const [importingTeam, setImportingTeam] = useState<{[teamId:number]:boolean}>({});
+  const [importTeamResult, setImportTeamResult] = useState<{[teamId:number]:string|undefined}>({});
 
   useEffect(() => {
     const fetchLeagues = async () => {
@@ -142,6 +144,25 @@ export default function LeaguesPage() {
     if (token) fetchCachedCompetitions();
   }, [token]);
 
+  const importTeamFromCache = async (teamFootballId:number, competitionId:number) => {
+    setImportingTeam(it => ({...it, [teamFootballId]:true}));
+    setImportTeamResult(itr => ({...itr, [teamFootballId]: undefined}));
+    try {
+      await axios.post(`${API_BASE_URL}/api/players/import/from-cache`, {
+        teamId: teamFootballId, // OJO: aquí debe ir el id local, pero usamos footballId para demo
+        footballDataTeamId: teamFootballId,
+        competitionId: competitionId
+      }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      setImportTeamResult(itr => ({...itr, [teamFootballId]: 'Importación OK'}));
+    } catch (err:any) {
+      setImportTeamResult(itr => ({...itr, [teamFootballId]: 'Error'}));
+    } finally {
+      setImportingTeam(it => ({...it, [teamFootballId]:false}));
+    }
+  };
+
   if (loading) return <div>Cargando ligas...</div>;
   if (error) return <div style={{color:'red'}}>{error}</div>;
 
@@ -238,6 +259,7 @@ export default function LeaguesPage() {
                 <th style={{textAlign:'left'}}>Crest</th>
                 <th style={{textAlign:'left'}}>Jug. Caché</th>
                 <th style={{textAlign:'left'}}>Jug. Remoto</th>
+                <th style={{textAlign:'left'}}>Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -257,6 +279,13 @@ export default function LeaguesPage() {
                       <span style={{marginLeft:8}}>{remoteSquadCounts[team.footballId]}</span>
                     )}
                     {remoteError.current[team.footballId] && <span style={{color:'red',marginLeft:8}}>Error</span>}
+                  </td>
+                  <td>
+                    <button onClick={() => importTeamFromCache(team.footballId, league.competitionId)} disabled={importingTeam[team.footballId]} style={{marginTop:4}}>
+                      Importar de Cache
+                    </button>
+                    {importingTeam[team.footballId] && <span style={{marginLeft:8}}>...</span>}
+                    {importTeamResult[team.footballId] && <span style={{marginLeft:8}}>{importTeamResult[team.footballId]}</span>}
                   </td>
                 </tr>
               ))}
