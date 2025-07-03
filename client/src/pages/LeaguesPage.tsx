@@ -96,7 +96,7 @@ export default function LeaguesPage() {
     setImportingComp(ic => ({...ic, [competitionId]:true}));
     setImportResult(ir => ({...ir, [competitionId]: undefined}));
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/football-data/remote-competition/${competitionId}/import`, {}, {
+      await axios.post(`${API_BASE_URL}/api/football-data/remote-competition/${competitionId}/import`, {}, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       setImportResult(ir => ({...ir, [competitionId]: 'Importación completada'}));
