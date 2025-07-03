@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { FOOTBALL_DATA_API_URL } from '../config/football-data.config';
 import { FootballDataTeamResponseDto } from '../players/dto/football-data.dto';
 
 @Injectable()
 export class FootballDataService {
-  private readonly apiUrl = 'https://api.football-data.org/v4';
+  private readonly apiUrl = FOOTBALL_DATA_API_URL;
   private readonly apiKey: string;
 
   constructor(private configService: ConfigService) {

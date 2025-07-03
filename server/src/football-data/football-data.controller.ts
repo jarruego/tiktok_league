@@ -95,6 +95,7 @@ export class FootballDataController {
                 name: team.name,
                 shortName: team.shortName,
                 crest: team.crest,
+                playersCount: Array.isArray(team.squad) ? team.squad.length : 0,
               }))
             : [],
         });
@@ -112,5 +113,62 @@ export class FootballDataController {
   @Post('cache/force-update')
   async forceCacheUpdate() {
     return this.footballDataCacheService.forceCacheUpdate();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('remote-team/:id')
+  async getRemoteTeamSquadCount(@Param('id', ParseIntPipe) id: number) {
+    const team = await this.footballDataService.getTeam(id);
+    return {
+      footballDataId: team.id,
+      name: team.name,
+      squadCount: Array.isArray(team.squad) ? team.squad.length : 0
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('remote-competition/:id/players-count')
+  async getRemoteCompetitionPlayersCount(@Param('id', ParseIntPipe) id: number) {
+    const data = await this.footballDataService.getCompetitionTeams(id);
+    // Football-Data API v4: cada equipo trae un array squad[]
+    let total = 0;
+    if (Array.isArray(data.teams)) {
+      for (const team of data.teams) {
+        if (Array.isArray(team.squad)) total += team.squad.length;
+      }
+    }
+    return {
+      competitionId: id,
+      totalPlayers: total,
+      teams: Array.isArray(data.teams) ? data.teams.length : 0
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('remote-competition/:id/import')
+  async importRemoteCompetitionToCache(@Param('id', ParseIntPipe) id: number) {
+    // Traer datos remotos
+    const data = await this.footballDataService.getCompetitionTeams(id);
+    // Guardar en cache usando el servicio de cache
+    const result = await this.footballDataCacheService.cacheCompetition(id);
+    return {
+      message: 'Importación desde API remota completada',
+      competitionId: id,
+      cacheResult: result
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('remote-competitions')
+  async getRemoteCompetitions() {
+    // Llama al endpoint remoto de competiciones
+    const url = `${this.footballDataService["apiUrl"]}/competitions`;
+    const response = await fetch(url, { headers: this.footballDataService["getHeaders"]() });
+    if (!response.ok) throw new Error('Error al consultar competiciones remotas');
+    const data = await response.json();
+    // Devuelve solo id y nombre para cada competición
+    return Array.isArray(data.competitions)
+      ? data.competitions.map((c:any) => ({ id: c.id, name: c.name, code: c.code, area: c.area?.name }))
+      : [];
   }
 }

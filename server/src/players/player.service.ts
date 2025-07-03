@@ -294,6 +294,33 @@ export class PlayerService {
       importDto.competitionId
     );
 
+    // Si no hay jugadores en el cache, solo actualizar datos generales y NO tocar plantilla
+    if (!Array.isArray(teamData.squad) || teamData.squad.length === 0) {
+      return {
+        message: 'No se encontraron jugadores en el cache para este equipo. Solo se actualizaron los datos generales.',
+        teamInfo: {
+          name: teamData.name,
+          venue: teamData.venue,
+          founded: teamData.founded,
+          coach: teamData.coach?.name,
+          updated: true
+        },
+        teamUpdateResult: teamUpdateResult,
+        synchronization: {
+          summary: {
+            total: 0,
+            added: 0,
+            updated: 0,
+            departed: 0,
+            unchanged: 0,
+            manualPlayers: 0
+          },
+          details: {}
+        },
+        source: 'football-data.org-sync-no-squad'
+      };
+    }
+
     // 2. Convertir jugadores de Football-Data a nuestro formato con footballDataId
     const incomingPlayers = teamData.squad.map(player => ({
       teamId: importDto.teamId,
