@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import { AuthStatus } from './AuthStatus';
+import { usePermissions } from '../hooks/usePermissions';
 import { LayoutMaxWidth } from './LayoutContainer';
 
 export default function MainHeader() {
+  const { isAuthenticated, canAdministrate } = usePermissions();
+
   return (
     <header style={{
       background: '#fff', borderBottom: '1px solid #eee',
@@ -16,9 +19,48 @@ export default function MainHeader() {
               Soccer Legends
             </Link>
           </div>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-            <AuthStatus size="small" />
-          </nav>
+          
+          {isAuthenticated && (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+              <Link 
+                to="/matches" 
+                style={{ 
+                  color: '#666', 
+                  textDecoration: 'none', 
+                  fontWeight: 500,
+                  transition: 'color 0.3s'
+                }}
+                onMouseOver={(e) => (e.target as HTMLElement).style.color = '#1890ff'}
+                onMouseOut={(e) => (e.target as HTMLElement).style.color = '#666'}
+              >
+                Partidos
+              </Link>
+              
+              {canAdministrate && (
+                <Link 
+                  to="/leagues" 
+                  style={{ 
+                    color: '#666', 
+                    textDecoration: 'none', 
+                    fontWeight: 500,
+                    transition: 'color 0.3s'
+                  }}
+                  onMouseOver={(e) => (e.target as HTMLElement).style.color = '#1890ff'}
+                  onMouseOut={(e) => (e.target as HTMLElement).style.color = '#666'}
+                >
+                  Administrar
+                </Link>
+              )}
+              
+              <AuthStatus size="small" />
+            </nav>
+          )}
+          
+          {!isAuthenticated && (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+              <AuthStatus size="small" />
+            </nav>
+          )}
         </div>
       </LayoutMaxWidth>
     </header>

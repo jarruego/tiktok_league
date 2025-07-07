@@ -8,6 +8,7 @@ import TermsOfService from './pages/TermsOfService';
 import TikTokCallback from './pages/TikTokCallback';
 import AccountPage from './pages/AccountPage';
 import LeaguesPage from './pages/LeaguesPage';
+import MatchesPage from './pages/MatchesPage';
 import MainHeader from './components/MainHeader';
 import WelcomePage from './pages/WelcomePage';
 import HomePage from './pages/HomePage';
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/" element={<AuthGuard><HomePage /></AuthGuard>} />
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/team/:id" element={<AuthGuard><TeamDetail /></AuthGuard>} />
+            <Route path="/matches" element={<AuthGuard><MatchesPage /></AuthGuard>} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/tiktok-callback" element={<TikTokCallback />} />

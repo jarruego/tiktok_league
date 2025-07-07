@@ -7,6 +7,7 @@ import { divisionTable } from './tables/division.table';
 import { leagueTable } from './tables/league.table';
 import { seasonTable } from './tables/season.table';
 import { teamLeagueAssignmentTable, AssignmentReason } from './tables/team-league-assignment.table';
+import { matchTable, MatchStatus } from './tables/match.table';
 
 export { 
   teamTable, 
@@ -18,5 +19,7 @@ export {
   leagueTable,
   seasonTable,
   teamLeagueAssignmentTable,
-  AssignmentReason
+  matchTable,
+  AssignmentReason,
+  MatchStatus
 };
