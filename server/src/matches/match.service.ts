@@ -61,12 +61,12 @@ export class MatchService {
     }
 
     // 3. Verificar si ya existen partidos para esta temporada
-    const existingMatches = await db
-      .select({ count: matchTable.id })
+    const [{ count }] = await db
+      .select({ count: sql`count(*)` })
       .from(matchTable)
       .where(eq(matchTable.seasonId, generateDto.seasonId));
       
-    if (existingMatches.length > 0) {
+    if (Number(count) > 0) {
       throw new BadRequestException('Ya existen partidos generados para esta temporada');
     }
 

@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, IsDateString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsDateString, Min, Max } from 'class-validator';
 
 export class CreateMatchDto {
   @IsInt()
@@ -40,5 +40,6 @@ export class GenerateMatchesDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(30)
   daysPerMatchday?: number = 7; // Días entre jornadas (por defecto 7 días = 1 semana)
 }

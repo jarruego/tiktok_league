@@ -14,7 +14,7 @@ import {
   Col,
   Modal,
   Form,
-  Input
+  InputNumber
 } from 'antd';
 import { 
   CalendarOutlined, 
@@ -77,6 +77,7 @@ export default function MatchesPage() {
     leaguesCount: 0
   });
   const [generateModalVisible, setGenerateModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [form] = Form.useForm();
 
   const { canAdministrate } = usePermissions();
@@ -151,10 +152,23 @@ export default function MatchesPage() {
   const handleGenerateMatches = async (values: any) => {
     try {
       setGenerating(true);
+      
+      // Validar y asegurar que daysPerMatchday sea un entero válido
+      let daysPerMatchday = 7; // valor por defecto
+      if (values.daysPerMatchday !== undefined && values.daysPerMatchday !== null) {
+        const parsed = Number(values.daysPerMatchday);
+        if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 30) {
+          daysPerMatchday = parsed;
+        } else {
+          message.error('Los días entre jornadas debe ser un número entero entre 1 y 30');
+          return;
+        }
+      }
+      
       const generateData: GenerateMatchesRequest = {
         seasonId: selectedSeason!,
         startDate: values.startDate ? dayjs(values.startDate).format('YYYY-MM-DD') : undefined,
-        daysPerMatchday: values.daysPerMatchday || 7
+        daysPerMatchday
       };
       
       const result = await matchApi.generateMatches(generateData);
@@ -177,24 +191,20 @@ export default function MatchesPage() {
 
   const handleDeleteAllMatches = async () => {
     if (!selectedSeason) return;
-    
-    Modal.confirm({
-      title: '¿Eliminar todos los partidos?',
-      content: 'Esta acción eliminará todos los partidos de la temporada seleccionada. ¿Estás seguro?',
-      okText: 'Sí, eliminar',
-      okType: 'danger',
-      cancelText: 'Cancelar',
-      onOk: async () => {
-        try {
-          const result = await matchApi.deleteAllMatchesBySeason(selectedSeason);
-          message.success(`${result.deletedCount} partidos eliminados`);
-          loadMatches();
-          loadStats();
-        } catch (error: any) {
-          message.error(error.message || 'Error eliminando partidos');
-        }
-      }
-    });
+    setDeleteModalVisible(true);
+  };
+
+  const confirmDeleteAllMatches = async () => {
+    try {
+      const result = await matchApi.deleteAllMatchesBySeason(selectedSeason!);
+      message.success(`${result.deletedCount} partidos eliminados`);
+      setDeleteModalVisible(false);
+      loadMatches();
+      loadStats();
+    } catch (error: any) {
+      message.error(error.message || 'Error eliminando partidos');
+      setDeleteModalVisible(false);
+    }
   };
 
   const columns: ColumnsType<Match> = [
@@ -476,8 +486,25 @@ export default function MatchesPage() {
               name="daysPerMatchday"
               initialValue={7}
               tooltip="Número de días entre cada jornada (por defecto 7 días = 1 semana)"
+              rules={[
+                {
+                  required: true,
+                  message: 'Este campo es requerido'
+                },
+                {
+                  type: 'number',
+                  min: 1,
+                  max: 30,
+                  message: 'Debe ser un número entre 1 y 30'
+                }
+              ]}
             >
-              <Input type="number" min={1} max={30} />
+              <InputNumber 
+                min={1} 
+                max={30}
+                placeholder="7"
+                style={{ width: '100%' }}
+              />
             </Form.Item>
 
             <div style={{ textAlign: 'right' }}>
@@ -495,6 +522,20 @@ export default function MatchesPage() {
               </Space>
             </div>
           </Form>
+        </Modal>
+
+        {/* Modal para confirmar eliminación de todos los partidos */}
+        <Modal
+          title="¿Eliminar todos los partidos?"
+          open={deleteModalVisible}
+          onCancel={() => setDeleteModalVisible(false)}
+          onOk={confirmDeleteAllMatches}
+          okText="Sí, eliminar"
+          okType="danger"
+          cancelText="Cancelar"
+        >
+          <p>Esta acción eliminará todos los partidos de la temporada seleccionada. ¿Estás seguro?</p>
+          <p><strong>Total de partidos a eliminar: {stats.totalMatches}</strong></p>
         </Modal>
       </div>
     </LayoutContainer>
