@@ -112,19 +112,6 @@ VITE_APP_TITLE=TikTok Football League
 - Control de acceso por roles
 - JWT tokens
 
-## 🧪 Testing
-
-```bash
-# Backend
-cd server
-npm run test
-npm run test:e2e
-
-# Frontend  
-cd client
-npm run test
-```
-
 ## 📦 Despliegue
 
 El proyecto está configurado para desplegarse en:
