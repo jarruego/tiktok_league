@@ -3,9 +3,10 @@
 /* Layout principal */
 #root {
   background: #f5f7fa;
-  padding: 2rem;
-  margin: 0 auto;
-  display: flex;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  min-height: 100vh;
 }
 
 /* Containers principales */
@@ -13,7 +14,9 @@
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-  padding: 2rem 2.5rem 2.5rem 2.5rem;
+  padding: 1rem;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Títulos principales */
@@ -74,4 +77,20 @@
 .clickable-element:hover {
   transform: translateY(-1px);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Prevenir overflow en tablas */
+.ant-table-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.ant-table {
+  max-width: 100%;
+}
+
+/* Asegurar que los cards no causen overflow */
+.ant-card {
+  max-width: 100%;
+  box-sizing: border-box;
 }

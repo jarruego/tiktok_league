@@ -12,11 +12,28 @@
 
 body {
   margin: 0;
+  padding: 0;
   min-width: 320px;
   min-height: 100vh;
   background: #f5f7fa;
-  display: flex;
-  place-items: center;
+  width: 100%;
+}
+
+/* Prevenir scroll horizontal no deseado */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  box-sizing: border-box;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Asegurar que ningún elemento cause overflow */
+#root {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 h1 {

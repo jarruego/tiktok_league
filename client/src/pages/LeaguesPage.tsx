@@ -167,14 +167,14 @@ export default function LeaguesPage() {
   if (error) return <div style={{color:'red'}}>{error}</div>;
 
   return (
-    <div style={{maxWidth:900, margin:'0 auto', padding:'2rem'}}>
+    <div style={{width: '100%', margin: '0', padding: '16px'}}>
       <h1>Ligas y equipos (cache football-data)</h1>
       {/* Cuadro de competiciones cacheadas y remotas al inicio */}
       <div style={{marginBottom:40, textAlign:'center'}}>
         {loadingCachedComps && <span style={{marginLeft:8}}>Cargando competiciones cacheadas...</span>}
         {cachedCompsError && <div style={{color:'red', marginTop:8}}>{cachedCompsError}</div>}
         {showCachedComps && cachedComps.length > 0 && (
-          <div style={{margin:'24px auto', maxWidth:600, background:'#f3f3f3', border:'1px solid #ccc', borderRadius:8, padding:16}}>
+          <div style={{margin:'24px 0', width: '100%', background:'#f3f3f3', border:'1px solid #ccc', borderRadius:8, padding:16}}>
             <h3>Competiciones en la cache local</h3>
             <table style={{width:'100%', borderCollapse:'collapse'}}>
               <thead>
@@ -204,7 +204,7 @@ export default function LeaguesPage() {
         {loadingRemoteComps && <span style={{marginLeft:8}}>Cargando...</span>}
         {remoteCompsError && <div style={{color:'red', marginTop:8}}>{remoteCompsError}</div>}
         {showRemoteComps && remoteComps.length > 0 && (
-          <div style={{margin:'24px auto', maxWidth:600, background:'#f9f9f9', border:'1px solid #ddd', borderRadius:8, padding:16}}>
+          <div style={{margin:'24px 0', width: '100%', background:'#f9f9f9', border:'1px solid #ddd', borderRadius:8, padding:16}}>
             <h3>Competiciones disponibles en la API remota</h3>
             <table style={{width:'100%', borderCollapse:'collapse'}}>
               <thead>

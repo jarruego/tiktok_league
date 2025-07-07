@@ -199,41 +199,41 @@ export default function MatchesPage() {
 
   const columns: ColumnsType<Match> = [
     {
-      title: 'Jornada',
+      title: 'J.',
       dataIndex: 'matchday',
       key: 'matchday',
-      width: 80,
+      width: 50,
       sorter: (a, b) => a.matchday - b.matchday,
     },
     {
       title: 'Fecha',
       dataIndex: 'scheduledDate',
       key: 'scheduledDate',
-      width: 120,
-      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
+      width: 100,
+      render: (date: string) => dayjs(date).format('DD/MM'),
       sorter: (a, b) => dayjs(a.scheduledDate).unix() - dayjs(b.scheduledDate).unix(),
     },
     {
       title: 'Local',
       key: 'homeTeam',
-      width: 200,
+      width: 150,
       render: (_, record) => (
-        <Space>
+        <Space size="small">
           {record.homeTeam.crest && (
             <img 
               src={record.homeTeam.crest} 
               alt="" 
-              style={{ width: 20, height: 20 }} 
+              style={{ width: 16, height: 16 }} 
             />
           )}
-          <span>{record.homeTeam.shortName || record.homeTeam.name}</span>
+          <span style={{ fontSize: '13px' }}>{record.homeTeam.shortName || record.homeTeam.name}</span>
         </Space>
       ),
     },
     {
       title: 'Resultado',
       key: 'result',
-      width: 100,
+      width: 80,
       align: 'center',
       render: (_, record) => {
         if (record.homeGoals !== null && record.awayGoals !== null) {
@@ -245,28 +245,28 @@ export default function MatchesPage() {
     {
       title: 'Visitante',
       key: 'awayTeam',
-      width: 200,
+      width: 150,
       render: (_, record) => (
-        <Space>
+        <Space size="small">
           {record.awayTeam.crest && (
             <img 
               src={record.awayTeam.crest} 
               alt="" 
-              style={{ width: 20, height: 20 }} 
+              style={{ width: 16, height: 16 }} 
             />
           )}
-          <span>{record.awayTeam.shortName || record.awayTeam.name}</span>
+          <span style={{ fontSize: '13px' }}>{record.awayTeam.shortName || record.awayTeam.name}</span>
         </Space>
       ),
     },
     {
       title: 'Liga',
       key: 'league',
-      width: 150,
+      width: 120,
       render: (_, record) => (
         <div>
-          <div>{record.league.name}</div>
-          <div style={{ fontSize: '12px', color: '#666' }}>
+          <div style={{ fontSize: '12px' }}>{record.league.name}</div>
+          <div style={{ fontSize: '11px', color: '#666' }}>
             {record.division.name}
           </div>
         </div>
@@ -276,7 +276,7 @@ export default function MatchesPage() {
       title: 'Estado',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 90,
       render: (status: string) => (
         <Tag color={statusColors[status as keyof typeof statusColors]}>
           {statusLabels[status as keyof typeof statusLabels]}
@@ -287,8 +287,8 @@ export default function MatchesPage() {
 
   return (
     <LayoutContainer>
-      <div style={{ padding: '24px' }}>
-        <Card>
+      <div style={{ padding: '24px 16px' }}>
+        <Card style={{ margin: 0 }}>
           <div style={{ marginBottom: '24px' }}>
             <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
               <CalendarOutlined />
@@ -447,7 +447,7 @@ export default function MatchesPage() {
                 }));
               }
             }}
-            scroll={{ x: 1000 }}
+            scroll={{ x: 740 }}
           />
         </Card>
 

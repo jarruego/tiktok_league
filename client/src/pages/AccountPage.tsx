@@ -53,7 +53,7 @@ export default function AccountPage() {
 
   return (
     <LayoutContainer>
-      <div style={{ maxWidth: 600, margin: '0 auto', width: '100%' }}>
+      <div style={{ width: '100%', padding: '0 16px' }}>
         <Card style={{ width: '100%' }}>
           <Title level={3}>Cuenta de usuario</Title>
           <Divider />

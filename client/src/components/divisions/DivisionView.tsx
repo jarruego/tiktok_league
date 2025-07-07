@@ -7,7 +7,6 @@ import type { ColumnsType } from 'antd/es/table';
 import { formatNumber } from '../../utils/formatters';
 import '../../styles/common.css';
 import '../../styles/DivisionView.css';
-import { LayoutContainer } from '../LayoutContainer';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -328,21 +327,20 @@ export default function DivisionView() {
   const selectedLeagueData = selectedDivision?.leagues.find(l => l.id === selectedLeague);
 
   return (
-    <LayoutContainer>
-      <div style={{ width: '100%' }}>
-        {/* Card principal: selector y cabecera informativa de la liga */}
-        {selectedLeagueData && (
-          <Card
-            title={
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, width: '100%' }}>
-                <span style={{ fontWeight: 500, fontSize: 18 }}>{selectedLeagueData.name}</span>
-                {selectedDivision && (
-                  <Tag color="blue">{teams.length} / {selectedDivision.teamsPerLeague} equipos</Tag>
-                )}
-                <Tag color="purple">{season.name}</Tag>
-                {selectedDivision && selectedDivision.europeanSlots > 0 && (
-                  <Tag color="gold">🏆 {selectedDivision.europeanSlots} plazas europeas</Tag>
-                )}
+    <div style={{ width: '100%', padding: '0 16px 24px 16px' }}>
+      {/* Card principal: selector y cabecera informativa de la liga */}
+      {selectedLeagueData && (
+        <Card
+          title={
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, width: '100%' }}>
+              <span style={{ fontWeight: 500, fontSize: 18 }}>{selectedLeagueData.name}</span>
+              {selectedDivision && (
+                <Tag color="blue">{teams.length} / {selectedDivision.teamsPerLeague} equipos</Tag>
+              )}
+              <Tag color="purple">{season.name}</Tag>
+              {selectedDivision && selectedDivision.europeanSlots > 0 && (
+                <Tag color="gold">🏆 {selectedDivision.europeanSlots} plazas europeas</Tag>
+              )}
                 {selectedDivision && selectedDivision.promoteSlots > 0 && (
                   <Tag color="green">↑ {selectedDivision.promoteSlots} ascensos directos</Tag>
                 )}
@@ -366,7 +364,7 @@ export default function DivisionView() {
                 <Select
                   value={selectedDivision?.level}
                   onChange={handleDivisionChange}
-                  style={{ width: 200 }}
+                  style={{ width: '100%', minWidth: 150, maxWidth: 200 }}
                   placeholder="Seleccionar división"
                 >
                   {divisions.map(division => (
@@ -382,7 +380,7 @@ export default function DivisionView() {
                   <Select
                     value={selectedLeague}
                     onChange={handleLeagueChange}
-                    style={{ width: 200 }}
+                    style={{ width: '100%', minWidth: 150, maxWidth: 200 }}
                     placeholder="Seleccionar liga"
                   >
                     {selectedDivision.leagues.map(league => (
@@ -436,7 +434,6 @@ export default function DivisionView() {
             style={{ marginTop: 0, marginBottom: 0 }}
           />
         )}
-      </div>
-    </LayoutContainer>
+    </div>
   );
 }

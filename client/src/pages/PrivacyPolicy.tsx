@@ -3,7 +3,7 @@ import { LayoutContainer } from '../components/LayoutContainer';
 
 const PrivacyPolicy: React.FC = () => (
   <LayoutContainer>
-    <div style={{ maxWidth: 600, margin: '0 auto', width: '100%' }}>
+    <div style={{ maxWidth: 800, margin: '0 auto', width: '100%', padding: '0 16px' }}>
       <h1>Política de Privacidad</h1>
       <p>En Soccer Legends, nos comprometemos a proteger tu privacidad y tus datos personales. Esta política describe cómo recopilamos, usamos y protegemos tu información.</p>
       <h2>1. Información que Recopilamos</h2>

@@ -3,7 +3,7 @@ import { LayoutContainer } from '../components/LayoutContainer';
 
 const TermsOfService: React.FC = () => (
   <LayoutContainer>
-    <div style={{ maxWidth: 600, margin: '0 auto', width: '100%' }}>
+    <div style={{ maxWidth: 800, margin: '0 auto', width: '100%', padding: '0 16px' }}>
       <h1>Términos de Servicio</h1>
       <p>Bienvenido a Soccer Legends, un juego social donde los usuarios compiten en una liga ficticia utilizando su cuenta de TikTok para iniciar sesión.</p>
       <h2>1. Aceptación de los Términos</h2>

@@ -1,25 +1,21 @@
 /* styles/LayoutContainer.css */
 .layout-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 10px 0px 0px 0px;
   width: 100%;
+  margin: 0;
+  padding: 10px 0px 0px 0px;
   box-sizing: border-box;
 }
 
 .layout-maxwidth {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 16px;
   width: 100%;
+  margin: 0;
+  padding: 0 16px;
   box-sizing: border-box;
 }
 
 @media (max-width: 700px) {
   .layout-container,
   .layout-maxwidth {
-    max-width: 100vw;
-    margin: 0;
-    padding: 0 4vw;
+    padding: 0 8px;
   }
 }

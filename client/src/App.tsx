@@ -17,11 +17,16 @@ export default function App() {
   return (
     <AuthProvider>
       <div style={{
-        display: 'flex', flexDirection: 'column', minHeight: '100vh',
+        display: 'flex', 
+        flexDirection: 'column', 
+        minHeight: '100vh',
+        width: '100%',
+        margin: 0,
+        padding: 0,
         background: '#f5f6fa'
       }}>
         <MainHeader />
-        <main style={{ flex: 1 }}>
+        <main style={{ flex: 1, width: '100%' }}>
           <Routes>
             <Route path="/" element={<AuthGuard><HomePage /></AuthGuard>} />
             <Route path="/welcome" element={<WelcomePage />} />
