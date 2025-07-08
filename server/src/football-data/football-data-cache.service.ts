@@ -103,8 +103,9 @@ export class FootballDataCacheService {
         const result = await this.cacheCompetition(id);
         results.push({ name, success: true, ...result });
         
-        // Esperar 1 segundo entre requests para no sobrepasar límites
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Esperar 15 segundos entre requests para respetar límites de API gratuita
+        console.log(`⏱️ Waiting 15 seconds before next competition request...`);
+        await new Promise(resolve => setTimeout(resolve, 15000));
         
       } catch (error) {
         console.error(`❌ Failed to cache ${name}:`, error.message);
@@ -114,6 +115,12 @@ export class FootballDataCacheService {
           error: error.message,
           competitionId: id 
         });
+        
+        // Si falla por rate limit, esperar más tiempo
+        if (error.message.includes('429') || error.message.includes('Rate limit')) {
+          console.log(`🚫 Rate limit detected, waiting 60 seconds before continuing...`);
+          await new Promise(resolve => setTimeout(resolve, 60000));
+        }
       }
     }
 
@@ -217,5 +224,64 @@ export class FootballDataCacheService {
   async forceCacheUpdate() {
     this.logger.log('🔄 Ejecutando actualización manual del cache...');
     return this.dailyCacheUpdate();
+  }
+
+  // Método para cachear competiciones gradualmente (una por vez con intervalos seguros)
+  async cacheCompetitionsSafely(): Promise<any> {
+    const competitions = Object.entries(this.MAIN_COMPETITIONS);
+    let currentIndex = 0;
+    
+    // Obtener el estado del caché para determinar qué competición procesar siguiente
+    const db = this.databaseService.db;
+    const cachedCompetitions = await db
+      .select()
+      .from(footballDataCacheTable)
+      .orderBy(desc(footballDataCacheTable.lastUpdated));
+    
+    const cachedIds = new Set(cachedCompetitions.map(c => c.competitionId));
+    
+    // Encontrar la primera competición no cacheada, o la más antigua
+    let targetCompetition = competitions.find(([name, id]) => !cachedIds.has(id));
+    
+    if (!targetCompetition) {
+      // Si todas están cacheadas, actualizar la más antigua
+      const oldestCached = cachedCompetitions[cachedCompetitions.length - 1];
+      targetCompetition = competitions.find(([name, id]) => id === oldestCached?.competitionId);
+    }
+    
+    if (!targetCompetition) {
+      return {
+        message: 'No competitions to cache',
+        action: 'none'
+      };
+    }
+    
+    const [name, id] = targetCompetition;
+    
+    try {
+      console.log(`🎯 Safely caching single competition: ${name} (ID: ${id})`);
+      const result = await this.cacheCompetition(id);
+      
+      return {
+        message: `Successfully cached ${name}`,
+        competition: name,
+        competitionId: id,
+        ...result,
+        nextRecommendedAction: 'Wait 15+ seconds before calling this endpoint again'
+      };
+      
+    } catch (error) {
+      console.error(`❌ Failed to safely cache ${name}:`, error.message);
+      
+      return {
+        success: false,
+        competition: name,
+        competitionId: id,
+        error: error.message,
+        recommendation: error.message.includes('429') 
+          ? 'Wait 1-2 hours before trying again due to rate limiting'
+          : 'Check API configuration and try again later'
+      };
+    }
   }
 }

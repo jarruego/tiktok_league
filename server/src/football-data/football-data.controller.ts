@@ -15,6 +15,29 @@ export class FootballDataController {
     return this.footballDataService.getApiInfo();
   }
 
+  // Endpoint para verificar el estado de rate limiting
+  @Get('rate-limit-status')
+  getRateLimitStatus() {
+    return {
+      configured: this.footballDataService.isConfigured(),
+      rateLimiting: {
+        minIntervalMs: 12000,
+        recommendations: {
+          freeApiRequests: '10 per minute',
+          recommendedDelay: '12-15 seconds between requests',
+          bulkOperations: 'Use with caution, monitor for 429 errors'
+        }
+      },
+      lastKnownLimits: {
+        dailyRequests: 'Unknown (check Football-Data.org documentation)',
+        monthlyRequests: 'Unknown (check Football-Data.org documentation)',
+        note: 'Free tier has restricted access to competitions'
+      },
+      currentTime: new Date(),
+      message: 'Use /football-data/cache/all-competitions with caution due to rate limits'
+    };
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('teams/:id')
   async getTeam(@Param('id', ParseIntPipe) id: number) {
@@ -170,5 +193,12 @@ export class FootballDataController {
     return Array.isArray(data.competitions)
       ? data.competitions.map((c:any) => ({ id: c.id, name: c.name, code: c.code, area: c.area?.name }))
       : [];
+  }
+
+  // Cachear competiciones de forma segura (una por vez)
+  @UseGuards(JwtAuthGuard)
+  @Post('cache/safe-single')
+  async cacheSingleCompetitionSafely() {
+    return this.footballDataCacheService.cacheCompetitionsSafely();
   }
 }

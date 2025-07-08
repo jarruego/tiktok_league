@@ -7,6 +7,11 @@ import { FootballDataTeamResponseDto } from '../players/dto/football-data.dto';
 export class FootballDataService {
   private readonly apiUrl = FOOTBALL_DATA_API_URL;
   private readonly apiKey: string;
+  private readonly requestQueue: Array<() => Promise<any>> = [];
+  private isProcessingQueue = false;
+  private lastRequestTime = 0;
+  private readonly MIN_REQUEST_INTERVAL = 12000; // 12 segundos entre requests para API gratuita
+  private retryCount = new Map<string, number>();
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('FOOTBALL_DATA_API_KEY') || '';
@@ -24,8 +29,49 @@ export class FootballDataService {
     };
   }
 
-  async getTeam(teamId: number): Promise<FootballDataTeamResponseDto> {
+  private async waitForRateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      const waitTime = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      console.log(`⏱️  Rate limiting: waiting ${waitTime}ms before next request...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    this.lastRequestTime = Date.now();
+  }
+
+  private async makeRequest<T>(requestId: string, requestFn: () => Promise<T>): Promise<T> {
+    await this.waitForRateLimit();
+    
     try {
+      const result = await requestFn();
+      // Reset retry count on success
+      this.retryCount.delete(requestId);
+      return result;
+    } catch (error) {
+      if (error.message.includes('429')) {
+        const retries = this.retryCount.get(requestId) || 0;
+        if (retries < 3) {
+          this.retryCount.set(requestId, retries + 1);
+          const backoffTime = Math.pow(2, retries) * 30000; // Exponential backoff: 30s, 60s, 120s
+          console.log(`🔄 Rate limit hit for ${requestId}. Retry ${retries + 1}/3 in ${backoffTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffTime));
+          return this.makeRequest(requestId, requestFn);
+        } else {
+          console.error(`❌ Max retries reached for ${requestId}`);
+          throw new Error(`Rate limit exceeded after 3 retries for ${requestId}`);
+        }
+      }
+      throw error;
+    }
+  }
+
+  async getTeam(teamId: number): Promise<FootballDataTeamResponseDto> {
+    const requestId = `team-${teamId}`;
+    
+    return this.makeRequest(requestId, async () => {
       console.log(`🔄 Fetching team ${teamId} from Football-Data.org...`);
       console.log(`📡 API Key: ${this.apiKey.substring(0, 8)}...`);
       
@@ -46,42 +92,44 @@ export class FootballDataService {
       const data = await response.json();
       console.log(`✅ Successfully fetched team: ${data.name}`);
       return data;
-    } catch (error) {
-      console.error(`❌ Failed to fetch team ${teamId}:`, error.message);
-      throw new Error(`Failed to fetch team data: ${error.message}`);
-    }
+    });
   }
 
   async getCompetition(competitionId: number) {
-    try {
+    const requestId = `competition-${competitionId}`;
+    
+    return this.makeRequest(requestId, async () => {
       const response = await fetch(`${this.apiUrl}/competitions/${competitionId}`, {
         headers: this.getHeaders(),
       });
 
       if (!response.ok) {
-        throw new Error(`Football-Data.org API error: ${response.status} ${response.statusText}`);
+        throw new Error(`Football-Data.org API error: ${response.status}`);
       }
 
       return await response.json();
-    } catch (error) {
-      throw new Error(`Failed to fetch competition data: ${error.message}`);
-    }
+    });
   }
 
   async getCompetitionTeams(competitionId: number) {
-    try {
+    const requestId = `competition-teams-${competitionId}`;
+    
+    return this.makeRequest(requestId, async () => {
+      console.log(`🔄 Fetching teams for competition ${competitionId}...`);
+      
       const response = await fetch(`${this.apiUrl}/competitions/${competitionId}/teams`, {
         headers: this.getHeaders(),
       });
 
       if (!response.ok) {
-        throw new Error(`Football-Data.org API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Football-Data.org API error: ${response.status} - ${errorText}`);
       }
 
-      return await response.json();
-    } catch (error) {
-      throw new Error(`Failed to fetch competition teams: ${error.message}`);
-    }
+      const data = await response.json();
+      console.log(`✅ Successfully fetched ${data.count || data.teams?.length || 0} teams for competition ${competitionId}`);
+      return data;
+    });
   }
 
   // Método de utilidad para validar si el API key está configurado
