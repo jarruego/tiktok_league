@@ -553,6 +553,69 @@ export class TiktokScraperService {
   }
 
   /**
+   * Tarea programada que se ejecuta cada 5 minutos para auto-import independiente
+   * Importa datos de Football-Data desde cache para equipos configurados
+   * Se ejecuta independientemente del scraping de TikTok
+   */
+  @Cron('*/5 * * * *') // Cada 5 minutos
+  async autoImportFromFootballData() {
+    const db = this.databaseService.db;
+    
+    try {
+      this.logger.log('🔄 Iniciando auto-import independiente de Football-Data...');
+      
+      // Obtener equipos con Football-Data configurado que no hayan sido importados recientemente
+      const teamsForImport = await db
+        .select()
+        .from(teamTable)
+        .where(
+          sql`${teamTable.footballDataId} IS NOT NULL AND ${teamTable.competitionId} IS NOT NULL`
+        )
+        .limit(3); // Procesar hasta 3 equipos por ciclo
+      
+      if (teamsForImport.length === 0) {
+        this.logger.debug('📊 Auto-import independiente: No hay equipos con Football-Data configurado');
+        return { imported: 0, message: 'No hay equipos configurados para auto-import' };
+      }
+      
+      this.logger.log(`📊 Auto-import independiente: Procesando ${teamsForImport.length} equipos configurados`);
+      
+      let importedCount = 0;
+      let errorCount = 0;
+      
+      for (const team of teamsForImport) {
+        try {
+          const importResult = await this.autoImportFromCache(team);
+          if (importResult.imported) {
+            importedCount++;
+            this.logger.log(`⚽ Auto-import independiente exitoso para ${team.name}: ${importResult.message}`);
+          } else {
+            this.logger.debug(`⏭️ Auto-import independiente sin cambios para ${team.name}: ${importResult.message}`);
+          }
+        } catch (error) {
+          errorCount++;
+          this.logger.warn(`⚠️ Error en auto-import independiente para ${team.name}: ${error.message}`);
+        }
+        
+        // Pequeño delay entre equipos
+        await delay(2000);
+      }
+      
+      this.logger.log(`✅ Auto-import independiente completado: ${importedCount}/${teamsForImport.length} equipos actualizados, ${errorCount} errores`);
+      return { 
+        imported: importedCount, 
+        total: teamsForImport.length,
+        errors: errorCount,
+        timestamp: new Date()
+      };
+      
+    } catch (error) {
+      this.logger.error(`❌ Error crítico en auto-import independiente: ${error.message}`);
+      return { imported: 0, error: error.message, timestamp: new Date() };
+    }
+  }
+
+  /**
    * Tarea programada que se ejecuta cada 2 minutos
    * Actualiza los datos de TikTok de los equipos de manera inteligente:
    * - Primero actualiza equipos que nunca han sido scrapeados
@@ -651,6 +714,9 @@ export class TiktokScraperService {
     for (const team of batch) {
       if (scrapedIds.has(team.id)) continue;
       
+      let tiktokScrapingSuccess = false;
+      let tiktokErrorMessage = '';
+      
       try {
         // Hacer scraping del perfil de TikTok del equipo
         const { followers, following, likes, description, displayName, profileUrl, avatarUrl } = await scrapeTikTokProfile(team.tiktokId);
@@ -672,19 +738,12 @@ export class TiktokScraperService {
           })
           .where(eq(teamTable.id, team.id));
           
-        scrapedIds.add(team.id);
-        
+        tiktokScrapingSuccess = true;
         this.logger.log(`📱 TikTok actualizado ${team.name}: ${followers} seguidores, ${following} siguiendo, ${likes} likes`);
         
-        // Auto-importar desde cache si tiene Football-Data IDs configurados
-        const importResult = await this.autoImportFromCache(team);
-        if (importResult.imported) {
-          this.logger.log(`⚽ ${importResult.message}`);
-        } else {
-          this.logger.debug(`⏭️ Sin auto-import: ${importResult.message}`);
-        }
       } catch (e) {
         const errorMessage = e.message || e.toString();
+        tiktokErrorMessage = errorMessage;
         
         // ❌ ERROR: Incrementar contador de fallos
         const currentAttempts = team.failedScrapingAttempts || 0;
@@ -705,12 +764,11 @@ export class TiktokScraperService {
           this.logger.warn(`⚠️ Fallo ${newAttempts}/3 para ${team.name}: ${errorMessage}`);
         }
         
-        // Manejo específico de errores de Chrome/Puppeteer
-        if (errorMessage.includes('Could not find Chrome')) {
-          this.logger.error(`🚫 Chrome no disponible para ${team.name}. Saltando scraping hasta que Chrome esté disponible.`);
-          continue;
-        } else if (errorMessage.includes('Chrome no está disponible en el servidor')) {
-          this.logger.warn(`⚠️ Scraping temporalmente deshabilitado para ${team.name}: Chrome no disponible`);
+        // Manejo específico de errores de Chrome/Puppeteer - continuar al siguiente equipo
+        if (errorMessage.includes('Could not find Chrome') || 
+            errorMessage.includes('Chrome no está disponible en el servidor')) {
+          this.logger.error(`🚫 Chrome no disponible para ${team.name}. Saltando al siguiente equipo.`);
+          scrapedIds.add(team.id);
           continue;
         }
         
@@ -720,12 +778,23 @@ export class TiktokScraperService {
             errorMessage.includes('Navigating frame was detached')) {
           this.logger.warn(`🤖 TikTok detectó automatización para ${team.name}. Delay adicional aplicado.`);
           await delay(30000 + Math.random() * 30000); // Delay adicional de 30-60 segundos
-          continue;
         }
-        
-        // Marcar como procesado para este ciclo
-        scrapedIds.add(team.id);
       }
+      
+      // 🎯 AUTO-IMPORT INDEPENDIENTE: Se ejecuta SIEMPRE, sin importar el resultado del scraping de TikTok
+      try {
+        const importResult = await this.autoImportFromCache(team);
+        if (importResult.imported) {
+          this.logger.log(`⚽ Auto-import exitoso para ${team.name}: ${importResult.message}`);
+        } else {
+          this.logger.debug(`⏭️ Sin auto-import para ${team.name}: ${importResult.message}`);
+        }
+      } catch (importError) {
+        this.logger.warn(`⚠️ Error en auto-import para ${team.name}: ${importError.message}`);
+      }
+      
+      // Marcar como procesado para este ciclo
+      scrapedIds.add(team.id);
       
       // IMPORTANTE: Pequeño delay aleatorio para simular comportamiento humano natural
       await delay(5000 + Math.random() * 10000); // Entre 5-15 segundos

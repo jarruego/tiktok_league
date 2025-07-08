@@ -21,6 +21,13 @@ export class TiktokScraperController {
     return this.scraperService.forceAutoImportForTeam(teamId);
   }
 
+  // Endpoint para forzar auto-import independiente (fuera del scraping)
+  @UseGuards(JwtAuthGuard)
+  @Post('auto-import-independent')
+  async forceIndependentAutoImport() {
+    return this.scraperService.autoImportFromFootballData();
+  }
+
   // Endpoint para obtener estadísticas del scraping
   @UseGuards(JwtAuthGuard)
   @Get('stats')
