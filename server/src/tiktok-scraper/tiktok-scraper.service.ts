@@ -187,6 +187,50 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
       console.log(html.slice(0, 5000));
     } catch {}
 
+    // Buscar iframes y shadow roots
+    try {
+      // Buscar iframes
+      const iframeCount = await page.evaluate(() => document.querySelectorAll('iframe').length);
+      if (iframeCount > 0) {
+        console.log(`🔎 Se encontraron ${iframeCount} iframes en la página.`);
+        const iframeSrcs = await page.evaluate(() => Array.from(document.querySelectorAll('iframe')).map(f => f.src));
+        console.log('🔎 SRCs de iframes:', iframeSrcs);
+      } else {
+        console.log('🔎 No se encontraron iframes en la página.');
+      }
+      // Buscar shadow roots
+      const hasShadowRoot = await page.evaluate(() => {
+        function hasShadow(node) {
+          if (node && node.shadowRoot) return true;
+          if (!node || !node.children) return false;
+          for (let i = 0; i < node.children.length; i++) {
+            if (hasShadow(node.children[i])) return true;
+          }
+          return false;
+        }
+        return hasShadow(document.body);
+      });
+      if (hasShadowRoot) {
+        console.log('🔎 Se detectó al menos un shadow root en la página.');
+      } else {
+        console.log('🔎 No se detectaron shadow roots en la página.');
+      }
+    } catch (err) {
+      console.log('⚠️ Error buscando iframes/shadow roots:', err);
+    }
+
+    // Intentar obtener cookies de sesión si existen (debug)
+    try {
+      const cookies = await page.cookies();
+      if (cookies && cookies.length > 0) {
+        console.log('🔑 Cookies actuales de la sesión:', cookies.map(c => c.name));
+      } else {
+        console.log('🔑 No hay cookies de sesión activas.');
+      }
+    } catch (err) {
+      console.log('⚠️ Error obteniendo cookies de sesión:', err);
+    }
+
     let selectorFound = false;
     const allSelectors = [
       'strong[data-e2e="followers-count"]',
