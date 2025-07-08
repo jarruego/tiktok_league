@@ -12,6 +12,8 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "npx puppeteer browsers install chrome && node dist/src/main.js",
+    "install-chrome": "npx puppeteer browsers install chrome",
+    "puppeteer-diagnostic": "node scripts/puppeteer-diagnostic.js",
     "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit push",

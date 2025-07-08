@@ -4,11 +4,15 @@ services:
     name: foodball-backend
     env: node
     plan: free
-    buildCommand: cd server && npm install && npm run build
+    buildCommand: cd server && npm install && npx puppeteer browsers install chrome && npm run build
     startCommand: cd server && npm run start:prod
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: false
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/.cache/puppeteer
       # PORT es proporcionado automáticamente por Render
       # SECURITY: No incluir secrets aquí - configurar manualmente en Render Dashboard
       # - DATABASE_URL: configurar en Render Dashboard

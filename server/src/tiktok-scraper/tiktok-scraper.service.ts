@@ -10,6 +10,36 @@ import { PlayerService } from '../players/player.service'; // Servicio de jugado
 import puppeteer from 'puppeteer'; // Librería para automatización de navegador (web scraping)
 
 /**
+ * Configuración específica de Puppeteer para entornos de producción como Render
+ */
+const getPuppeteerConfig = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isRender = process.env.RENDER === 'true' || process.env.RENDER_SERVICE_ID;
+  
+  if (isProduction || isRender) {
+    return {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+    };
+  }
+  
+  return {
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  };
+};
+
+/**
  * Función para hacer scraping de un perfil de TikTok
  * Utiliza puppeteer para abrir un navegador, navegar al perfil y extraer datos
  * @param tiktokId - El ID del usuario de TikTok (sin el @)
@@ -24,178 +54,199 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
   profileUrl: string;
   avatarUrl: string;
 }> {
-  // Construir la URL del perfil de TikTok
-  const url = `https://www.tiktok.com/@${tiktokId}`;
-  
-  // Lanzar una instancia de navegador sin interfaz gráfica (headless)
-  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-  const page = await browser.newPage();
-
-  // Establecer un User-Agent móvil y cabeceras adicionales
-  await page.setUserAgent('Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36');
-  await page.setExtraHTTPHeaders({
-    'accept-language': 'es-ES,es;q=0.9,en;q=0.8',
-    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-    'sec-ch-ua': '"Google Chrome";v="124", "Chromium";v="124", ";Not A Brand";v="99"',
-    'sec-ch-ua-mobile': '?1',
-    'sec-ch-ua-platform': '"Android"',
-    'upgrade-insecure-requests': '1'
-  });
-
-  // Navegar a la página del perfil con timeout extendido y espera de red
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-  
-  console.log(`🔍 Iniciando scraping de: ${url}`);
-
-  // Esperar a que aparezca el elemento que contiene el número de seguidores
+  let browser;
   try {
-    await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 20000 });
-  } catch (error) {
-    console.error(`❌ No se encontró el selector de seguidores para ${tiktokId}`);
-    // Intentar con selectores alternativos
-    const alternativeSelectors = [
-      'strong[title*="Follower"]',
-      'strong[title*="follower"]', 
-      'div[data-e2e="followers-count"]',
-      'span[data-e2e="followers-count"]'
-    ];
+    // Construir la URL del perfil de TikTok
+    const url = `https://www.tiktok.com/@${tiktokId}`;
     
-    let found = false;
-    for (const selector of alternativeSelectors) {
-      try {
-        await page.waitForSelector(selector, { timeout: 7000 });
-        console.log(`✅ Encontrado selector alternativo: ${selector}`);
-        found = true;
-        break;
-      } catch {
-        continue;
+    // Lanzar una instancia de navegador con configuración optimizada para producción
+    const puppeteerConfig = getPuppeteerConfig();
+    console.log(`🚀 Lanzando navegador con configuración:`, { 
+      headless: puppeteerConfig.headless, 
+      argsCount: puppeteerConfig.args.length 
+    });
+      browser = await puppeteer.launch(puppeteerConfig);
+    const page = await browser.newPage();
+
+    // Establecer un User-Agent móvil y cabeceras adicionales
+    await page.setUserAgent('Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36');
+    await page.setExtraHTTPHeaders({
+      'accept-language': 'es-ES,es;q=0.9,en;q=0.8',
+      'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+      'sec-ch-ua': '"Google Chrome";v="124", "Chromium";v="124", ";Not A Brand";v="99"',
+      'sec-ch-ua-mobile': '?1',
+      'sec-ch-ua-platform': '"Android"',
+      'upgrade-insecure-requests': '1'
+    });
+
+    // Navegar a la página del perfil con timeout extendido y espera de red
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    
+    console.log(`🔍 Iniciando scraping de: ${url}`);
+
+    // Esperar a que aparezca el elemento que contiene el número de seguidores
+    try {
+      await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 20000 });
+    } catch (error) {
+      console.error(`❌ No se encontró el selector de seguidores para ${tiktokId}`);
+      // Intentar con selectores alternativos
+      const alternativeSelectors = [
+        'strong[title*="Follower"]',
+        'strong[title*="follower"]', 
+        'div[data-e2e="followers-count"]',
+        'span[data-e2e="followers-count"]'
+      ];
+      
+      let found = false;
+      for (const selector of alternativeSelectors) {
+        try {
+          await page.waitForSelector(selector, { timeout: 7000 });
+          console.log(`✅ Encontrado selector alternativo: ${selector}`);
+          found = true;
+          break;
+        } catch {
+          continue;
+        }
+      }
+      
+      if (!found) {
+        console.error(`❌ Ningún selector funcionó para ${tiktokId}, tomando screenshot y guardando HTML para debug`);
+        await page.screenshot({ path: `debug-${tiktokId}.png` });
+        const html = await page.content();
+        const fs = require('fs');
+        fs.writeFileSync(`debug-${tiktokId}.html`, html);
+        await browser.close();
+        throw new Error(`No se pudieron encontrar los elementos de TikTok para ${tiktokId}`);
       }
     }
     
-    if (!found) {
-      console.error(`❌ Ningún selector funcionó para ${tiktokId}, tomando screenshot y guardando HTML para debug`);
-      await page.screenshot({ path: `debug-${tiktokId}.png` });
-      const html = await page.content();
-      const fs = require('fs');
-      fs.writeFileSync(`debug-${tiktokId}.html`, html);
+    // Extraer el texto del número de seguidores y convertirlo a número
+    let followersText = '';
+    try {
+      followersText = await page.$eval('strong[data-e2e="followers-count"]', el => el.textContent || '0');
+    } catch {
+      // Intentar selectores alternativos
+      const selectors = ['strong[title*="Follower"]', 'div[data-e2e="followers-count"]', 'span[data-e2e="followers-count"]'];
+      for (const selector of selectors) {
+        try {
+          followersText = await page.$eval(selector, el => el.textContent || '0');
+          console.log(`✅ Seguidores obtenidos con selector alternativo: ${selector} -> ${followersText}`);
+          break;
+        } catch {
+          continue;
+        }
+      }
+    }
+    
+    console.log(`📊 Texto de seguidores capturado: "${followersText}"`);
+    const followers = parseTikTokFollowers(followersText);
+
+    // Obtener número de cuentas que sigue (siguiendo)
+    let following = 0;
+    try {
+      const followingText = await page.$eval('strong[data-e2e="following-count"]', el => el.textContent || '0');
+      following = parseTikTokFollowers(followingText);
+    } catch {
+      // Si no se encuentra el elemento, asignar 0
+      following = 0;
+    }
+
+    // Obtener número total de likes del perfil
+    let likes = 0;
+    let likesText = '';
+    try {
+      likesText = await page.$eval('strong[data-e2e="likes-count"]', el => el.textContent || '0');
+      console.log(`❤️ Texto de likes capturado: "${likesText}"`);
+      likes = parseTikTokFollowers(likesText);
+    } catch (error) {
+      console.warn(`⚠️ No se encontró el selector principal de likes para ${tiktokId}, intentando alternativas...`);
+      
+      // Intentar selectores alternativos para likes
+      const alternativeSelectors = [
+        'strong[title*="Like"]',
+        'strong[title*="like"]', 
+        'div[data-e2e="likes-count"]',
+        'span[data-e2e="likes-count"]'
+      ];
+      
+      for (const selector of alternativeSelectors) {
+        try {
+          likesText = await page.$eval(selector, el => el.textContent || '0');
+          console.log(`✅ Likes obtenidos con selector alternativo: ${selector} -> "${likesText}"`);
+          likes = parseTikTokFollowers(likesText);
+          break;
+        } catch {
+          continue;
+        }
+      }
+      
+      if (likes === 0) {
+        console.error(`❌ No se pudieron obtener los likes para ${tiktokId}`);
+      }
+    }
+
+    // Obtener la descripción/biografía del perfil
+    let description = '';
+    try {
+      description = await page.$eval('h2[data-e2e="user-bio"]', el => el.textContent || '');
+    } catch {
+      // Si no tiene descripción, dejar vacío
+      description = '';
+    }
+
+    // Obtener el nombre mostrado del usuario
+    let displayName = '';
+    try {
+      displayName = await page.$eval('h1[data-e2e="user-title"]', el => el.textContent || '');
+    } catch {
+      // Si no se encuentra, usar el ID como fallback
+      displayName = tiktokId; // Fallback al ID si no se encuentra
+    }
+
+    // Obtener la URL de la imagen de perfil (avatar)
+    let avatarUrl = '';
+    try {
+      avatarUrl = await page.$eval('img.css-1zpj2q-ImgAvatar, img[class*="ImgAvatar"]', el => el.src || '');
+    } catch {
+      // Si no se encuentra, dejar vacío
+      avatarUrl = '';
+    }
+
+    // Cerrar el navegador para liberar recursos
+    await browser.close();
+
+    console.log(`✅ Scraping completado para ${tiktokId}:`, {
+      followers,
+      following, 
+      likes,
+      displayName,
+      description: description.substring(0, 50) + '...'
+    });
+
+    // Retornar todos los datos extraídos
+    return { 
+      followers, 
+      following, 
+      likes, 
+      description, 
+      displayName, 
+      profileUrl: url, 
+      avatarUrl 
+    };
+  } catch (error) {
+    // Manejar errores de Puppeteer específicos
+    if (browser) {
       await browser.close();
-      throw new Error(`No se pudieron encontrar los elementos de TikTok para ${tiktokId}`);
-    }
-  }
-  
-  // Extraer el texto del número de seguidores y convertirlo a número
-  let followersText = '';
-  try {
-    followersText = await page.$eval('strong[data-e2e="followers-count"]', el => el.textContent || '0');
-  } catch {
-    // Intentar selectores alternativos
-    const selectors = ['strong[title*="Follower"]', 'div[data-e2e="followers-count"]', 'span[data-e2e="followers-count"]'];
-    for (const selector of selectors) {
-      try {
-        followersText = await page.$eval(selector, el => el.textContent || '0');
-        console.log(`✅ Seguidores obtenidos con selector alternativo: ${selector} -> ${followersText}`);
-        break;
-      } catch {
-        continue;
-      }
-    }
-  }
-  
-  console.log(`📊 Texto de seguidores capturado: "${followersText}"`);
-  const followers = parseTikTokFollowers(followersText);
-
-  // Obtener número de cuentas que sigue (siguiendo)
-  let following = 0;
-  try {
-    const followingText = await page.$eval('strong[data-e2e="following-count"]', el => el.textContent || '0');
-    following = parseTikTokFollowers(followingText);
-  } catch {
-    // Si no se encuentra el elemento, asignar 0
-    following = 0;
-  }
-
-  // Obtener número total de likes del perfil
-  let likes = 0;
-  let likesText = '';
-  try {
-    likesText = await page.$eval('strong[data-e2e="likes-count"]', el => el.textContent || '0');
-    console.log(`❤️ Texto de likes capturado: "${likesText}"`);
-    likes = parseTikTokFollowers(likesText);
-  } catch (error) {
-    console.warn(`⚠️ No se encontró el selector principal de likes para ${tiktokId}, intentando alternativas...`);
-    
-    // Intentar selectores alternativos para likes
-    const alternativeSelectors = [
-      'strong[title*="Like"]',
-      'strong[title*="like"]', 
-      'div[data-e2e="likes-count"]',
-      'span[data-e2e="likes-count"]'
-    ];
-    
-    for (const selector of alternativeSelectors) {
-      try {
-        likesText = await page.$eval(selector, el => el.textContent || '0');
-        console.log(`✅ Likes obtenidos con selector alternativo: ${selector} -> "${likesText}"`);
-        likes = parseTikTokFollowers(likesText);
-        break;
-      } catch {
-        continue;
-      }
     }
     
-    if (likes === 0) {
-      console.error(`❌ No se pudieron obtener los likes para ${tiktokId}`);
+    if (error.message && error.message.includes('Could not find Chrome')) {
+      console.error(`❌ Error de Chrome/Puppeteer para ${tiktokId}:`, error.message);
+      throw new Error(`Chrome no está disponible en el servidor. El scraping de TikTok está temporalmente deshabilitado.`);
     }
+    
+    console.error(`❌ Error durante el scraping de ${tiktokId}:`, error);
+    throw error;
   }
-
-  // Obtener la descripción/biografía del perfil
-  let description = '';
-  try {
-    description = await page.$eval('h2[data-e2e="user-bio"]', el => el.textContent || '');
-  } catch {
-    // Si no tiene descripción, dejar vacío
-    description = '';
-  }
-
-  // Obtener el nombre mostrado del usuario
-  let displayName = '';
-  try {
-    displayName = await page.$eval('h1[data-e2e="user-title"]', el => el.textContent || '');
-  } catch {
-    // Si no se encuentra, usar el ID como fallback
-    displayName = tiktokId; // Fallback al ID si no se encuentra
-  }
-
-  // Obtener la URL de la imagen de perfil (avatar)
-  let avatarUrl = '';
-  try {
-    avatarUrl = await page.$eval('img.css-1zpj2q-ImgAvatar, img[class*="ImgAvatar"]', el => el.src || '');
-  } catch {
-    // Si no se encuentra, dejar vacío
-    avatarUrl = '';
-  }
-
-  // Cerrar el navegador para liberar recursos
-  await browser.close();
-
-  console.log(`✅ Scraping completado para ${tiktokId}:`, {
-    followers,
-    following, 
-    likes,
-    displayName,
-    description: description.substring(0, 50) + '...'
-  });
-
-  // Retornar todos los datos extraídos
-  return { 
-    followers, 
-    following, 
-    likes, 
-    description, 
-    displayName, 
-    profileUrl: url, 
-    avatarUrl 
-  };
 }
 
 /**
@@ -400,8 +451,21 @@ export class TiktokScraperService {
           this.logger.debug(`⏭️ Sin auto-import: ${importResult.message}`);
         }
       } catch (e) {
-        // Log de error si falla el scraping
-        this.logger.error(`Error actualizando ${team.name}: ${e}`);
+        // Manejo específico de errores de Chrome/Puppeteer
+        if (e.message && e.message.includes('Could not find Chrome')) {
+          this.logger.error(`🚫 Chrome no disponible para ${team.name}. Saltando scraping hasta que Chrome esté disponible.`);
+          // No marcamos como scrapeado para intentar de nuevo más tarde
+          continue;
+        } else if (e.message && e.message.includes('Chrome no está disponible en el servidor')) {
+          this.logger.warn(`⚠️ Scraping temporalmente deshabilitado para ${team.name}: Chrome no disponible`);
+          continue;
+        }
+        
+        // Log de error si falla el scraping por otras razones
+        this.logger.error(`Error actualizando ${team.name}: ${e.message || e}`);
+        
+        // Para otros errores, aún marcamos como "procesado" para evitar que se quede atascado
+        scrapedIds.add(team.id);
       }
       
       // IMPORTANTE: Pequeño delay aleatorio para simular comportamiento humano natural
