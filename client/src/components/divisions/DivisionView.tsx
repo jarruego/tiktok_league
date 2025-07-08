@@ -21,15 +21,15 @@ const getTeamStatus = (
   division: Division, 
   totalTeamsInLeague: number
 ): { status: string; color: string; badge: string; backgroundColor: string } => {
-  const { level, europeanSlots, promoteSlots, promotePlayoffSlots, relegateSlots } = division;
+  const { level, promoteSlots, promotePlayoffSlots, relegateSlots } = division;
   
-  // Plazas europeas (solo División 1)
-  if (level === 1 && position <= europeanSlots) {
+  // Plazas de torneo (solo División 1) - 8 primeros puestos
+  if (level === 1 && position <= 8) {
     return {
-      status: 'european',
-      color: '#1890ff',
-      badge: '🏆 Europa',
-      backgroundColor: '#e6f7ff'
+      status: 'tournament',
+      color: '#722ed1',
+      badge: '🏆 Torneo',
+      backgroundColor: '#f9f0ff'
     };
   }
 
@@ -338,8 +338,8 @@ export default function DivisionView() {
                 <Tag color="blue">{teams.length} / {selectedDivision.teamsPerLeague} equipos</Tag>
               )}
               <Tag color="purple">{season.name}</Tag>
-              {selectedDivision && selectedDivision.europeanSlots > 0 && (
-                <Tag color="gold">🏆 {selectedDivision.europeanSlots} plazas europeas</Tag>
+              {selectedDivision && selectedDivision.level === 1 && (
+                <Tag color="purple">🏆 8 plazas de torneo</Tag>
               )}
                 {selectedDivision && selectedDivision.promoteSlots > 0 && (
                   <Tag color="green">↑ {selectedDivision.promoteSlots} ascensos directos</Tag>
