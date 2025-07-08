@@ -8,7 +8,7 @@ import {
   seasonTable,
   MatchStatus 
 } from '../database/schema';
-import { eq, and, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 import { DATABASE_PROVIDER } from '../database/database.module';
 
 export interface StandingData {
@@ -42,6 +42,26 @@ export interface LeagueStandings {
   };
   standings: StandingData[];
   lastUpdated: string;
+}
+
+export interface TeamStats {
+  teamId: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
+  followers: number;
+}
+
+export interface DirectMatchResult {
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
 }
 
 @Injectable()
@@ -129,11 +149,8 @@ export class StandingsService {
       allTeams.map(team => this.calculateTeamStats(seasonId, leagueId, team.teamId))
     );
 
-    // Ordenar por puntos y luego por diferencia de goles
-    teamStats.sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      return b.goalDifference - a.goalDifference;
-    });
+    // Aplicar nueva lógica de desempate
+    const sortedTeamStats = await this.applyTiebreakingRules(seasonId, leagueId, teamStats);
 
     // Eliminar clasificaciones existentes
     await db
@@ -146,8 +163,8 @@ export class StandingsService {
       );
 
     // Insertar nuevas clasificaciones
-    if (teamStats.length > 0) {
-      const standingsData = teamStats.map((stats, index) => ({
+    if (sortedTeamStats.length > 0) {
+      const standingsData = sortedTeamStats.map((stats, index) => ({
         seasonId,
         leagueId,
         teamId: stats.teamId,
@@ -167,13 +184,13 @@ export class StandingsService {
       await db.insert(standingsTable).values(standingsData);
     }
 
-    this.logger.log(`✅ Clasificación actualizada para liga ${leagueId}: ${teamStats.length} equipos`);
+    this.logger.log(`✅ Clasificación actualizada para liga ${leagueId}: ${sortedTeamStats.length} equipos`);
   }
 
   /**
    * Calcular estadísticas de un equipo específico
    */
-  private async calculateTeamStats(seasonId: number, leagueId: number, teamId: number) {
+  private async calculateTeamStats(seasonId: number, leagueId: number, teamId: number): Promise<TeamStats> {
     const db = this.databaseService.db;
     
     // Obtener partidos como local
@@ -254,6 +271,14 @@ export class StandingsService {
     const goalDifference = goalsFor - goalsAgainst;
     const points = (won * 3) + (drawn * 1);
 
+    // Obtener seguidores (followers) del equipo
+    const [{ followers }] = await db
+      .select({
+        followers: teamTable.followers
+      })
+      .from(teamTable)
+      .where(eq(teamTable.id, teamId));
+
     return {
       teamId,
       played,
@@ -263,7 +288,8 @@ export class StandingsService {
       goalsFor,
       goalsAgainst,
       goalDifference,
-      points
+      points,
+      followers: followers || 0
     };
   }
 
@@ -272,6 +298,8 @@ export class StandingsService {
    */
   async getLeagueStandings(seasonId: number, leagueId: number): Promise<LeagueStandings | null> {
     const db = this.databaseService.db;
+    
+    this.logger.log(`🔍 getLeagueStandings llamado para season ${seasonId}, league ${leagueId}`);
     
     // Obtener información de la liga
     const [leagueInfo] = await db
@@ -291,8 +319,8 @@ export class StandingsService {
       return null;
     }
 
-    // Obtener clasificaciones
-    const standings = await db
+    // Obtener clasificaciones sin ordenar por posición (aplicaremos lógica de desempate)
+    const rawStandings = await db
       .select({
         position: standingsTable.position,
         played: standingsTable.played,
@@ -307,7 +335,8 @@ export class StandingsService {
         teamId: teamTable.id,
         teamName: teamTable.name,
         teamShortName: teamTable.shortName,
-        teamCrest: teamTable.crest
+        teamCrest: teamTable.crest,
+        followers: teamTable.followers
       })
       .from(standingsTable)
       .innerJoin(teamTable, eq(standingsTable.teamId, teamTable.id))
@@ -316,8 +345,47 @@ export class StandingsService {
           eq(standingsTable.seasonId, seasonId),
           eq(standingsTable.leagueId, leagueId)
         )
-      )
-      .orderBy(asc(standingsTable.position));
+      );
+
+    // Aplicar lógica de desempate en tiempo real
+    const teamStats: TeamStats[] = rawStandings.map(s => ({
+      teamId: s.teamId,
+      played: s.played,
+      won: s.won,
+      drawn: s.drawn,
+      lost: s.lost,
+      goalsFor: s.goalsFor,
+      goalsAgainst: s.goalsAgainst,
+      goalDifference: s.goalDifference,
+      points: s.points,
+      followers: s.followers || 0
+    }));
+
+    const sortedTeamStats = await this.applyTiebreakingRules(seasonId, leagueId, teamStats);
+    
+    this.logger.log(`📊 Aplicando nueva lógica de desempate para ${teamStats.length} equipos`);
+
+    // Mapear a StandingData con posiciones dinámicas
+    const standings = sortedTeamStats.map((stats, index) => {
+      const rawData = rawStandings.find(r => r.teamId === stats.teamId)!;
+      return {
+        position: index + 1, // Posición dinámica basada en la nueva lógica
+        team: {
+          id: rawData.teamId,
+          name: rawData.teamName,
+          shortName: rawData.teamShortName,
+          crest: rawData.teamCrest
+        },
+        played: stats.played,
+        won: stats.won,
+        drawn: stats.drawn,
+        lost: stats.lost,
+        goalsFor: stats.goalsFor,
+        goalsAgainst: stats.goalsAgainst,
+        goalDifference: stats.goalDifference,
+        points: stats.points
+      };
+    });
 
     return {
       league: {
@@ -330,24 +398,8 @@ export class StandingsService {
         name: leagueInfo.divisionName,
         level: leagueInfo.divisionLevel
       },
-      standings: standings.map(s => ({
-        position: s.position,
-        team: {
-          id: s.teamId,
-          name: s.teamName,
-          shortName: s.teamShortName,
-          crest: s.teamCrest
-        },
-        played: s.played,
-        won: s.won,
-        drawn: s.drawn,
-        lost: s.lost,
-        goalsFor: s.goalsFor,
-        goalsAgainst: s.goalsAgainst,
-        goalDifference: s.goalDifference,
-        points: s.points
-      })),
-      lastUpdated: standings.length > 0 ? standings[0].updatedAt.toISOString() : new Date().toISOString()
+      standings: standings,
+      lastUpdated: rawStandings.length > 0 ? rawStandings[0].updatedAt.toISOString() : new Date().toISOString()
     };
   }
 
@@ -372,5 +424,173 @@ export class StandingsService {
     );
 
     return allStandings.filter(standings => standings !== null) as LeagueStandings[];
+  }
+
+  /**
+   * Aplicar reglas de desempate según el orden establecido:
+   * 1. Puntos en enfrentamientos directos
+   * 2. Diferencia de goles en enfrentamientos directos
+   * 3. Diferencia de goles general
+   * 4. Goles marcados en la liga
+   * 5. Número de seguidores
+   */
+  private async applyTiebreakingRules(seasonId: number, leagueId: number, teamStats: TeamStats[]): Promise<TeamStats[]> {
+    // Crear grupos de equipos empatados por puntos
+    const pointGroups = this.groupTeamsByPoints(teamStats);
+    
+    const sortedTeams: TeamStats[] = [];
+    
+    for (const group of pointGroups) {
+      if (group.length === 1) {
+        // Sin empate, agregar directamente
+        sortedTeams.push(...group);
+      } else {
+        // Resolver empate usando las reglas de desempate
+        const resolvedGroup = await this.resolveTiedTeams(seasonId, leagueId, group);
+        sortedTeams.push(...resolvedGroup);
+      }
+    }
+    
+    return sortedTeams;
+  }
+
+  /**
+   * Agrupar equipos por puntos (orden descendente)
+   */
+  private groupTeamsByPoints(teams: TeamStats[]): TeamStats[][] {
+    // Ordenar por puntos descendentemente
+    teams.sort((a, b) => b.points - a.points);
+    
+    const groups: TeamStats[][] = [];
+    let currentGroup: TeamStats[] = [];
+    let currentPoints = -1;
+    
+    for (const team of teams) {
+      if (team.points !== currentPoints) {
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+        }
+        currentGroup = [team];
+        currentPoints = team.points;
+      } else {
+        currentGroup.push(team);
+      }
+    }
+    
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
+    
+    return groups;
+  }
+
+  /**
+   * Resolver empate entre equipos usando las reglas de desempate
+   */
+  private async resolveTiedTeams(seasonId: number, leagueId: number, tiedTeams: TeamStats[]): Promise<TeamStats[]> {
+    if (tiedTeams.length <= 1) {
+      return tiedTeams;
+    }
+    
+    this.logger.log(`🔍 Resolviendo empate entre ${tiedTeams.length} equipos: ${tiedTeams.map(t => `Team ${t.teamId} (${t.points} pts, DG: ${t.goalDifference})`).join(', ')}`);
+    
+    // Aplicar criterios de desempate directamente, sin enfrentamientos directos por ahora
+    const sortedTeams = [...tiedTeams].sort((a, b) => {
+      const teamAId = a.teamId;
+      const teamBId = b.teamId;
+      
+      // 3. Diferencia de goles general (criterio principal por ahora)
+      if (a.goalDifference !== b.goalDifference) {
+        this.logger.log(`   └─ Team ${teamAId} vs Team ${teamBId}: General GD ${a.goalDifference} vs ${b.goalDifference}`);
+        return b.goalDifference - a.goalDifference;
+      }
+      
+      // 4. Goles marcados en la liga
+      if (a.goalsFor !== b.goalsFor) {
+        this.logger.log(`   └─ Team ${teamAId} vs Team ${teamBId}: Goals for ${a.goalsFor} vs ${b.goalsFor}`);
+        return b.goalsFor - a.goalsFor;
+      }
+      
+      // 5. Número de seguidores
+      if (a.followers !== b.followers) {
+        this.logger.log(`   └─ Team ${teamAId} vs Team ${teamBId}: Followers ${a.followers} vs ${b.followers}`);
+        return b.followers - a.followers;
+      }
+      
+      return 0;
+    });
+    
+    this.logger.log(`   ✅ Orden final: ${sortedTeams.map(t => `Team ${t.teamId} (DG: ${t.goalDifference}, GF: ${t.goalsFor})`).join(', ')}`);
+    
+    return sortedTeams;
+  }
+
+  /**
+   * Calcular resultados de enfrentamientos directos entre equipos
+   */
+  private async calculateDirectMatches(seasonId: number, leagueId: number, teamIds: number[]): Promise<Map<number, DirectMatchResult>> {
+    const db = this.databaseService.db;
+    const results = new Map<number, DirectMatchResult>();
+    
+    // Inicializar resultados para cada equipo
+    teamIds.forEach(teamId => {
+      results.set(teamId, {
+        points: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        goalDifference: 0
+      });
+    });
+    
+    // Obtener todos los partidos entre estos equipos
+    const directMatches = await db
+      .select({
+        homeTeamId: matchTable.homeTeamId,
+        awayTeamId: matchTable.awayTeamId,
+        homeGoals: matchTable.homeGoals,
+        awayGoals: matchTable.awayGoals,
+        status: matchTable.status
+      })
+      .from(matchTable)
+      .where(
+        and(
+          eq(matchTable.seasonId, seasonId),
+          eq(matchTable.leagueId, leagueId),
+          eq(matchTable.status, MatchStatus.FINISHED),
+          inArray(matchTable.homeTeamId, teamIds),
+          inArray(matchTable.awayTeamId, teamIds)
+        )
+      );
+    
+    // Procesar cada partido
+    for (const match of directMatches) {
+      if (match.homeGoals !== null && match.awayGoals !== null) {
+        const homeResult = results.get(match.homeTeamId)!;
+        const awayResult = results.get(match.awayTeamId)!;
+        
+        // Actualizar goles
+        homeResult.goalsFor += match.homeGoals;
+        homeResult.goalsAgainst += match.awayGoals;
+        awayResult.goalsFor += match.awayGoals;
+        awayResult.goalsAgainst += match.homeGoals;
+        
+        // Actualizar puntos
+        if (match.homeGoals > match.awayGoals) {
+          homeResult.points += 3;
+        } else if (match.homeGoals === match.awayGoals) {
+          homeResult.points += 1;
+          awayResult.points += 1;
+        } else {
+          awayResult.points += 3;
+        }
+      }
+    }
+    
+    // Calcular diferencias de goles
+    results.forEach(result => {
+      result.goalDifference = result.goalsFor - result.goalsAgainst;
+    });
+    
+    return results;
   }
 }

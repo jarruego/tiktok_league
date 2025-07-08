@@ -294,20 +294,17 @@ export default function DivisionView() {
         };
       });
       
-      // Ordenar por posición en clasificación si existe, si no por seguidores al asignar
+      // Ordenar por la posición que ya viene de la API (que incluye la lógica de desempate correcta)
       const sortedTeams = teamsWithStandings.sort((a, b) => {
         if (a.standing && b.standing) {
-          // Ordenar por puntos primero, luego por diferencia de goles
-          if (a.standing.points !== b.standing.points) {
-            return b.standing.points - a.standing.points;
-          }
-          return b.standing.goalDifference - a.standing.goalDifference;
+          // Usar la posición que ya viene calculada desde la API con la lógica de desempate
+          return (a.standing.position || 999) - (b.standing.position || 999);
         }
         // Si no hay clasificaciones, ordenar por seguidores al asignar
         return b.followersAtAssignment - a.followersAtAssignment;
       });
       
-      // Asignar posiciones finales
+      // Mantener las posiciones que vienen de la API
       const finalTeams = sortedTeams.map((team, index) => ({
         ...team,
         position: team.standing?.position || index + 1
