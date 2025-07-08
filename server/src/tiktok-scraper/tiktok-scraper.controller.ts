@@ -97,4 +97,19 @@ export class TiktokScraperController {
       };
     }
   }
+
+  // Endpoint para probar scraping de un equipo específico (útil para debugging)
+  @UseGuards(JwtAuthGuard)
+  @Post('test/:teamId')
+  async testTeamScraping(@Param('teamId', ParseIntPipe) teamId: number) {
+    try {
+      return await this.scraperService.testScrapingForTeam(teamId);
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date()
+      };
+    }
+  }
 }

@@ -27,15 +27,29 @@ const getPuppeteerConfig = () => {
         '--no-first-run',
         '--no-zygote',
         '--single-process',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-extensions',
+        '--disable-plugins',
+        '--disable-images',
+        '--enable-automation=false',
+        '--disable-blink-features=AutomationControlled'
       ],
+      ignoreDefaultArgs: ['--enable-automation'],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
     };
   }
   
   return {
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [
+      '--no-sandbox', 
+      '--disable-setuid-sandbox',
+      '--enable-automation=false',
+      '--disable-blink-features=AutomationControlled'
+    ],
+    ignoreDefaultArgs: ['--enable-automation']
   };
 };
 
@@ -68,20 +82,88 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
       browser = await puppeteer.launch(puppeteerConfig);
     const page = await browser.newPage();
 
-    // Establecer un User-Agent móvil y cabeceras adicionales
-    await page.setUserAgent('Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36');
-    await page.setExtraHTTPHeaders({
-      'accept-language': 'es-ES,es;q=0.9,en;q=0.8',
-      'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-      'sec-ch-ua': '"Google Chrome";v="124", "Chromium";v="124", ";Not A Brand";v="99"',
-      'sec-ch-ua-mobile': '?1',
-      'sec-ch-ua-platform': '"Android"',
-      'upgrade-insecure-requests': '1'
+    // Configuración anti-detección
+    await page.evaluateOnNewDocument(() => {
+      // Eliminar propiedades que indican automatización
+      delete (navigator as any).webdriver;
+      
+      // Redefinir la propiedad plugins para simular un navegador real
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+      });
+      
+      // Redefinir languages
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['es-ES', 'es', 'en'],
+      });
+      
+      // Mock de chrome object
+      (window as any).chrome = {
+        runtime: {},
+      };
     });
 
-    // Navegar a la página del perfil con timeout extendido y espera de red
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    // Establecer viewport realista para móvil
+    await page.setViewport({ 
+      width: 375, 
+      height: 812, 
+      deviceScaleFactor: 3,
+      isMobile: true,
+      hasTouch: true
+    });
+
+    // User-Agent más actualizado y específico para móvil
+    await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1');
     
+    // Headers más realistas
+    await page.setExtraHTTPHeaders({
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1'
+    });
+
+    // Navegar con configuración más robusta y manejo de errores específicos
+    console.log(`🔍 Iniciando navegación a: ${url}`);
+    
+    try {
+      const response = await page.goto(url, { 
+        waitUntil: 'domcontentloaded', // Cambiar de networkidle2 a domcontentloaded
+        timeout: 45000 
+      });
+      
+      if (!response) {
+        throw new Error('No response received from TikTok');
+      }
+      
+      if (!response.ok()) {
+        throw new Error(`HTTP ${response.status()}: ${response.statusText()}`);
+      }
+      
+      console.log(`✅ Página cargada exitosamente: ${response.status()}`);
+      
+    } catch (navigationError) {
+      console.error(`❌ Error en navegación: ${navigationError.message}`);
+      throw new Error(`Failed to navigate to TikTok: ${navigationError.message}`);
+    }
+
+    // Esperar un momento para que la página se estabilice
+    await page.waitForTimeout(3000);
+
+    // Intentar detectar si estamos bloqueados
+    const isBlocked = await page.evaluate(() => {
+      return document.body.innerText.includes('captcha') || 
+             document.body.innerText.includes('blocked') ||
+             document.body.innerText.includes('verify') ||
+             document.title.includes('Just a moment');
+    });
+
+    if (isBlocked) {
+      throw new Error('TikTok está requiriendo verificación - perfil temporalmente inaccesible');
+    }
+
     console.log(`🔍 Iniciando scraping de: ${url}`);
 
     // Esperar a que aparezca el elemento que contiene el número de seguidores
@@ -236,12 +318,42 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
   } catch (error) {
     // Manejar errores de Puppeteer específicos
     if (browser) {
-      await browser.close();
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.warn(`⚠️ Error cerrando navegador: ${closeError.message}`);
+      }
     }
     
-    if (error.message && error.message.includes('Could not find Chrome')) {
-      console.error(`❌ Error de Chrome/Puppeteer para ${tiktokId}:`, error.message);
+    const errorMessage = error.message || error.toString();
+    
+    // Errores específicos de Chrome/Puppeteer
+    if (errorMessage.includes('Could not find Chrome')) {
+      console.error(`❌ Error de Chrome/Puppeteer para ${tiktokId}:`, errorMessage);
       throw new Error(`Chrome no está disponible en el servidor. El scraping de TikTok está temporalmente deshabilitado.`);
+    }
+    
+    // Error específico de frame detached
+    if (errorMessage.includes('Navigating frame was detached') || 
+        errorMessage.includes('frame was detached') ||
+        errorMessage.includes('Target closed')) {
+      console.error(`❌ Frame detached para ${tiktokId} - TikTok posiblemente detectó automatización`);
+      throw new Error(`TikTok detectó automatización para ${tiktokId}. Reintentando más tarde.`);
+    }
+    
+    // Error de timeout en navegación
+    if (errorMessage.includes('Navigation timeout') || 
+        errorMessage.includes('TimeoutError')) {
+      console.error(`❌ Timeout navegando a ${tiktokId}`);
+      throw new Error(`Timeout accediendo al perfil de ${tiktokId}. Red lenta o perfil inaccesible.`);
+    }
+    
+    // Error de verificación/captcha
+    if (errorMessage.includes('captcha') || 
+        errorMessage.includes('verification') ||
+        errorMessage.includes('verificación')) {
+      console.error(`❌ Verificación requerida para ${tiktokId}`);
+      throw new Error(`TikTok requiere verificación para acceder a ${tiktokId}.`);
     }
     
     console.error(`❌ Error durante el scraping de ${tiktokId}:`, error);
@@ -451,18 +563,54 @@ export class TiktokScraperService {
           this.logger.debug(`⏭️ Sin auto-import: ${importResult.message}`);
         }
       } catch (e) {
+        const errorMessage = e.message || e.toString();
+        
         // Manejo específico de errores de Chrome/Puppeteer
-        if (e.message && e.message.includes('Could not find Chrome')) {
+        if (errorMessage.includes('Could not find Chrome')) {
           this.logger.error(`🚫 Chrome no disponible para ${team.name}. Saltando scraping hasta que Chrome esté disponible.`);
           // No marcamos como scrapeado para intentar de nuevo más tarde
           continue;
-        } else if (e.message && e.message.includes('Chrome no está disponible en el servidor')) {
+        } else if (errorMessage.includes('Chrome no está disponible en el servidor')) {
           this.logger.warn(`⚠️ Scraping temporalmente deshabilitado para ${team.name}: Chrome no disponible`);
           continue;
         }
         
+        // Manejo específico de errores de detección/frame detached
+        if (errorMessage.includes('detectó automatización') || 
+            errorMessage.includes('frame was detached') ||
+            errorMessage.includes('Navigating frame was detached')) {
+          this.logger.warn(`🤖 TikTok detectó automatización para ${team.name}. Aplicando delay adicional y reintentando más tarde.`);
+          // No marcamos como scrapeado para reintentar más tarde con delay mayor
+          await delay(30000 + Math.random() * 30000); // Delay adicional de 30-60 segundos
+          continue;
+        }
+        
+        // Manejo de errores de verificación/captcha
+        if (errorMessage.includes('verificación') || 
+            errorMessage.includes('captcha') ||
+            errorMessage.includes('verification')) {
+          this.logger.warn(`🔐 TikTok requiere verificación para ${team.name}. Saltando temporalmente.`);
+          // Marcamos como procesado pero con timestamp antiguo para reintentar en unas horas
+          await db
+            .update(teamTable)
+            .set({ 
+              lastScrapedAt: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 horas atrás
+            })
+            .where(eq(teamTable.id, team.id));
+          scrapedIds.add(team.id);
+          continue;
+        }
+        
+        // Manejo de errores de timeout
+        if (errorMessage.includes('timeout') || 
+            errorMessage.includes('TimeoutError')) {
+          this.logger.warn(`⏰ Timeout para ${team.name}. Red lenta o perfil inaccesible.`);
+          // No marcamos como scrapeado para reintentar más tarde
+          continue;
+        }
+        
         // Log de error si falla el scraping por otras razones
-        this.logger.error(`Error actualizando ${team.name}: ${e.message || e}`);
+        this.logger.error(`❌ Error actualizando ${team.name}: ${errorMessage}`);
         
         // Para otros errores, aún marcamos como "procesado" para evitar que se quede atascado
         scrapedIds.add(team.id);
@@ -496,6 +644,44 @@ export class TiktokScraperService {
       teamName: team.name,
       ...importResult
     };
+  }
+
+  /**
+   * Método para probar scraping de un equipo específico (útil para debugging)
+   */
+  async testScrapingForTeam(teamId: number): Promise<any> {
+    const db = this.databaseService.db;
+    
+    // Obtener los datos del equipo
+    const [team] = await db.select().from(teamTable).where(eq(teamTable.id, teamId));
+    
+    if (!team) {
+      throw new Error(`Equipo con ID ${teamId} no encontrado`);
+    }
+
+    try {
+      // Hacer scraping del perfil de TikTok del equipo
+      const scrapingResult = await scrapeTikTokProfile(team.tiktokId);
+      
+      return {
+        success: true,
+        teamId,
+        teamName: team.name,
+        tiktokId: team.tiktokId,
+        scrapingResult,
+        timestamp: new Date()
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        teamId,
+        teamName: team.name,
+        tiktokId: team.tiktokId,
+        error: error.message,
+        timestamp: new Date()
+      };
+    }
   }
 
   /**
