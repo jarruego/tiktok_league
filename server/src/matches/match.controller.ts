@@ -212,13 +212,4 @@ export class MatchController {
     await this.standingsService.recalculateStandingsForLeague(seasonId, leagueId);
     return { message: 'Clasificación de liga recalculada exitosamente' };
   }
-
-  /**
-   * ENDPOINT TEMPORAL PARA TESTING - ELIMINAR EN PRODUCCIÓN
-   * Probar el algoritmo Round Robin sin necesidad de autenticación
-   */
-  @Get('debug/test-round-robin')
-  async testRoundRobin() {
-    return this.matchService.testRoundRobinAlgorithm();
-  }
 }
