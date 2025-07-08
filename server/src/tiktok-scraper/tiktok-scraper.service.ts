@@ -167,6 +167,26 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     console.log(`🔍 Iniciando scraping de: ${url}`);
 
     // Esperar a que aparezca el elemento que contiene el número de seguidores
+    // --- NUEVO: Scroll, delay y dump de HTML antes de buscar selectores ---
+    await delay(2000 + Math.random() * 2000); // Espera extra aleatoria
+    try {
+      await page.mouse.move(100, 200); // Simula movimiento de mouse
+      await page.mouse.move(200, 300);
+      await page.mouse.move(300, 400);
+    } catch {}
+    try {
+      await page.evaluate(() => window.scrollBy(0, 200));
+      await delay(1000);
+      await page.evaluate(() => window.scrollBy(0, 400));
+      await delay(1000);
+    } catch {}
+    // Dump parcial de HTML para debug (solo si debug ON)
+    try {
+      const html = await page.content();
+      console.log('--- HTML parcial para debug (primeros 5000 chars): ---');
+      console.log(html.slice(0, 5000));
+    } catch {}
+
     let selectorFound = false;
     const allSelectors = [
       'strong[data-e2e="followers-count"]',
@@ -178,7 +198,7 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     let lastSelector = '';
     for (const selector of allSelectors) {
       try {
-        await page.waitForSelector(selector, { timeout: 7000 });
+        await page.waitForSelector(selector, { timeout: 12000 }); // Aumenta timeout
         console.log(`✅ Selector encontrado: ${selector}`);
         selectorFound = true;
         lastSelector = selector;
