@@ -12,14 +12,21 @@ import {
   ValidationPipe
 } from '@nestjs/common';
 import { MatchService } from './match.service';
+import { MatchSimulationService, MatchSimulationResult } from './match-simulation.service';
+import { StandingsService } from './standings.service';
 import { CreateMatchDto, GenerateMatchesDto } from './dto/create-match.dto';
 import { UpdateMatchDto } from './dto/update-match.dto';
 import { GetMatchesQueryDto } from './dto/get-matches-query.dto';
+import { SimulateMatchesByDateDto, SimulateSingleMatchDto, SimulateMatchesQueryDto } from './dto/simulate-match.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('matches')
 export class MatchController {
-  constructor(private readonly matchService: MatchService) {}
+  constructor(
+    private readonly matchService: MatchService,
+    private readonly matchSimulationService: MatchSimulationService,
+    private readonly standingsService: StandingsService
+  ) {}
 
   /**
    * Generar todos los partidos para una temporada
@@ -118,5 +125,100 @@ export class MatchController {
   @Delete('season/:seasonId')
   async removeAllBySeason(@Param('seasonId', ParseIntPipe) seasonId: number) {
     return this.matchService.removeAllBySeason(seasonId);
+  }
+
+  // ==========================================
+  // ENDPOINTS DE SIMULACIÓN DE PARTIDOS
+  // ==========================================
+
+  /**
+   * Simular partidos de una fecha específica
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('simulate/date')
+  async simulateMatchesByDate(@Body() simulateDto: SimulateMatchesByDateDto): Promise<MatchSimulationResult[]> {
+    return this.matchSimulationService.simulateMatchesByDate(simulateDto.date);
+  }
+
+  /**
+   * Simular un partido específico por ID
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('simulate/:matchId')
+  async simulateSingleMatch(@Param('matchId', ParseIntPipe) matchId: number): Promise<MatchSimulationResult> {
+    return this.matchSimulationService.simulateSingleMatch(matchId);
+  }
+
+  /**
+   * Simular todos los partidos pendientes
+   * ⚠️ Usar con precaución - simula TODOS los partidos programados
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('simulate/all')
+  async simulateAllPendingMatches(): Promise<MatchSimulationResult[]> {
+    return this.matchSimulationService.simulateAllPendingMatches();
+  }
+
+  /**
+   * Obtener estadísticas de simulación
+   */
+  @Get('simulation/stats')
+  async getSimulationStats() {
+    return this.matchSimulationService.getSimulationStats();
+  }
+
+  // ==========================================
+  // ENDPOINTS DE CLASIFICACIONES
+  // ==========================================
+
+  /**
+   * Obtener clasificación de una liga específica
+   */
+  @Get('standings/league/:leagueId/season/:seasonId')
+  async getLeagueStandings(
+    @Param('leagueId', ParseIntPipe) leagueId: number,
+    @Param('seasonId', ParseIntPipe) seasonId: number
+  ) {
+    return this.standingsService.getLeagueStandings(seasonId, leagueId);
+  }
+
+  /**
+   * Obtener todas las clasificaciones de una temporada
+   */
+  @Get('standings/season/:seasonId')
+  async getAllStandingsForSeason(@Param('seasonId', ParseIntPipe) seasonId: number) {
+    return this.standingsService.getAllStandingsForSeason(seasonId);
+  }
+
+  /**
+   * Recalcular clasificaciones para una temporada
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('standings/recalculate/season/:seasonId')
+  async recalculateStandingsForSeason(@Param('seasonId', ParseIntPipe) seasonId: number) {
+    await this.standingsService.recalculateStandingsForSeason(seasonId);
+    return { message: 'Clasificaciones recalculadas exitosamente' };
+  }
+
+  /**
+   * Recalcular clasificaciones para una liga específica
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('standings/recalculate/league/:leagueId/season/:seasonId')
+  async recalculateStandingsForLeague(
+    @Param('leagueId', ParseIntPipe) leagueId: number,
+    @Param('seasonId', ParseIntPipe) seasonId: number
+  ) {
+    await this.standingsService.recalculateStandingsForLeague(seasonId, leagueId);
+    return { message: 'Clasificación de liga recalculada exitosamente' };
+  }
+
+  /**
+   * ENDPOINT TEMPORAL PARA TESTING - ELIMINAR EN PRODUCCIÓN
+   * Probar el algoritmo Round Robin sin necesidad de autenticación
+   */
+  @Get('debug/test-round-robin')
+  async testRoundRobin() {
+    return this.matchService.testRoundRobinAlgorithm();
   }
 }

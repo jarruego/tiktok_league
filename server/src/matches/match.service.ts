@@ -86,6 +86,8 @@ export class MatchService {
 
     // 6. Generar partidos para cada liga
     const allMatches: any[] = [];
+    const leagueResults: any[] = [];
+    
     for (const league of leaguesWithTeams) {
       const matches = this.generateRoundRobinMatches(
         league.teams,
@@ -94,7 +96,27 @@ export class MatchService {
         startDate,
         generateDto.daysPerMatchday || 7
       );
-      allMatches.push(...matches);
+      
+      // Verificar que la generación sea correcta
+      const verification = this.verifyRoundRobinGeneration(league.teams, matches);
+      
+      leagueResults.push({
+        leagueId: league.leagueId,
+        leagueName: league.leagueName,
+        teamsCount: league.teams.length,
+        matchesGenerated: matches.length,
+        verification: verification
+      });
+      
+      // Solo agregar partidos si la verificación es exitosa
+      if (verification.isValid) {
+        allMatches.push(...matches);
+      } else {
+        console.error(`Error en generación de partidos para liga ${league.leagueName}:`, verification.errors);
+        throw new BadRequestException(
+          `Error en la generación de partidos para la liga "${league.leagueName}": ${verification.errors.join(', ')}`
+        );
+      }
     }
 
     // 7. Insertar todos los partidos en la base de datos
@@ -106,12 +128,14 @@ export class MatchService {
       message: 'Partidos generados exitosamente',
       totalMatches: allMatches.length,
       leaguesProcessed: leaguesWithTeams.length,
-      startDate: startDate.toISOString().split('T')[0]
+      startDate: startDate.toISOString().split('T')[0],
+      leagueResults: leagueResults
     };
   }
 
   /**
    * Generar sistema de todos contra todos (ida y vuelta)
+   * Usa el algoritmo Round Robin estándar para garantizar distribución correcta
    */
   private generateRoundRobinMatches(
     teams: any[],
@@ -127,69 +151,120 @@ export class MatchService {
       return matches; // No se pueden generar partidos con menos de 2 equipos
     }
 
+    console.log(`Generando partidos para ${teamCount} equipos en liga ${leagueId}`);
+
     let matchday = 1;
     let currentDate = new Date(startDate);
 
-    // PRIMERA VUELTA (todos contra todos)
-    for (let round = 0; round < teamCount - 1; round++) {
-      const roundMatches: any[] = [];
-      
-      for (let match = 0; match < Math.floor(teamCount / 2); match++) {
-        const home = (round + match) % (teamCount - 1);
-        const away = (teamCount - 1 - match + round) % (teamCount - 1);
-        
-        // Si es par, el último equipo es siempre local en rounds pares
-        const homeTeam = match === 0 && round % 2 === 1 
-          ? teams[teamCount - 1] 
-          : teams[home === teamCount - 1 ? away : home];
-          
-        const awayTeam = match === 0 && round % 2 === 1
-          ? teams[away === teamCount - 1 ? home : away]
-          : teams[away === teamCount - 1 ? teamCount - 1 : away];
-
-        if (homeTeam.id !== awayTeam.id) {
-          roundMatches.push({
-            seasonId,
-            leagueId,
-            homeTeamId: homeTeam.id,
-            awayTeamId: awayTeam.id,
-            matchday,
-            scheduledDate: currentDate.toISOString().split('T')[0],
-            status: MatchStatus.SCHEDULED,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          });
-        }
+    // Generar PRIMERA VUELTA usando algoritmo Round Robin estándar
+    const firstRoundMatches = this.generateStandardRoundRobin(teams);
+    
+    console.log(`Primera vuelta: ${firstRoundMatches.length} jornadas generadas`);
+    
+    for (const roundMatches of firstRoundMatches) {
+      for (const match of roundMatches) {
+        matches.push({
+          seasonId,
+          leagueId,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          matchday,
+          scheduledDate: currentDate.toISOString().split('T')[0],
+          status: MatchStatus.SCHEDULED,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
       }
       
-      matches.push(...roundMatches);
       matchday++;
       currentDate.setDate(currentDate.getDate() + daysPerMatchday);
     }
 
-    // SEGUNDA VUELTA (partidos de vuelta)
-    const firstRoundMatches = [...matches];
-    for (const firstMatch of firstRoundMatches) {
-      matches.push({
-        seasonId: firstMatch.seasonId,
-        leagueId: firstMatch.leagueId,
-        homeTeamId: firstMatch.awayTeamId, // Intercambiar local y visitante
-        awayTeamId: firstMatch.homeTeamId,
-        matchday,
-        scheduledDate: currentDate.toISOString().split('T')[0],
-        status: MatchStatus.SCHEDULED,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      });
-      
-      // Avanzar fecha cada pocos partidos para distribuir las jornadas
-      if (matches.length % Math.floor(teamCount / 2) === 0) {
-        matchday++;
-        currentDate.setDate(currentDate.getDate() + daysPerMatchday);
+    // Generar SEGUNDA VUELTA (invertir local y visitante)
+    console.log(`Segunda vuelta: ${firstRoundMatches.length} jornadas adicionales`);
+    
+    for (const roundMatches of firstRoundMatches) {
+      for (const match of roundMatches) {
+        matches.push({
+          seasonId,
+          leagueId,
+          homeTeamId: match.awayTeamId, // Intercambiar local y visitante
+          awayTeamId: match.homeTeamId,
+          matchday,
+          scheduledDate: currentDate.toISOString().split('T')[0],
+          status: MatchStatus.SCHEDULED,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
       }
+      
+      matchday++;
+      currentDate.setDate(currentDate.getDate() + daysPerMatchday);
     }
 
+    console.log(`Total generado: ${matches.length} partidos en ${matchday - 1} jornadas`);
     return matches;
+  }
+
+  /**
+   * Generar una vuelta completa usando algoritmo Round Robin estándar
+   * Retorna un array de jornadas, cada jornada contiene los partidos de esa fecha
+   * 
+   * El algoritmo Round Robin garantiza que:
+   * - Cada equipo juega exactamente una vez contra cada otro equipo
+   * - En cada jornada, todos los equipos juegan (excepto si hay número impar)
+   * - La distribución de local/visitante es equilibrada
+   */
+  private generateStandardRoundRobin(teams: any[]): any[][] {
+    const teamCount = teams.length;
+    
+    if (teamCount < 2) {
+      return [];
+    }
+    
+    // Algoritmo Round Robin usando el método del "círculo rotativo"
+    // Fijar el primer equipo y rotar los demás
+    
+    let workingTeams = [...teams];
+    
+    // Si hay número impar, agregar un "bye" (descanso)
+    if (teamCount % 2 === 1) {
+      workingTeams.push({ id: null, name: 'BYE' });
+    }
+    
+    const totalTeams = workingTeams.length;
+    const rounds: any[][] = [];
+    const numRounds = totalTeams - 1;
+    
+    console.log(`Round Robin: ${teamCount} equipos, generando ${numRounds} jornadas`);
+    
+    for (let round = 0; round < numRounds; round++) {
+      const roundMatches: any[] = [];
+      
+      // En cada jornada, emparejar equipos: 0 vs último, 1 vs penúltimo, etc.
+      for (let i = 0; i < totalTeams / 2; i++) {
+        const homeTeam = workingTeams[i];
+        const awayTeam = workingTeams[totalTeams - 1 - i];
+        
+        // Solo agregar si ninguno es el "bye"
+        if (homeTeam.id !== null && awayTeam.id !== null) {
+          roundMatches.push({
+            homeTeamId: homeTeam.id,
+            awayTeamId: awayTeam.id
+          });
+        }
+      }
+      
+      rounds.push(roundMatches);
+      console.log(`Jornada ${round + 1}: ${roundMatches.length} partidos`);
+      
+      // Rotar equipos (excepto el primero que permanece fijo)
+      // Mover el último equipo a la segunda posición
+      const lastTeam = workingTeams.pop();
+      workingTeams.splice(1, 0, lastTeam);
+    }
+    
+    return rounds;
   }
 
   /**
@@ -474,6 +549,193 @@ export class MatchService {
     return {
       message: 'Partidos eliminados exitosamente',
       deletedCount: deletedMatches.length
+    };
+  }
+
+  /**
+   * Verificar que todos los cruces posibles se hayan generado correctamente
+   * Útil para testing y debugging
+   */
+  private verifyRoundRobinGeneration(teams: any[], matches: any[]): { 
+    isValid: boolean; 
+    errors: string[];
+    stats: {
+      expectedMatches: number;
+      actualMatches: number;
+      expectedMatchesPerTeam: number;
+      teamsStats: { teamId: number; homeMatches: number; awayMatches: number; totalMatches: number }[];
+    }
+  } {
+    const teamCount = teams.length;
+    const errors: string[] = [];
+    
+    // Estadísticas esperadas
+    const expectedTotalMatches = teamCount * (teamCount - 1); // ida y vuelta
+    const expectedMatchesPerTeam = (teamCount - 1) * 2; // contra cada otro equipo, ida y vuelta
+    
+    // Crear mapa de estadísticas por equipo
+    const teamStats = new Map();
+    teams.forEach(team => {
+      teamStats.set(team.id, {
+        teamId: team.id,
+        homeMatches: 0,
+        awayMatches: 0,
+        totalMatches: 0,
+        opponents: new Set()
+      });
+    });
+    
+    // Analizar partidos generados
+    matches.forEach(match => {
+      const homeTeamStats = teamStats.get(match.homeTeamId);
+      const awayTeamStats = teamStats.get(match.awayTeamId);
+      
+      if (homeTeamStats) {
+        homeTeamStats.homeMatches++;
+        homeTeamStats.totalMatches++;
+        homeTeamStats.opponents.add(match.awayTeamId);
+      }
+      
+      if (awayTeamStats) {
+        awayTeamStats.awayMatches++;
+        awayTeamStats.totalMatches++;
+        awayTeamStats.opponents.add(match.homeTeamId);
+      }
+    });
+    
+    // Verificar estadísticas
+    if (matches.length !== expectedTotalMatches) {
+      errors.push(`Número total de partidos incorrecto: esperados ${expectedTotalMatches}, generados ${matches.length}`);
+    }
+    
+    // Verificar cada equipo
+    teamStats.forEach(stats => {
+      if (stats.totalMatches !== expectedMatchesPerTeam) {
+        errors.push(`Equipo ${stats.teamId}: esperados ${expectedMatchesPerTeam} partidos, tiene ${stats.totalMatches}`);
+      }
+      
+      if (stats.homeMatches !== teamCount - 1) {
+        errors.push(`Equipo ${stats.teamId}: esperados ${teamCount - 1} partidos de local, tiene ${stats.homeMatches}`);
+      }
+      
+      if (stats.awayMatches !== teamCount - 1) {
+        errors.push(`Equipo ${stats.teamId}: esperados ${teamCount - 1} partidos de visitante, tiene ${stats.awayMatches}`);
+      }
+      
+      if (stats.opponents.size !== teamCount - 1) {
+        errors.push(`Equipo ${stats.teamId}: debe jugar contra ${teamCount - 1} oponentes diferentes, pero juega contra ${stats.opponents.size}`);
+      }
+    });
+    
+    // Verificar que no hay partidos duplicados
+    const matchPairs = new Set();
+    const duplicates: string[] = [];
+    
+    matches.forEach(match => {
+      const pairKey = `${match.homeTeamId}-${match.awayTeamId}`;
+      if (matchPairs.has(pairKey)) {
+        duplicates.push(pairKey);
+      }
+      matchPairs.add(pairKey);
+    });
+    
+    if (duplicates.length > 0) {
+      errors.push(`Partidos duplicados encontrados: ${duplicates.join(', ')}`);
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      stats: {
+        expectedMatches: expectedTotalMatches,
+        actualMatches: matches.length,
+        expectedMatchesPerTeam,
+        teamsStats: Array.from(teamStats.values()).map(stats => ({
+          teamId: stats.teamId,
+          homeMatches: stats.homeMatches,
+          awayMatches: stats.awayMatches,
+          totalMatches: stats.totalMatches
+        }))
+      }
+    };
+  }
+
+  /**
+   * Función de prueba para verificar el algoritmo Round Robin
+   * SOLO PARA TESTING - ELIMINAR EN PRODUCCIÓN
+   */
+  testRoundRobinAlgorithm() {
+    console.log('=== PRUEBA DEL ALGORITMO ROUND ROBIN ===');
+    
+    // Crear equipos de prueba para una liga de 20 equipos
+    const testTeams = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: `Equipo ${i + 1}`
+    }));
+    
+    console.log(`Probando con ${testTeams.length} equipos`);
+    
+    // Generar partidos usando nuestro algoritmo
+    const matches = this.generateRoundRobinMatches(
+      testTeams,
+      999, // Liga ficticia
+      999, // Temporada ficticia  
+      new Date('2025-07-08'),
+      7
+    );
+    
+    // Verificar la generación
+    const verification = this.verifyRoundRobinGeneration(testTeams, matches);
+    
+    console.log('=== RESULTADOS DE LA VERIFICACIÓN ===');
+    console.log('Válido:', verification.isValid);
+    console.log('Errores:', verification.errors);
+    console.log('Estadísticas:', verification.stats);
+    
+    // Mostrar estadísticas detalladas por equipo (solo primeros 5)
+    console.log('\n=== ESTADÍSTICAS POR EQUIPO (Primeros 5) ===');
+    verification.stats.teamsStats.slice(0, 5).forEach(teamStat => {
+      console.log(`Equipo ${teamStat.teamId}: ${teamStat.totalMatches} partidos (${teamStat.homeMatches} local, ${teamStat.awayMatches} visitante)`);
+    });
+    
+    // Mostrar distribución por jornadas
+    const matchdayStats = matches.reduce((acc, match) => {
+      acc[match.matchday] = (acc[match.matchday] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>);
+    
+    console.log('\n=== PARTIDOS POR JORNADA (Primeras 10) ===');
+    Object.entries(matchdayStats).slice(0, 10).forEach(([matchday, count]) => {
+      console.log(`Jornada ${matchday}: ${count} partidos`);
+    });
+    
+    const totalMatchdays = Object.keys(matchdayStats).length;
+    console.log(`\nTotal de jornadas: ${totalMatchdays}`);
+    console.log(`Total de partidos: ${matches.length}`);
+    
+    // Para 20 equipos debería ser:
+    // - 38 jornadas (19 ida + 19 vuelta)
+    // - 380 partidos total (20 x 19 x 2)
+    // - 10 partidos por jornada
+    const expectedMatchdays = (testTeams.length - 1) * 2;
+    const expectedMatches = testTeams.length * (testTeams.length - 1);
+    const expectedMatchesPerMatchday = testTeams.length / 2;
+    
+    console.log(`\n=== VALORES ESPERADOS ===`);
+    console.log(`Jornadas esperadas: ${expectedMatchdays}`);
+    console.log(`Partidos esperados: ${expectedMatches}`);
+    console.log(`Partidos por jornada esperados: ${expectedMatchesPerMatchday}`);
+    
+    console.log('=== FIN PRUEBA ===\n');
+    
+    return {
+      isValid: verification.isValid,
+      errors: verification.errors,
+      stats: verification.stats,
+      totalMatches: matches.length,
+      totalMatchdays,
+      expectedMatches,
+      expectedMatchdays
     };
   }
 }

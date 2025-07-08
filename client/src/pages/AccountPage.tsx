@@ -1,6 +1,7 @@
 import { Card, Typography, Tag, Divider, Button } from 'antd';
 import { Link } from 'react-router-dom';
 import { LayoutContainer } from '../components/LayoutContainer';
+import { MatchSimulationDashboard } from '../components/MatchSimulationDashboard';
 import { useAccountPageLogic } from '../hooks/useAccountPageLogic';
 
 const { Title, Text } = Typography;
@@ -42,9 +43,14 @@ export default function AccountPage() {
     userPermissions,
     loading,
     caching,
+    simulatingMatches,
+    showSimulationDashboard,
     handleInitializeSystem,
     handleResetSystem,
-    handleCacheAllCompetitions
+    handleCacheAllCompetitions,
+    handleSimulateNextMatchday,
+    handleOpenSimulationDashboard,
+    handleCloseSimulationDashboard
   } = useAccountPageLogic();
 
   if (!user) {
@@ -85,6 +91,13 @@ export default function AccountPage() {
                 <Button type="primary" loading={loading} onClick={handleInitializeSystem}>
                   Inicializar Sistema de Ligas
                 </Button>
+                <Button 
+                  type="primary" 
+                  onClick={handleOpenSimulationDashboard}
+                  style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                >
+                  ⚽ Gestionar Simulación de Partidos
+                </Button>
                 <Button danger loading={loading} onClick={handleResetSystem}>
                   Reset del Sistema
                 </Button>
@@ -99,6 +112,14 @@ export default function AccountPage() {
               </div>
             </>
           )}
+
+          {/* Dashboard de Simulación */}
+          <MatchSimulationDashboard
+            visible={showSimulationDashboard}
+            onClose={handleCloseSimulationDashboard}
+            onSimulate={handleSimulateNextMatchday}
+            loading={simulatingMatches}
+          />
         </Card>
       </div>
     </LayoutContainer>

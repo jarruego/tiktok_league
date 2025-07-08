@@ -113,6 +113,20 @@
       "when": 1751993348307,
       "tag": "0015_bumpy_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1751997396066,
+      "tag": "0016_handy_payback",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1751998516618,
+      "tag": "0017_abandoned_penance",
+      "breakpoints": true
     }
   ]
 }

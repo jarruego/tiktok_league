@@ -41,3 +41,26 @@ export interface TeamInLeague {
   followersAtAssignment: number;
   assignmentReason: number;
 }
+
+export interface TeamStanding {
+  position: number;
+  team?: {
+    id: number;
+    name: string;
+    shortName: string;
+    crest: string;
+  };
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
+}
+
+export interface ExtendedTeamInLeague extends TeamInLeague {
+  position?: number;
+  standing?: TeamStanding;
+}

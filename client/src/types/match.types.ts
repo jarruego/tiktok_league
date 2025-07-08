@@ -59,6 +59,36 @@ export interface GenerateMatchesRequest {
   daysPerMatchday?: number;
 }
 
+export interface GenerateMatchesResponse {
+  message: string;
+  totalMatches: number;
+  leaguesProcessed: number;
+  startDate: string;
+  leagueResults?: LeagueGenerationResult[];
+}
+
+export interface LeagueGenerationResult {
+  leagueId: number;
+  leagueName: string;
+  teamsCount: number;
+  matchesGenerated: number;
+  verification: {
+    isValid: boolean;
+    errors: string[];
+    stats: {
+      expectedMatches: number;
+      actualMatches: number;
+      expectedMatchesPerTeam: number;
+      teamsStats: {
+        teamId: number;
+        homeMatches: number;
+        awayMatches: number;
+        totalMatches: number;
+      }[];
+    };
+  };
+}
+
 export interface MatchFilters {
   seasonId?: number;
   leagueId?: number;

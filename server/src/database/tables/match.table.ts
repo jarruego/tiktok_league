@@ -33,6 +33,9 @@ export const matchTable = pgTable('matches', {
   homeGoals: integer('home_goals'), // null = no jugado aún
   awayGoals: integer('away_goals'), // null = no jugado aún
   
+  // Detalles de la simulación (JSON)
+  simulationDetails: varchar('simulation_details', { length: 1000 }), // JSON con detalles del algoritmo
+  
   // Metadatos
   notes: varchar('notes', { length: 500 }), // Notas adicionales
   createdAt: timestamp('created_at').defaultNow().notNull(),

@@ -1,7 +1,8 @@
 import type { 
   Match, 
   MatchesResponse, 
-  GenerateMatchesRequest, 
+  GenerateMatchesRequest,
+  GenerateMatchesResponse,
   MatchFilters 
 } from '../types/match.types';
 import { authService } from './authApi';
@@ -12,12 +13,7 @@ export const matchApi = {
   /**
    * Generar todos los partidos para una temporada
    */
-  async generateMatches(data: GenerateMatchesRequest): Promise<{ 
-    message: string; 
-    totalMatches: number; 
-    leaguesProcessed: number; 
-    startDate: string;
-  }> {
+  async generateMatches(data: GenerateMatchesRequest): Promise<GenerateMatchesResponse> {
     const response = await fetch(`${API_BASE_URL}/api/matches/generate`, {
       method: 'POST',
       headers: {
@@ -190,5 +186,258 @@ export const matchApi = {
     }
 
     return stats;
+  },
+
+  // ==========================================
+  // CLASIFICACIONES Y ESTADÍSTICAS
+  // ==========================================
+
+  /**
+   * Obtener clasificación de una liga
+   */
+  async getLeagueStandings(leagueId: number, seasonId: number): Promise<{
+    id: number;
+    teamId: number;
+    teamName: string;
+    teamCrest: string | null;
+    position: number;
+    matchesPlayed: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    goalDifference: number;
+    points: number;
+  }[]> {
+    const response = await fetch(
+      `${API_BASE_URL}/api/matches/standings/league/${leagueId}/season/${seasonId}`,
+      {
+        headers: authService.getAuthHeaders(),
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    // El backend devuelve { league, division, standings }, extraemos solo standings
+    return data.standings || [];
+  },
+
+  /**
+   * Obtener clasificaciones de una temporada completa
+   */
+  async getSeasonStandings(seasonId: number): Promise<{
+    [leagueId: number]: {
+      id: number;
+      teamId: number;
+      teamName: string;
+      teamCrest: string | null;
+      position: number;
+      matchesPlayed: number;
+      wins: number;
+      draws: number;
+      losses: number;
+      goalsFor: number;
+      goalsAgainst: number;
+      goalDifference: number;
+      points: number;
+    }[];
+  }> {
+    const response = await fetch(
+      `${API_BASE_URL}/api/matches/standings/season/${seasonId}`,
+      {
+        headers: authService.getAuthHeaders(),
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    // El backend devuelve un array de { league, division, standings }
+    // Convertimos a objeto con leagueId como clave
+    const result: { [leagueId: number]: any[] } = {};
+    data.forEach((leagueData: any) => {
+      result[leagueData.league.id] = leagueData.standings || [];
+    });
+    return result;
+  },
+
+  /**
+   * Recalcular clasificaciones de una temporada
+   */
+  async recalculateStandings(seasonId: number): Promise<{
+    message: string;
+    updatedStandings?: number;
+  }> {
+    const response = await fetch(
+      `${API_BASE_URL}/api/matches/standings/recalculate/season/${seasonId}`,
+      {
+        method: 'POST',
+        headers: authService.getAuthHeaders(),
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.json();
+  },
+
+  /**
+   * Simular partidos por fecha
+   */
+  async simulateMatchesByDate(date: string): Promise<{
+    length: number;
+    results: Array<{
+      matchId: number;
+      homeTeamName: string;
+      awayTeamName: string;
+      homeGoals: number;
+      awayGoals: number;
+      algorithmDetails: {
+        homeTeamFollowers: number;
+        awayTeamFollowers: number;
+        followersDifference: number;
+        randomEvents: number;
+        followerBasedEvents: number;
+      };
+    }>;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/matches/simulate/date`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeaders(),
+      },
+      body: JSON.stringify({ date }),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const results = await response.json();
+    return {
+      length: results.length,
+      results
+    };
+  },
+
+  /**
+   * Simular un partido específico
+   */
+  async simulateSingleMatch(matchId: number): Promise<{
+    matchId: number;
+    homeTeamName: string;
+    awayTeamName: string;
+    homeGoals: number;
+    awayGoals: number;
+    algorithmDetails: any;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/matches/simulate/${matchId}`, {
+      method: 'POST',
+      headers: authService.getAuthHeaders(),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.json();
+  },
+
+  /**
+   * Simular todos los partidos pendientes
+   */
+  async simulateAllPendingMatches(): Promise<{
+    length: number;
+    results: Array<any>;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/matches/simulate/all`, {
+      method: 'POST',
+      headers: authService.getAuthHeaders(),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const results = await response.json();
+    return {
+      length: results.length,
+      results
+    };
+  },
+
+  /**
+   * Obtener estadísticas de simulación
+   */
+  async getSimulationStats(): Promise<{
+    totalMatches: number;
+    scheduledMatches: number;
+    finishedMatches: number;
+    averageGoalsPerMatch: number;
+    homeWins: number;
+    awayWins: number;
+    draws: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/matches/simulation/stats`);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.json();
+  },
+
+  /**
+   * Simular la siguiente jornada
+   * Encuentra partidos programados para la próxima fecha y los simula
+   */
+  async simulateNextMatchday(): Promise<{
+    date: string;
+    matchesSimulated: number;
+    results: Array<any>;
+  }> {
+    // Primero obtenemos todos los partidos programados
+    const scheduledMatches = await this.getMatches({ 
+      status: 'scheduled',
+      limit: 1000 
+    });
+
+    if (scheduledMatches.matches.length === 0) {
+      throw new Error('No hay partidos programados para simular');
+    }
+
+    // Encontrar la fecha más próxima
+    const dates = scheduledMatches.matches.map(m => m.scheduledDate);
+    const uniqueDates = [...new Set(dates)].sort();
+    const nextDate = uniqueDates[0];
+
+    if (!nextDate) {
+      throw new Error('No se pudo determinar la siguiente fecha de partidos');
+    }
+
+    // Simular partidos de esa fecha
+    const result = await this.simulateMatchesByDate(nextDate);
+    
+    return {
+      date: nextDate,
+      matchesSimulated: result.length,
+      results: result.results
+    };
   }
 };

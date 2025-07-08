@@ -1,0 +1,1 @@
+ALTER TABLE "matches" ADD COLUMN "simulation_details" varchar(1000);

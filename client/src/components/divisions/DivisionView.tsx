@@ -1,8 +1,9 @@
 import { Table, Select, Spin, Alert, Typography, Card, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
+import { matchApi } from '../../api/matchApi';
 import { useState, useEffect } from 'react';
-import type { Division, Season, TeamInLeague } from '../../types/league.types';
+import type { Division, Season, ExtendedTeamInLeague } from '../../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
 import { formatNumber } from '../../utils/formatters';
 import '../../styles/common.css';
@@ -10,10 +11,6 @@ import '../../styles/DivisionView.css';
 
 const { Text } = Typography;
 const { Option } = Select;
-
-interface ExtendedTeamInLeague extends TeamInLeague {
-  position?: number;
-}
 
 // Función para determinar el estado de clasificación de un equipo (optimizada)
 const getTeamStatus = (
@@ -75,20 +72,6 @@ const getTeamStatus = (
   };
 };
 
-// Mapeo de razones de asignación (optimizado)
-const ASSIGNMENT_REASONS = {
-  0: { text: 'TikTok', color: 'blue' },
-  1: { text: 'Ascenso', color: 'green' },
-  2: { text: 'Descenso', color: 'red' },
-  3: { text: 'Playoff', color: 'orange' },
-  4: { text: 'Disponibilidad', color: 'purple' }
-} as const;
-
-const getAssignmentReasonText = (reason: number) => {
-  return ASSIGNMENT_REASONS[reason as keyof typeof ASSIGNMENT_REASONS] || 
-         { text: 'Desconocido', color: 'default' };
-};
-
 // Función para crear las columnas dinámicamente según la división (optimizada con memoización)
 const createColumns = (selectedDivision: Division | null, navigate: any): ColumnsType<ExtendedTeamInLeague> => {
   const handleTeamClick = (teamId: number) => navigate(`/team/${teamId}`);
@@ -99,16 +82,18 @@ const createColumns = (selectedDivision: Division | null, navigate: any): Column
       dataIndex: 'position', 
       key: 'position', 
       width: 60,
-      render: (position: number) => position || '-',
+      render: (position: number, record: ExtendedTeamInLeague) => {
+        return record.standing?.position || position || '-';
+      },
     },
     { 
       title: 'Estado', 
       key: 'status', 
       width: 120,
       render: (_, record: ExtendedTeamInLeague) => {
-        if (!selectedDivision || !record.position) return null;
+        if (!selectedDivision || !record.standing?.position) return null;
         
-        const status = getTeamStatus(record.position, selectedDivision, 20); // Asumimos 20 equipos por liga
+        const status = getTeamStatus(record.standing.position, selectedDivision, 20); // Asumimos 20 equipos por liga
         return (
           <Tag color={status.color} style={{ margin: 0 }}>
             {status.badge}
@@ -127,9 +112,9 @@ const createColumns = (selectedDivision: Division | null, navigate: any): Column
           style={{ display: 'flex', justifyContent: 'center' }}
           onClick={() => handleTeamClick(record.teamId)}
         >
-          {crest ? (
+          {(crest || record.standing?.team?.crest) ? (
             <img 
-              src={crest} 
+              src={crest || record.standing?.team?.crest || ''} 
               alt={record.teamName} 
               style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
             />
@@ -158,26 +143,70 @@ const createColumns = (selectedDivision: Division | null, navigate: any): Column
       )
     },
     { 
-      title: 'Seguidores Actuales', 
+      title: 'PJ', 
+      key: 'matchesPlayed',
+      width: 60,
+      render: (_, record: ExtendedTeamInLeague) => record.standing?.played || 0
+    },
+    { 
+      title: 'PTS', 
+      key: 'points',
+      width: 70,
+      sorter: (a, b) => (b.standing?.points || 0) - (a.standing?.points || 0),
+      render: (_, record: ExtendedTeamInLeague) => (
+        <Text strong style={{ color: '#1890ff' }}>{record.standing?.points || 0}</Text>
+      )
+    },
+    { 
+      title: 'G', 
+      key: 'wins',
+      width: 50,
+      render: (_, record: ExtendedTeamInLeague) => record.standing?.won || 0
+    },
+    { 
+      title: 'E', 
+      key: 'draws',
+      width: 50,
+      render: (_, record: ExtendedTeamInLeague) => record.standing?.drawn || 0
+    },
+    { 
+      title: 'P', 
+      key: 'losses',
+      width: 50,
+      render: (_, record: ExtendedTeamInLeague) => record.standing?.lost || 0
+    },
+    { 
+      title: 'GF', 
+      key: 'goalsFor',
+      width: 60,
+      render: (_, record: ExtendedTeamInLeague) => record.standing?.goalsFor || 0
+    },
+    { 
+      title: 'GC', 
+      key: 'goalsAgainst',
+      width: 60,
+      render: (_, record: ExtendedTeamInLeague) => record.standing?.goalsAgainst || 0
+    },
+    { 
+      title: 'DG', 
+      key: 'goalDifference',
+      width: 70,
+      sorter: (a, b) => (b.standing?.goalDifference || 0) - (a.standing?.goalDifference || 0),
+      render: (_, record: ExtendedTeamInLeague) => {
+        const diff = record.standing?.goalDifference || 0;
+        return (
+          <Text style={{ color: diff > 0 ? '#52c41a' : diff < 0 ? '#ff4d4f' : '#8c8c8c' }}>
+            {diff > 0 ? '+' : ''}{diff}
+          </Text>
+        );
+      }
+    },
+    { 
+      title: 'Seguidores', 
       dataIndex: 'tiktokFollowers', 
       key: 'tiktokFollowers', 
       sorter: (a, b) => b.tiktokFollowers - a.tiktokFollowers,
       render: (followers: number) => formatNumber(followers)
-    },
-    { 
-      title: 'Seguidores al Asignar', 
-      dataIndex: 'followersAtAssignment', 
-      key: 'followersAtAssignment',
-      render: (followers: number) => formatNumber(followers)
-    },
-    { 
-      title: 'Motivo Asignación', 
-      dataIndex: 'assignmentReason', 
-      key: 'assignmentReason',
-      render: (reason: number) => {
-        const { text, color } = getAssignmentReasonText(reason);
-        return <Tag color={color}>{text}</Tag>;
-      }
     },
   ];
 };
@@ -239,17 +268,52 @@ export default function DivisionView() {
   const loadTeamsInLeague = async (leagueId: number, seasonId: number) => {
     try {
       setTeamsLoading(true);
-      const teamsData = await leagueApi.getTeamsInLeague(leagueId, seasonId);
       
-      // Añadir posición basada en seguidores al momento de asignación
-      const teamsWithPosition = teamsData
-        .sort((a, b) => b.followersAtAssignment - a.followersAtAssignment)
-        .map((team, index) => ({
+      // Cargar equipos y clasificaciones en paralelo
+      const [teamsData, standingsData] = await Promise.all([
+        leagueApi.getTeamsInLeague(leagueId, seasonId),
+        matchApi.getLeagueStandings(leagueId, seasonId).catch((error) => {
+          console.error('Error cargando clasificaciones:', error);
+          return [];
+        })
+      ]);
+      
+      // Crear mapa de clasificaciones para acceso rápido
+      const standingsMap = new Map(standingsData.map(s => [
+        (s as any).team?.id || s.teamId, 
+        s
+      ]));
+      
+      // Combinar datos de equipos con clasificaciones
+      const teamsWithStandings = teamsData.map(team => {
+        const standing = standingsMap.get(team.teamId);
+        return {
           ...team,
-          position: index + 1
-        }));
+          standing,
+          position: standing?.position || undefined
+        };
+      });
       
-      setTeams(teamsWithPosition);
+      // Ordenar por posición en clasificación si existe, si no por seguidores al asignar
+      const sortedTeams = teamsWithStandings.sort((a, b) => {
+        if (a.standing && b.standing) {
+          // Ordenar por puntos primero, luego por diferencia de goles
+          if (a.standing.points !== b.standing.points) {
+            return b.standing.points - a.standing.points;
+          }
+          return b.standing.goalDifference - a.standing.goalDifference;
+        }
+        // Si no hay clasificaciones, ordenar por seguidores al asignar
+        return b.followersAtAssignment - a.followersAtAssignment;
+      });
+      
+      // Asignar posiciones finales
+      const finalTeams = sortedTeams.map((team, index) => ({
+        ...team,
+        position: team.standing?.position || index + 1
+      })) as ExtendedTeamInLeague[];
+      
+      setTeams(finalTeams);
     } catch (error) {
       console.error('Error cargando equipos:', error);
       // message.error('Error cargando los equipos de la liga');
@@ -409,13 +473,15 @@ export default function DivisionView() {
               style={{ width: '100%' }}
               rowClassName={(record: ExtendedTeamInLeague) => {
                 if (!selectedDivision || !record.position) return '';
-                const status = getTeamStatus(record.position, selectedDivision, teams.length);
+                const position = record.standing?.position || record.position;
+                const status = getTeamStatus(position, selectedDivision, teams.length);
                 return `team-row-${status.status}`;
               }}
               onRow={(record: ExtendedTeamInLeague) => ({
                 style: (() => {
                   if (!selectedDivision || !record.position) return {};
-                  const status = getTeamStatus(record.position, selectedDivision, teams.length);
+                  const position = record.standing?.position || record.position;
+                  const status = getTeamStatus(position, selectedDivision, teams.length);
                   return {
                     backgroundColor: status.backgroundColor,
                     borderLeft: `4px solid ${status.color}`

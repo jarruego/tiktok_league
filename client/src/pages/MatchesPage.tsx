@@ -173,9 +173,24 @@ export default function MatchesPage() {
       
       const result = await matchApi.generateMatches(generateData);
       
-      message.success(
-        `${result.totalMatches} partidos generados para ${result.leaguesProcessed} ligas`
-      );
+      // Mostrar mensaje detallado con información de la generación
+      let detailMessage = `${result.totalMatches} partidos generados para ${result.leaguesProcessed} ligas`;
+      
+      if (result.leagueResults && result.leagueResults.length > 0) {
+        if (result.leagueResults.length <= 3) {
+          // Si hay pocas ligas, mostrar detalles completos
+          const leagueDetails = result.leagueResults.map((lr: any) => 
+            `${lr.leagueName}: ${lr.matchesGenerated} partidos (${lr.teamsCount} equipos)`
+          ).join(', ');
+          detailMessage += `. Detalles: ${leagueDetails}`;
+        } else {
+          // Si hay muchas ligas, mostrar solo un resumen
+          const totalTeams = result.leagueResults.reduce((sum: number, lr: any) => sum + lr.teamsCount, 0);
+          detailMessage += `. Total de ${totalTeams} equipos participando`;
+        }
+      }
+      
+      message.success(detailMessage, 6); // Mostrar durante 6 segundos
       
       setGenerateModalVisible(false);
       form.resetFields();

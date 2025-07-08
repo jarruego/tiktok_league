@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { MatchService } from './match.service';
 import { MatchController } from './match.controller';
+import { MatchSimulationService } from './match-simulation.service';
+import { StandingsService } from './standings.service';
 import { DatabaseModule } from '../database/database.module';
 
 @Module({
   imports: [DatabaseModule],
   controllers: [MatchController],
-  providers: [MatchService],
-  exports: [MatchService],
+  providers: [MatchService, MatchSimulationService, StandingsService],
+  exports: [MatchService, MatchSimulationService, StandingsService],
 })
 export class MatchModule {}

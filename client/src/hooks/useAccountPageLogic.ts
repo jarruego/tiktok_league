@@ -2,6 +2,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { UserRole, ROLE_PERMISSIONS } from '../types/permissions';
 import { leagueApi } from '../api/leagueApi';
+import { matchApi } from '../api/matchApi';
 import { useState } from 'react';
 import { message } from 'antd';
 
@@ -11,6 +12,8 @@ export function useAccountPageLogic() {
   const user = auth.user;
   const [loading, setLoading] = useState(false);
   const [caching, setCaching] = useState(false);
+  const [simulatingMatches, setSimulatingMatches] = useState(false);
+  const [showSimulationDashboard, setShowSimulationDashboard] = useState(false);
 
   // Simulación: el usuario tiene tiktokId si su username contiene "tiktok"
   const tiktokId = user?.username?.includes('tiktok') ? user.username : null;
@@ -169,6 +172,48 @@ export function useAccountPageLogic() {
     }
   };
 
+  // Simular siguiente jornada
+  const handleSimulateNextMatchday = async () => {
+    if (!window.confirm('¿Estás seguro de que quieres simular los partidos de la siguiente jornada? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    setSimulatingMatches(true);
+    try {
+      const result = await matchApi.simulateNextMatchday();
+      
+      message.success(
+        `¡${result.matchesSimulated} partidos simulados exitosamente para el ${result.date}!`
+      );
+
+      // Mostrar algunos resultados destacados
+      if (result.results.length > 0) {
+        const firstFewResults = result.results.slice(0, 3);
+        const resultText = firstFewResults
+          .map(r => `${r.homeTeamName} ${r.homeGoals}-${r.awayGoals} ${r.awayTeamName}`)
+          .join('\n');
+        
+        message.info(
+          `Algunos resultados:\n${resultText}${result.results.length > 3 ? '\n...' : ''}`
+        );
+      }
+
+    } catch (error: any) {
+      message.error(`Error al simular partidos: ${error.message}`);
+    } finally {
+      setSimulatingMatches(false);
+    }
+  };
+
+  // Manejar dashboard de simulación
+  const handleOpenSimulationDashboard = () => {
+    setShowSimulationDashboard(true);
+  };
+
+  const handleCloseSimulationDashboard = () => {
+    setShowSimulationDashboard(false);
+  };
+
   return {
     user,
     permissions,
@@ -177,8 +222,13 @@ export function useAccountPageLogic() {
     userPermissions,
     loading,
     caching,
+    simulatingMatches,
+    showSimulationDashboard,
     handleInitializeSystem,
     handleResetSystem,
-    handleCacheAllCompetitions
+    handleCacheAllCompetitions,
+    handleSimulateNextMatchday,
+    handleOpenSimulationDashboard,
+    handleCloseSimulationDashboard
   };
 }
