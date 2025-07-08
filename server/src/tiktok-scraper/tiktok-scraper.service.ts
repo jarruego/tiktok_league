@@ -2,7 +2,7 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule'; // Para tareas programadas (cron jobs)
 import { teamTable } from '../database/schema'; // Esquema de la tabla de equipos
-import { eq, desc, isNull, isNotNull, asc } from 'drizzle-orm'; // Operadores de consulta de Drizzle ORM
+import { eq, desc, isNull, isNotNull, asc, sql } from 'drizzle-orm'; // Operadores de consulta de Drizzle ORM
 import { DATABASE_PROVIDER } from '../database/database.module'; // Proveedor de base de datos
 import { DatabaseService } from '../database/database.service'; // Servicio de base de datos
 import { FootballDataCacheService } from '../football-data/football-data-cache.service'; // Servicio de cache
@@ -557,45 +557,105 @@ export class TiktokScraperService {
    * Actualiza los datos de TikTok de los equipos de manera inteligente:
    * - Primero actualiza equipos que nunca han sido scrapeados
    * - Luego actualiza los que tienen datos más antiguos
+   * - Salta equipos que han fallado más de 2 veces consecutivas
    * - Procesa 1 equipo por ejecución para distribución natural
    */
   @Cron('*/2 * * * *') // Cada 2 minutos
   async updateFollowers() {
     const db = this.databaseService.db;
     
-    // PASO 1: Obtener equipos que nunca han sido scrapeados (lastScrapedAt es NULL)
+    // PASO 1: Obtener equipos que nunca han sido scrapeados Y no tienen demasiados fallos
     const unscrapedTeams = await db
       .select()
       .from(teamTable)
-      .where(isNull(teamTable.lastScrapedAt)) // Donde lastScrapedAt es null
-      .limit(1); // Solo 1 equipo por ejecución
+      .where(
+        sql`${teamTable.lastScrapedAt} IS NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL)`
+      )
+      .limit(1);
     
     let batch = unscrapedTeams;
     
-    // PASO 2: Si no hay equipos sin scrapear, obtener el más antiguo
+    // PASO 2: Si no hay equipos sin scrapear, obtener el más antiguo que no haya fallado mucho
     if (batch.length < 1) {
       const oldestScrapedTeams = await db
         .select()
         .from(teamTable)
-        .where(isNotNull(teamTable.lastScrapedAt)) // Donde lastScrapedAt no es null
-        .orderBy(asc(teamTable.lastScrapedAt)) // Ordenar por fecha más antigua primero
-        .limit(1); // Solo 1 equipo
+        .where(
+          sql`${teamTable.lastScrapedAt} IS NOT NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL)`
+        )
+        .orderBy(asc(teamTable.lastScrapedAt))
+        .limit(1);
       
-      // Usar el equipo más antiguo
       batch = oldestScrapedTeams;
     }
     
-    // PASO 3: Procesar cada equipo en el lote
-    const scrapedIds = new Set<number>(); // Para evitar duplicados
+    // PASO 3: Si aún no hay equipos, verificar si REALMENTE todos han fallado mucho
+    if (batch.length < 1) {
+      // Contar el total de equipos y los problemáticos
+      const totalTeamsCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamTable);
+      
+      const problemTeamsCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamTable)
+        .where(sql`${teamTable.failedScrapingAttempts} >= 3`);
+      
+      const totalTeams = totalTeamsCount[0].count;
+      const problemTeams = problemTeamsCount[0].count;
+      
+      // Solo hacer auto-reset si MÁS DEL 80% de los equipos son problemáticos
+      const problemPercentage = totalTeams > 0 ? (problemTeams / totalTeams) * 100 : 0;
+      
+      if (problemPercentage >= 80) {
+        this.logger.warn(`🔄 ${problemPercentage.toFixed(1)}% de equipos (${problemTeams}/${totalTeams}) han fallado múltiples veces. Reseteando contadores de equipos con fallos antiguos...`);
+        
+        // Resetear contadores de equipos que fallaron hace más de 24 horas
+        const resetResult = await db
+          .update(teamTable)
+          .set({ 
+            failedScrapingAttempts: 0,
+            lastFailedAt: null 
+          })
+          .where(
+            sql`${teamTable.lastFailedAt} < NOW() - INTERVAL '24 hours'`
+          );
+        
+        this.logger.log(`🔄 Reseteados contadores de equipos que fallaron hace más de 24 horas`);
+        
+        // Intentar obtener equipos de nuevo después del reset
+        const resetTeams = await db
+          .select()
+          .from(teamTable)
+          .where(sql`${teamTable.failedScrapingAttempts} < 3`)
+          .orderBy(asc(teamTable.lastScrapedAt))
+          .limit(1);
+          
+        batch = resetTeams;
+      } else {
+        this.logger.log(`⏸️ Sin equipos disponibles para scraping. ${problemTeams}/${totalTeams} equipos problemáticos (${problemPercentage.toFixed(1)}%). Esperando próximo ciclo.`);
+        
+        // Retornar early sin procesar nada
+        return { 
+          updated: 0,
+          problemTeams: problemTeams,
+          totalTeams: totalTeams,
+          skipped: true,
+          reason: `Menos del 80% de equipos son problemáticos (${problemPercentage.toFixed(1)}%)`
+        };
+      }
+    }
+    
+    // PASO 4: Procesar cada equipo en el lote
+    const scrapedIds = new Set<number>();
     for (const team of batch) {
-      // Saltar si ya procesamos este equipo (prevención de duplicados)
       if (scrapedIds.has(team.id)) continue;
       
       try {
         // Hacer scraping del perfil de TikTok del equipo
         const { followers, following, likes, description, displayName, profileUrl, avatarUrl } = await scrapeTikTokProfile(team.tiktokId);
         
-        // Actualizar la base de datos con los nuevos datos
+        // ✅ ÉXITO: Actualizar la base de datos y resetear contador de fallos
         await db
           .update(teamTable)
           .set({ 
@@ -606,14 +666,14 @@ export class TiktokScraperService {
             displayName, 
             profileUrl, 
             avatarUrl, 
-            lastScrapedAt: new Date() // Marcar como scrapeado ahora
+            lastScrapedAt: new Date(),
+            failedScrapingAttempts: 0, // Resetear contador de fallos
+            lastFailedAt: null // Limpiar último fallo
           })
           .where(eq(teamTable.id, team.id));
           
-        // Marcar como procesado
         scrapedIds.add(team.id);
         
-        // Log de éxito del scraping
         this.logger.log(`📱 TikTok actualizado ${team.name}: ${followers} seguidores, ${following} siguiendo, ${likes} likes`);
         
         // Auto-importar desde cache si tiene Football-Data IDs configurados
@@ -626,10 +686,28 @@ export class TiktokScraperService {
       } catch (e) {
         const errorMessage = e.message || e.toString();
         
+        // ❌ ERROR: Incrementar contador de fallos
+        const currentAttempts = team.failedScrapingAttempts || 0;
+        const newAttempts = currentAttempts + 1;
+        
+        await db
+          .update(teamTable)
+          .set({ 
+            failedScrapingAttempts: newAttempts,
+            lastFailedAt: new Date()
+          })
+          .where(eq(teamTable.id, team.id));
+        
+        // Log específico según el número de intentos
+        if (newAttempts >= 3) {
+          this.logger.error(`🚫 Equipo ${team.name} marcado como problemático (${newAttempts} fallos). Se omitirá por 24 horas.`);
+        } else {
+          this.logger.warn(`⚠️ Fallo ${newAttempts}/3 para ${team.name}: ${errorMessage}`);
+        }
+        
         // Manejo específico de errores de Chrome/Puppeteer
         if (errorMessage.includes('Could not find Chrome')) {
           this.logger.error(`🚫 Chrome no disponible para ${team.name}. Saltando scraping hasta que Chrome esté disponible.`);
-          // No marcamos como scrapeado para intentar de nuevo más tarde
           continue;
         } else if (errorMessage.includes('Chrome no está disponible en el servidor')) {
           this.logger.warn(`⚠️ Scraping temporalmente deshabilitado para ${team.name}: Chrome no disponible`);
@@ -640,40 +718,12 @@ export class TiktokScraperService {
         if (errorMessage.includes('detectó automatización') || 
             errorMessage.includes('frame was detached') ||
             errorMessage.includes('Navigating frame was detached')) {
-          this.logger.warn(`🤖 TikTok detectó automatización para ${team.name}. Aplicando delay adicional y reintentando más tarde.`);
-          // No marcamos como scrapeado para reintentar más tarde con delay mayor
+          this.logger.warn(`🤖 TikTok detectó automatización para ${team.name}. Delay adicional aplicado.`);
           await delay(30000 + Math.random() * 30000); // Delay adicional de 30-60 segundos
           continue;
         }
         
-        // Manejo de errores de verificación/captcha
-        if (errorMessage.includes('verificación') || 
-            errorMessage.includes('captcha') ||
-            errorMessage.includes('verification')) {
-          this.logger.warn(`🔐 TikTok requiere verificación para ${team.name}. Saltando temporalmente.`);
-          // Marcamos como procesado pero con timestamp antiguo para reintentar en unas horas
-          await db
-            .update(teamTable)
-            .set({ 
-              lastScrapedAt: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 horas atrás
-            })
-            .where(eq(teamTable.id, team.id));
-          scrapedIds.add(team.id);
-          continue;
-        }
-        
-        // Manejo de errores de timeout
-        if (errorMessage.includes('timeout') || 
-            errorMessage.includes('TimeoutError')) {
-          this.logger.warn(`⏰ Timeout para ${team.name}. Red lenta o perfil inaccesible.`);
-          // No marcamos como scrapeado para reintentar más tarde
-          continue;
-        }
-        
-        // Log de error si falla el scraping por otras razones
-        this.logger.error(`❌ Error actualizando ${team.name}: ${errorMessage}`);
-        
-        // Para otros errores, aún marcamos como "procesado" para evitar que se quede atascado
+        // Marcar como procesado para este ciclo
         scrapedIds.add(team.id);
       }
       
@@ -681,8 +731,27 @@ export class TiktokScraperService {
       await delay(5000 + Math.random() * 10000); // Entre 5-15 segundos
     }
     
+    // Obtener estadísticas de equipos problemáticos para el log
+    const problemTeamsCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(teamTable)
+      .where(sql`${teamTable.failedScrapingAttempts} >= 3`);
+    
+    const totalTeams = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(teamTable);
+    
+    // Log de resumen
+    if (problemTeamsCount[0].count > 0) {
+      this.logger.log(`📊 Resumen: ${scrapedIds.size} actualizados, ${problemTeamsCount[0].count}/${totalTeams[0].count} equipos temporalmente omitidos`);
+    }
+    
     // Retornar resumen de la operación
-    return { updated: scrapedIds.size };
+    return { 
+      updated: scrapedIds.size,
+      problemTeams: problemTeamsCount[0].count,
+      totalTeams: totalTeams[0].count
+    };
   }
 
   /**
@@ -756,5 +825,88 @@ export class TiktokScraperService {
     
     // Log informativo del estado del servicio
     this.logger.log('TikTok Scraper Service iniciado. El scraping se ejecutará según el cron schedule.');
+  }
+
+  /**
+   * Método para resetear manualmente los contadores de fallos de equipos problemáticos
+   */
+  async resetFailedTeamsCounters(): Promise<{ reset: number; message: string }> {
+    const db = this.databaseService.db;
+    
+    // Contar equipos problemáticos antes del reset
+    const problemTeamsCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(teamTable)
+      .where(sql`${teamTable.failedScrapingAttempts} >= 3`);
+    
+    if (problemTeamsCount[0].count === 0) {
+      return {
+        reset: 0,
+        message: 'No hay equipos problemáticos para resetear'
+      };
+    }
+    
+    // Resetear contadores
+    await db
+      .update(teamTable)
+      .set({ 
+        failedScrapingAttempts: 0,
+        lastFailedAt: null 
+      })
+      .where(sql`${teamTable.failedScrapingAttempts} >= 3`);
+    
+    this.logger.log(`🔄 Reseteados contadores de ${problemTeamsCount[0].count} equipos problemáticos`);
+    
+    return {
+      reset: problemTeamsCount[0].count,
+      message: `${problemTeamsCount[0].count} equipos problemáticos han sido reseteados y volverán a intentar scraping`
+    };
+  }
+
+  /**
+   * Método para obtener estadísticas de equipos y scraping
+   */
+  async getScrapingStats(): Promise<{
+    total: number;
+    scraped: number;
+    neverScraped: number;
+    problemTeams: number;
+    lastScraped?: Date;
+  }> {
+    const db = this.databaseService.db;
+    
+    const totalTeams = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(teamTable);
+    
+    const scrapedTeams = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(teamTable)
+      .where(isNotNull(teamTable.lastScrapedAt));
+    
+    const neverScrapedTeams = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(teamTable)
+      .where(isNull(teamTable.lastScrapedAt));
+    
+    const problemTeams = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(teamTable)
+      .where(sql`${teamTable.failedScrapingAttempts} >= 3`);
+    
+    const lastScrapedQuery = await db
+      .select({ lastScraped: teamTable.lastScrapedAt })
+      .from(teamTable)
+      .where(isNotNull(teamTable.lastScrapedAt))
+      .orderBy(desc(teamTable.lastScrapedAt))
+      .limit(1);
+    
+    return {
+      total: totalTeams[0].count,
+      scraped: scrapedTeams[0].count,
+      neverScraped: neverScrapedTeams[0].count,
+      problemTeams: problemTeams[0].count,
+      lastScraped: lastScrapedQuery[0]?.lastScraped || undefined
+    };
   }
 }

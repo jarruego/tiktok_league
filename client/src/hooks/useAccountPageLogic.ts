@@ -63,16 +63,90 @@ export function useAccountPageLogic() {
   };
 
   const handleResetSystem = async () => {
-    if (!window.confirm('¿Seguro que quieres resetear el sistema? Esta acción es irreversible.')) return;
-    setLoading(true);
+    console.log('=== INICIO handleResetSystem ===');
+    
     try {
-      await leagueApi.resetLeagueSystem();
-      message.success('Sistema reseteado correctamente');
+      console.log('Obteniendo temporadas...');
+      const seasons = await leagueApi.getAllSeasons();
+      console.log('Temporadas obtenidas:', seasons);
+      
+      if (!seasons || seasons.length === 0) {
+        console.log('No hay temporadas');
+        // Si no hay temporadas, hacer reset completo
+        if (!window.confirm('No hay temporadas. ¿Seguro que quieres resetear el sistema completo? Esta acción es irreversible.')) return;
+        setLoading(true);
+        const result = await leagueApi.resetLeagueSystem();
+        message.success(result.message);
+        message.warning(result.warning);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Preparando prompt...');
+      const seasonOptions = seasons.map(s => `${s.id}: ${s.name} (${s.year})`).join('\n');
+      console.log('Opciones preparadas:', seasonOptions);
+      
+      const choice = window.prompt(
+        `Selecciona qué resetear:\n\n` +
+        `Temporadas disponibles:\n${seasonOptions}\n\n` +
+        `Escribe:\n` +
+        `- El ID de una temporada para resetear solo esa temporada\n` +
+        `- "TODO" para resetear el sistema completo\n` +
+        `- "CANCELAR" para cancelar`
+      );
+
+      console.log('Elección del usuario:', choice);
+
+      if (!choice || choice.toUpperCase() === 'CANCELAR') {
+        console.log('Usuario canceló');
+        return;
+      }
+
+      setLoading(true);
+
+      if (choice.toUpperCase() === 'TODO') {
+        console.log('Reset completo seleccionado');
+        if (!window.confirm('¿Seguro que quieres resetear el sistema COMPLETO? Esto eliminará TODAS las temporadas y configuraciones.')) {
+          setLoading(false);
+          return;
+        }
+        const result = await leagueApi.resetLeagueSystem();
+        message.success(result.message);
+        message.warning(result.warning);
+      } else {
+        console.log('Reset de temporada específica seleccionado');
+        // Intentar parsear como ID de temporada
+        const seasonId = parseInt(choice.trim());
+        if (isNaN(seasonId)) {
+          message.error('ID de temporada inválido');
+          setLoading(false);
+          return;
+        }
+
+        const season = seasons.find(s => s.id === seasonId);
+        if (!season) {
+          message.error('Temporada no encontrada');
+          setLoading(false);
+          return;
+        }
+
+        if (!window.confirm(`¿Seguro que quieres resetear las asignaciones de "${season.name} (${season.year})"?`)) {
+          setLoading(false);
+          return;
+        }
+
+        const result = await leagueApi.resetSeasonAssignments(seasonId);
+        message.success(`${result.message} - ${result.deletedAssignments} asignaciones eliminadas`);
+      }
     } catch (e) {
-      message.error('Error al resetear el sistema');
+      console.error('ERROR en handleResetSystem:', e);
+      const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
+      message.error(`Error al resetear el sistema: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
+    
+    console.log('=== FIN handleResetSystem ===');
   };
 
   const handleCacheAllCompetitions = async () => {

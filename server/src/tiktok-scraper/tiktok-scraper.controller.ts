@@ -21,6 +21,27 @@ export class TiktokScraperController {
     return this.scraperService.forceAutoImportForTeam(teamId);
   }
 
+  // Endpoint para obtener estadísticas del scraping
+  @UseGuards(JwtAuthGuard)
+  @Get('stats')
+  async getStats() {
+    return this.scraperService.getScrapingStats();
+  }
+
+  // Endpoint para resetear contadores de equipos problemáticos
+  @UseGuards(JwtAuthGuard)
+  @Post('reset-failed-teams')
+  async resetFailedTeams() {
+    return this.scraperService.resetFailedTeamsCounters();
+  }
+
+  // Endpoint para probar scraping de un equipo específico
+  @UseGuards(JwtAuthGuard)
+  @Post('test-team/:teamId')
+  async testTeam(@Param('teamId', ParseIntPipe) teamId: number) {
+    return this.scraperService.testScrapingForTeam(teamId);
+  }
+
   // Endpoint para diagnosticar problemas con Puppeteer
   @UseGuards(JwtAuthGuard)
   @Get('diagnostic')
@@ -110,21 +131,6 @@ export class TiktokScraperController {
 
       return diagnostic;
 
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-        timestamp: new Date()
-      };
-    }
-  }
-
-  // Endpoint para probar scraping de un equipo específico (útil para debugging)
-  @UseGuards(JwtAuthGuard)
-  @Post('test/:teamId')
-  async testTeamScraping(@Param('teamId', ParseIntPipe) teamId: number) {
-    try {
-      return await this.scraperService.testScrapingForTeam(teamId);
     } catch (error) {
       return {
         success: false,

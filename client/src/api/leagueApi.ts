@@ -96,6 +96,21 @@ export const leagueApi = {
     return response.json();
   },
 
+  // Resetear asignaciones de una temporada específica
+  async resetSeasonAssignments(seasonId: number): Promise<{
+    message: string;
+    deletedAssignments: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/league-system/reset/season/${seasonId}`, {
+      method: 'DELETE',
+      headers: authService.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
   // Crear temporada
   async createSeason(seasonData: {
     name: string;

@@ -219,12 +219,12 @@ const teams = [
     "competitionId": 2017
   },
   {
-    "name": "Benfica",
-    "tiktokId": "slbenfica",
-    "followers": 2500000,
-    "displayName": "slbenfica",
-    "footballDataId": 1903,
-    "competitionId": 2017
+    "name": "Real Oviedo",
+    "tiktokId": "realoviedo",
+    "followers": 2000000,
+    "displayName": "realoviedo",
+    "footballDataId": 1048,
+    "competitionId": 2014
   },
   {
     "name": "Team PSG",

@@ -9,8 +9,6 @@ import {
   AssignmentReason
 } from '../database/schema';
 import { eq, desc, asc, sql } from 'drizzle-orm';
-import { CreateDivisionDto } from './dto/create-division.dto';
-import { CreateLeagueDto } from './dto/create-league.dto';
 import { CreateSeasonDto } from './dto/create-season.dto';
 import { Inject } from '@nestjs/common';
 import { DATABASE_PROVIDER } from '../database/database.module';
@@ -63,15 +61,51 @@ export class LeagueSystemService {
   async resetLeagueSystem(): Promise<{ message: string; warning: string }> {
     const db = this.databaseService.db;
     
-    // Eliminar en orden correcto por las claves foráneas
-    await db.delete(teamLeagueAssignmentTable);
-    await db.delete(leagueTable);
-    await db.delete(divisionTable);
+    try {
+      // Eliminar en orden correcto por las claves foráneas
+      const deletedAssignments = await db.delete(teamLeagueAssignmentTable);
+      const deletedLeagues = await db.delete(leagueTable);
+      const deletedDivisions = await db.delete(divisionTable);
+      
+      console.log('Reset completo ejecutado:', { deletedAssignments, deletedLeagues, deletedDivisions });
+      
+      return { 
+        message: 'Sistema de ligas reseteado completamente',
+        warning: 'Todas las asignaciones y configuraciones han sido eliminadas'
+      };
+    } catch (error) {
+      console.error('Error en resetLeagueSystem:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resetea solo las asignaciones de una temporada específica
+   */
+  async resetSeasonAssignments(seasonId: number): Promise<{ message: string; deletedAssignments: number }> {
+    const db = this.databaseService.db;
     
-    return { 
-      message: 'Sistema de ligas reseteado completamente',
-      warning: 'Todas las asignaciones y configuraciones han sido eliminadas'
-    };
+    try {
+      // Contar asignaciones antes de borrar
+      const countBefore = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(teamLeagueAssignmentTable)
+        .where(eq(teamLeagueAssignmentTable.seasonId, seasonId));
+      
+      // Eliminar solo las asignaciones de esta temporada
+      await db.delete(teamLeagueAssignmentTable)
+        .where(eq(teamLeagueAssignmentTable.seasonId, seasonId));
+      
+      const deletedCount = countBefore[0].count;
+      
+      return {
+        message: `Asignaciones de la temporada ${seasonId} eliminadas correctamente`,
+        deletedAssignments: deletedCount
+      };
+    } catch (error) {
+      console.error('Error en resetSeasonAssignments:', error);
+      throw error;
+    }
   }
 
   /**

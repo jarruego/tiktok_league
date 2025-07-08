@@ -33,6 +33,12 @@ export class LeagueSystemController {
     return this.leagueSystemService.resetLeagueSystem();
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Delete('reset/season/:seasonId')
+  async resetSeasonAssignments(@Param('seasonId', ParseIntPipe) seasonId: number) {
+    return this.leagueSystemService.resetSeasonAssignments(seasonId);
+  }
+
   @Get('assignments/:seasonId/status')
   async getAssignmentStatus(@Param('seasonId', ParseIntPipe) seasonId: number) {
     const hasAssignments = await this.leagueSystemService.hasExistingAssignments(seasonId);
