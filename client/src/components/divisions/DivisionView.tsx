@@ -356,7 +356,7 @@ export default function DivisionView() {
               </div>
             }
             style={{ marginBottom: 0, width: '100%' }}
-            bodyStyle={{ padding: 0, width: '100%' }}
+            styles={{ body: { padding: 0, width: '100%' } }}
           >
             <div className="division-controls" style={{ flexWrap: 'wrap', gap: 16, display: 'flex', alignItems: 'center', width: '100%' }}>
               <div>
@@ -397,7 +397,7 @@ export default function DivisionView() {
 
         {/* Tabla de equipos */}
         {selectedLeagueData && (
-          <Card style={{ marginTop: 0, width: '100%' }} bodyStyle={{ padding: 0, width: '100%' }}>
+          <Card style={{ marginTop: 0, width: '100%' }} styles={{ body: { padding: 0, width: '100%' } }}>
             <Table
               columns={createColumns(selectedDivision, navigate)}
               dataSource={teams}

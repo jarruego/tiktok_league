@@ -180,12 +180,6 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
       await page.evaluate(() => window.scrollBy(0, 400));
       await delay(1000);
     } catch {}
-    // Dump parcial de HTML para debug (solo si debug ON)
-    try {
-      const html = await page.content();
-      console.log('--- HTML parcial para debug (primeros 5000 chars): ---');
-      console.log(html.slice(0, 5000));
-    } catch {}
 
     // Buscar iframes y shadow roots
     try {
@@ -198,25 +192,8 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
       } else {
         console.log('🔎 No se encontraron iframes en la página.');
       }
-      // Buscar shadow roots
-      const hasShadowRoot = await page.evaluate(() => {
-        function hasShadow(node) {
-          if (node && node.shadowRoot) return true;
-          if (!node || !node.children) return false;
-          for (let i = 0; i < node.children.length; i++) {
-            if (hasShadow(node.children[i])) return true;
-          }
-          return false;
-        }
-        return hasShadow(document.body);
-      });
-      if (hasShadowRoot) {
-        console.log('🔎 Se detectó al menos un shadow root en la página.');
-      } else {
-        console.log('🔎 No se detectaron shadow roots en la página.');
-      }
     } catch (err) {
-      console.log('⚠️ Error buscando iframes/shadow roots:', err);
+      console.log('⚠️ Error buscando iframes:', err);
     }
 
     // Intentar obtener cookies de sesión si existen (debug)
@@ -253,19 +230,7 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     }
 
     if (!selectorFound) {
-      console.error(`❌ Ningún selector funcionó para ${tiktokId}, intentando guardar screenshot y HTML para debug`);
-      try {
-        if (!page.isClosed()) {
-          await page.screenshot({ path: `debug-${tiktokId}.png` });
-          const html = await page.content();
-          const fs = require('fs');
-          fs.writeFileSync(`debug-${tiktokId}.html`, html);
-        } else {
-          console.error('⚠️ La página ya estaba cerrada, no se pudo guardar screenshot ni HTML');
-        }
-      } catch (err) {
-        console.error('⚠️ Error al intentar guardar screenshot/HTML:', err);
-      }
+      console.error(`❌ Ningún selector funcionó para ${tiktokId}`);
       if (browser && browser.close) await browser.close();
       throw new Error(`No se pudieron encontrar los elementos de TikTok para ${tiktokId}`);
     }
@@ -779,18 +744,6 @@ export class TiktokScraperService {
           this.logger.warn(`🤖 TikTok detectó automatización para ${team.name}. Delay adicional aplicado.`);
           await delay(30000 + Math.random() * 30000); // Delay adicional de 30-60 segundos
         }
-      }
-      
-      // 🎯 AUTO-IMPORT INDEPENDIENTE: Se ejecuta SIEMPRE, sin importar el resultado del scraping de TikTok
-      try {
-        const importResult = await this.autoImportFromCache(team);
-        if (importResult.imported) {
-          this.logger.log(`⚽ Auto-import exitoso para ${team.name}: ${importResult.message}`);
-        } else {
-          this.logger.debug(`⏭️ Sin auto-import para ${team.name}: ${importResult.message}`);
-        }
-      } catch (importError) {
-        this.logger.warn(`⚠️ Error en auto-import para ${team.name}: ${importError.message}`);
       }
       
       // Marcar como procesado para este ciclo
