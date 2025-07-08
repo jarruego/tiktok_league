@@ -167,57 +167,53 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     console.log(`🔍 Iniciando scraping de: ${url}`);
 
     // Esperar a que aparezca el elemento que contiene el número de seguidores
-    try {
-      await page.waitForSelector('strong[data-e2e="followers-count"]', { timeout: 20000 });
-    } catch (error) {
-      console.error(`❌ No se encontró el selector de seguidores para ${tiktokId}`);
-      // Intentar con selectores alternativos
-      const alternativeSelectors = [
-        'strong[title*="Follower"]',
-        'strong[title*="follower"]', 
-        'div[data-e2e="followers-count"]',
-        'span[data-e2e="followers-count"]'
-      ];
-      
-      let found = false;
-      for (const selector of alternativeSelectors) {
-        try {
-          await page.waitForSelector(selector, { timeout: 7000 });
-          console.log(`✅ Encontrado selector alternativo: ${selector}`);
-          found = true;
-          break;
-        } catch {
-          continue;
+    let selectorFound = false;
+    const allSelectors = [
+      'strong[data-e2e="followers-count"]',
+      'strong[title*="Follower"]',
+      'strong[title*="follower"]',
+      'div[data-e2e="followers-count"]',
+      'span[data-e2e="followers-count"]'
+    ];
+    let lastSelector = '';
+    for (const selector of allSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 7000 });
+        console.log(`✅ Selector encontrado: ${selector}`);
+        selectorFound = true;
+        lastSelector = selector;
+        break;
+      } catch (err) {
+        continue;
+      }
+    }
+
+    if (!selectorFound) {
+      console.error(`❌ Ningún selector funcionó para ${tiktokId}, intentando guardar screenshot y HTML para debug`);
+      try {
+        if (!page.isClosed()) {
+          await page.screenshot({ path: `debug-${tiktokId}.png` });
+          const html = await page.content();
+          const fs = require('fs');
+          fs.writeFileSync(`debug-${tiktokId}.html`, html);
+        } else {
+          console.error('⚠️ La página ya estaba cerrada, no se pudo guardar screenshot ni HTML');
         }
+      } catch (err) {
+        console.error('⚠️ Error al intentar guardar screenshot/HTML:', err);
       }
-      
-      if (!found) {
-        console.error(`❌ Ningún selector funcionó para ${tiktokId}, tomando screenshot y guardando HTML para debug`);
-        await page.screenshot({ path: `debug-${tiktokId}.png` });
-        const html = await page.content();
-        const fs = require('fs');
-        fs.writeFileSync(`debug-${tiktokId}.html`, html);
-        await browser.close();
-        throw new Error(`No se pudieron encontrar los elementos de TikTok para ${tiktokId}`);
-      }
+      if (browser && browser.close) await browser.close();
+      throw new Error(`No se pudieron encontrar los elementos de TikTok para ${tiktokId}`);
     }
     
     // Extraer el texto del número de seguidores y convertirlo a número
     let followersText = '';
     try {
-      followersText = await page.$eval('strong[data-e2e="followers-count"]', el => el.textContent || '0');
-    } catch {
-      // Intentar selectores alternativos
-      const selectors = ['strong[title*="Follower"]', 'div[data-e2e="followers-count"]', 'span[data-e2e="followers-count"]'];
-      for (const selector of selectors) {
-        try {
-          followersText = await page.$eval(selector, el => el.textContent || '0');
-          console.log(`✅ Seguidores obtenidos con selector alternativo: ${selector} -> ${followersText}`);
-          break;
-        } catch {
-          continue;
-        }
-      }
+      followersText = await page.$eval(lastSelector || 'strong[data-e2e="followers-count"]', el => el.textContent || '0');
+      console.log(`✅ Seguidores obtenidos con selector: ${lastSelector} -> ${followersText}`);
+    } catch (err) {
+      console.error('❌ Error extrayendo el número de seguidores:', err);
+      followersText = '0';
     }
     
     console.log(`📊 Texto de seguidores capturado: "${followersText}"`);
