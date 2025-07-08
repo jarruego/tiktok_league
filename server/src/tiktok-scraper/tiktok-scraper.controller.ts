@@ -39,8 +39,11 @@ export class TiktokScraperController {
         timestamp: new Date()
       };
 
-      // Configuración específica para el entorno
-      const puppeteerConfig = {
+      // Configuración específica para el entorno (actualizada para coincidir con el servicio)
+      const isProduction = process.env.NODE_ENV === 'production';
+      const isRender = process.env.RENDER === 'true' || process.env.RENDER_SERVICE_ID;
+      
+      const puppeteerConfig = isProduction || isRender ? {
         headless: true,
         args: [
           '--no-sandbox',
@@ -50,8 +53,26 @@ export class TiktokScraperController {
           '--no-first-run',
           '--no-zygote',
           '--single-process',
-          '--disable-gpu'
-        ]
+          '--disable-gpu',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-images',
+          '--enable-automation=false',
+          '--disable-blink-features=AutomationControlled'
+        ],
+        ignoreDefaultArgs: ['--enable-automation'],
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+      } : {
+        headless: true,
+        args: [
+          '--no-sandbox', 
+          '--disable-setuid-sandbox',
+          '--enable-automation=false',
+          '--disable-blink-features=AutomationControlled'
+        ],
+        ignoreDefaultArgs: ['--enable-automation']
       };
 
       // Intentar lanzar Puppeteer

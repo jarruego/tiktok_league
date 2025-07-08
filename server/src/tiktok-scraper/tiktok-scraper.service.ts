@@ -150,7 +150,7 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     }
 
     // Esperar un momento para que la página se estabilice
-    await page.waitForTimeout(3000);
+    await delay(3000);
 
     // Intentar detectar si estamos bloqueados
     const isBlocked = await page.evaluate(() => {
@@ -401,6 +401,7 @@ function parseTikTokFollowers(text: string): number {
 /**
  * Función helper para crear delays/pausas en la ejecución
  * Útil para evitar ser detectado como bot por hacer requests muy rápidos
+ * NOTA: Reemplaza page.waitForTimeout() que fue removido en Puppeteer v23+
  * @param ms - Milisegundos a esperar
  * @returns Promise que se resuelve después del tiempo especificado
  */
