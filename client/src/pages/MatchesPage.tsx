@@ -22,7 +22,8 @@ import {
   TeamOutlined,
   PlayCircleOutlined,
   DeleteOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  ClearOutlined
 } from '@ant-design/icons';
 import { LayoutContainer } from '../components/LayoutContainer';
 import { matchApi } from '../api/matchApi';
@@ -93,6 +94,11 @@ export default function MatchesPage() {
     }
   }, [selectedSeason, filters, pagination.current, pagination.pageSize]);
 
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, current: 1 }));
+  }, [filters]);
+
   const loadInitialData = async () => {
     try {
       const [seasonsData, divisionsData] = await Promise.all([
@@ -147,6 +153,16 @@ export default function MatchesPage() {
     } catch (error) {
       console.error('Error loading stats:', error);
     }
+  };
+
+  const clearFilters = () => {
+    setFilters({});
+  };
+
+  const handleSeasonChange = (seasonId: number) => {
+    setSelectedSeason(seasonId);
+    // Limpiar filtros al cambiar temporada
+    setFilters({});
   };
 
   const handleGenerateMatches = async (values: any) => {
@@ -370,7 +386,7 @@ export default function MatchesPage() {
                 placeholder="Seleccionar temporada"
                 style={{ width: 200 }}
                 value={selectedSeason}
-                onChange={setSelectedSeason}
+                onChange={handleSeasonChange}
               >
                 {seasons.map(season => (
                   <Option key={season.id} value={season.id}>
@@ -382,6 +398,7 @@ export default function MatchesPage() {
               <Select
                 placeholder="División"
                 style={{ width: 150 }}
+                value={filters.divisionId}
                 allowClear
                 onChange={(value) => setFilters(prev => ({ ...prev, divisionId: value }))}
               >
@@ -395,21 +412,42 @@ export default function MatchesPage() {
               <Select
                 placeholder="Estado"
                 style={{ width: 120 }}
+                value={filters.status}
                 allowClear
                 onChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
               >
                 <Option value="scheduled">Programados</Option>
                 <Option value="finished">Finalizados</Option>
                 <Option value="live">En curso</Option>
+                <Option value="postponed">Aplazados</Option>
+                <Option value="cancelled">Cancelados</Option>
+              </Select>
+
+              <Select
+                placeholder="Jornada"
+                style={{ width: 100 }}
+                value={filters.matchday}
+                allowClear
+                onChange={(value) => setFilters(prev => ({ ...prev, matchday: value }))}
+              >
+                {Array.from({ length: stats.totalMatchdays }, (_, i) => i + 1).map(matchday => (
+                  <Option key={matchday} value={matchday}>
+                    J{matchday}
+                  </Option>
+                ))}
               </Select>
 
               <RangePicker
                 placeholder={['Fecha desde', 'Fecha hasta']}
+                value={[
+                  filters.fromDate ? dayjs(filters.fromDate) : null,
+                  filters.toDate ? dayjs(filters.toDate) : null
+                ]}
                 onChange={(dates) => {
                   setFilters(prev => ({
                     ...prev,
-                    fromDate: dates?.[0]?.format('YYYY-MM-DD'),
-                    toDate: dates?.[1]?.format('YYYY-MM-DD')
+                    fromDate: dates?.[0]?.format('YYYY-MM-DD') || undefined,
+                    toDate: dates?.[1]?.format('YYYY-MM-DD') || undefined
                   }));
                 }}
               />
@@ -420,6 +458,14 @@ export default function MatchesPage() {
                 loading={loading}
               >
                 Actualizar
+              </Button>
+
+              <Button 
+                icon={<ClearOutlined />}
+                onClick={clearFilters}
+                disabled={Object.keys(filters).filter(key => filters[key as keyof typeof filters] !== undefined).length === 0}
+              >
+                Limpiar Filtros
               </Button>
             </Space>
           </div>

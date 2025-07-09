@@ -354,6 +354,10 @@ export class MatchService {
       conditions.push(eq(matchTable.leagueId, query.leagueId));
     }
     
+    if (query.divisionId) {
+      conditions.push(eq(leagueTable.divisionId, query.divisionId));
+    }
+    
     if (query.teamId) {
       conditions.push(
         or(
@@ -464,9 +468,21 @@ export class MatchService {
     }));
 
     // Contar total para paginación
-    const [{ count }] = await db
-      .select({ count: sql`count(*)` })
-      .from(matchTable)
+    let countQuery;
+    
+    // Si tenemos filtro por divisionId, necesitamos hacer JOIN con leagueTable
+    if (query.divisionId) {
+      countQuery = db
+        .select({ count: sql`count(*)` })
+        .from(matchTable)
+        .innerJoin(leagueTable, eq(matchTable.leagueId, leagueTable.id));
+    } else {
+      countQuery = db
+        .select({ count: sql`count(*)` })
+        .from(matchTable);
+    }
+    
+    const [{ count }] = await countQuery
       .where(conditions.length > 0 ? and(...conditions) : undefined);
 
     return {
