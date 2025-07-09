@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import { DatabaseService } from './database.service';
 import { MigrationService } from './migration.service';
 import { MigrationController } from './migration.controller';
@@ -20,7 +21,16 @@ dotenv.config();
         if (!databaseUrl) {
           throw new Error('DATABASE_URL environment variable is not defined');
         }
-        const db = drizzle(databaseUrl);
+        
+        // Configurar SSL para conexiones remotas
+        const pool = new Pool({
+          connectionString: databaseUrl,
+          ssl: process.env.NODE_ENV === 'production' || databaseUrl.includes('render.com') 
+            ? { rejectUnauthorized: false } 
+            : false,
+        });
+        
+        const db = drizzle(pool);
         return new DatabaseService(db);
       },
     },
