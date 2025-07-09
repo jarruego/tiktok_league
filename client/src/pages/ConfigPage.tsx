@@ -31,7 +31,6 @@ export default function ConfigPage() {
     errorMessage,
     successMessage,
     setErrorMessage,
-    setSuccessMessage,
     // Funciones existentes
     handleInitializeSystem,
     handleResetSystem,

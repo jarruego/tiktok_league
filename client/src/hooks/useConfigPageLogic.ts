@@ -234,7 +234,6 @@ export function useConfigPageLogic() {
     errorMessage,
     successMessage,
     setErrorMessage,
-    setSuccessMessage,
     // Funciones existentes
     handleInitializeSystem,
     handleResetSystem,
