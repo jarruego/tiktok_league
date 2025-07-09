@@ -9,7 +9,7 @@ export interface Division {
   promoteSlots: number;
   promotePlayoffSlots: number;
   relegateSlots: number;
-  europeanSlots: number;
+  tournamentSlots: number;
   leagues: League[];
 }
 

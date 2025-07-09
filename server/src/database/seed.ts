@@ -332,14 +332,22 @@ const teams = [
   }
 ];
 
-async function seed() {
-  const databaseUrl = process.env.DATABASE_URL as string;
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL environment variable is not defined');
+async function seed(existingDb?: any) {
+  let db;
+  
+  if (existingDb) {
+    console.log('Usando instancia de DB existente proporcionada');
+    db = existingDb;
+  } else {
+    console.log('Creando nueva conexión a la base de datos');
+    const databaseUrl = process.env.DATABASE_URL as string;
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL environment variable is not defined');
+    }
+    const dbInstance = drizzle(databaseUrl);
+    const databaseService = new DatabaseService(dbInstance);
+    db = databaseService.db;
   }
-  const dbInstance = drizzle(databaseUrl);
-  const databaseService = new DatabaseService(dbInstance);
-  const db = databaseService.db;
 
   // Crear usuario admin por defecto
   try {
@@ -410,7 +418,16 @@ async function seed() {
   console.log('Seed finalizado.');
 }
 
-seed().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// Si el archivo se ejecuta directamente, ejecutamos el seed
+if (require.main === module) {
+  console.log('Ejecutando seed.ts como script principal');
+  seed().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+} else {
+  console.log('seed.ts importado como módulo');
+}
+
+// Exportamos la función para poder importarla desde otros archivos
+export { seed };

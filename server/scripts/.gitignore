@@ -1,0 +1,20 @@
+# Archivos temporales de scripts
+*.tmp
+*.log
+test-results-*
+local-test-config.js
+
+# Archivos de configuración local para testing
+/dev/local-*.js
+/debug/local-*.js
+/archive/local-*.js
+
+# Permitir cambios locales en scripts de archivo (no se sincronizan cambios)
+/archive/*.changes.js
+
+# Ignorar todos los archivos JavaScript de testing que no estén bajo control de versiones
+/dev-testing/*.js
+!/dev-testing/*.example.js
+
+# Carpeta para scripts específicos del entorno local que no deben subirse al repositorio
+/local/

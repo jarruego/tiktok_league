@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, Delete, UseGuards, Query, ParseBoolPipe } from '@nestjs/common';
 import { LeagueSystemService } from './league-system.service';
 import { CreateSeasonDto } from './dto/create-season.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -23,8 +23,10 @@ export class LeagueSystemController {
 
   @UseGuards(JwtAuthGuard)
   @Post('initialize')
-  async initializeLeagueSystem() {
-    return this.leagueSystemService.initializeLeagueSystem();
+  async initializeLeagueSystem(@Query('seed') seed?: string) {
+    console.log('Recibido parámetro seed:', seed);
+    console.log('¿Ejecutar seed?', seed === 'true');
+    return this.leagueSystemService.initializeLeagueSystem(seed === 'true');
   }
 
   @UseGuards(JwtAuthGuard)

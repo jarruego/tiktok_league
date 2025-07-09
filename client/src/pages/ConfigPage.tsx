@@ -34,6 +34,7 @@ export default function ConfigPage() {
     // Funciones existentes
     handleInitializeSystem,
     handleResetSystem,
+    handleRunDatabaseSeed,
     handleCacheAllCompetitions,
     handleSimulateNextMatchday,
     handleOpenSimulationDashboard,
@@ -98,6 +99,7 @@ export default function ConfigPage() {
                 justifyContent: 'center',
                 fontSize: '11px'
               }}
+              title="Inicializa el sistema de ligas y asigna automáticamente todos los equipos a ligas"
             >
               Inicializar
             </Button>
@@ -114,8 +116,28 @@ export default function ConfigPage() {
                 justifyContent: 'center',
                 fontSize: '11px'
               }}
+              title="Elimina standings, matches y asignaciones de equipos SOLO de la temporada activa. No borra equipos, ligas ni divisiones."
             >
-              Reset
+              Reset Sistema
+            </Button>
+            
+            <Button 
+              type="default" 
+              icon={<DatabaseOutlined />}
+              loading={loading} 
+              onClick={handleRunDatabaseSeed}
+              style={{ 
+                height: '50px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                justifyContent: 'center',
+                fontSize: '11px',
+                borderColor: '#1677ff',
+                color: '#1677ff'
+              }}
+              title="Ejecuta el seed y asigna automáticamente todos los equipos a ligas en la temporada activa"
+            >
+              Ejecutar Seed
             </Button>
           </div>
         </Card>

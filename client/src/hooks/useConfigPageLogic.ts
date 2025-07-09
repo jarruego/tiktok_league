@@ -39,11 +39,32 @@ export function useConfigPageLogic() {
       if (systemStatus.isInitialized && systemStatus.hasAssignments) {
         message.info('El sistema ya está inicializado y tiene asignaciones. Se verificará la estructura.');
       }
+      
       const initResult = await leagueApi.initializeLeagueSystem();
+      
+      // Mensaje principal sobre inicialización
       if (initResult.isNewSystem) {
         message.success('Sistema de ligas inicializado correctamente');
       } else {
         message.info(`Sistema ya inicializado. Asignaciones existentes: ${initResult.existingAssignments || 0}`);
+      }
+      
+      // Mensaje sobre seed si corresponde
+      if (initResult.seedResult) {
+        message.success(`Seed: ${initResult.seedResult}`);
+      }
+      
+      // Mensaje sobre asignación de equipos si corresponde
+      if (initResult.assignmentResult) {
+        const assignmentResult = initResult.assignmentResult;
+        
+        if (assignmentResult.assignedTeams > 0) {
+          message.success(`Asignación de equipos: ${assignmentResult.assignedTeams} equipos nuevos asignados a ligas`);
+        } else if (assignmentResult.wasAlreadyAssigned) {
+          message.info(`Asignación de equipos: Todos los equipos (${assignmentResult.totalTeams}) ya estaban asignados a ligas`);
+        } else {
+          message.warning('No se asignaron equipos a ligas');
+        }
       }
     } catch (error: any) {
       message.error(`Error al inicializar el sistema: ${error.message}`);
@@ -56,9 +77,55 @@ export function useConfigPageLogic() {
   const handleResetSystem = async () => {
     setLoading(true);
     try {
-      message.info('Función de reset temporalmente deshabilitada');
+      // Mostrar confirmación adicional por seguridad
+      if (window.confirm('ADVERTENCIA: Esta acción eliminará las clasificaciones, partidos y asignaciones de equipos de la temporada activa. No se eliminarán los equipos ni las configuraciones de ligas y divisiones. ¿Estás seguro de que deseas continuar? Esta acción no se puede deshacer.')) {
+        const result = await leagueApi.resetLeagueSystem();
+        message.success(result.message || 'Sistema reseteado correctamente');
+        
+        if (result.warning) {
+          message.warning(result.warning);
+        }
+      } else {
+        message.info('Operación cancelada');
+      }
     } catch (error: any) {
-      message.error(`Error: ${error.message}`);
+      message.error(`Error al resetear el sistema: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para ejecutar el seed de inicialización de la BD
+  const handleRunDatabaseSeed = async () => {
+    setLoading(true);
+    try {
+      const result = await leagueApi.runDatabaseSeed();
+      
+      // Personalizar mensaje según la respuesta
+      if (result.seedResult) {
+        message.success('Seed ejecutado correctamente: Base de datos inicializada con usuarios y equipos de ejemplo');
+      } else if (result.message) {
+        message.success('Operación completada: ' + result.message);
+      } else if (result.isNewSystem) {
+        message.success('Sistema de ligas inicializado correctamente');
+      } else {
+        message.info(`Sistema ya inicializado. Asignaciones existentes: ${result.existingAssignments || 0}`);
+      }
+      
+      // Mensaje sobre asignación de equipos si corresponde
+      if (result.assignmentResult) {
+        const assignmentResult = result.assignmentResult;
+        
+        if (assignmentResult.assignedTeams > 0) {
+          message.success(`Asignación de equipos: ${assignmentResult.assignedTeams} equipos nuevos asignados a ligas`);
+        } else if (assignmentResult.wasAlreadyAssigned) {
+          message.info(`Asignación de equipos: Todos los equipos (${assignmentResult.totalTeams}) ya estaban asignados a ligas`);
+        } else {
+          message.warning('No se asignaron equipos a ligas');
+        }
+      }
+    } catch (error: any) {
+      message.error(`Error al ejecutar el seed de la BD: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -87,8 +154,14 @@ export function useConfigPageLogic() {
       } else {
         message.success(`${result.matchesSimulated} partidos simulados en la fecha ${result.date}`);
       }
+      
+      // Breve pausa para asegurar que el backend haya procesado todo
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      return result;
     } catch (error: any) {
       message.error(`Error al simular partidos: ${error.message}`);
+      return null;
     } finally {
       setSimulatingMatches(false);
     }
@@ -237,6 +310,7 @@ export function useConfigPageLogic() {
     // Funciones existentes
     handleInitializeSystem,
     handleResetSystem,
+    handleRunDatabaseSeed,
     handleCacheAllCompetitions,
     handleSimulateNextMatchday,
     handleOpenSimulationDashboard,

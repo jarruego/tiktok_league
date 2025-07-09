@@ -1,0 +1,1 @@
+ALTER TABLE "divisions" RENAME COLUMN "european_slots" TO "tournament_slots";

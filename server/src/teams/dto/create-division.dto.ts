@@ -41,5 +41,5 @@ export class CreateDivisionDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  europeanSlots?: number = 0;
+  tournamentSlots?: number = 0;
 }

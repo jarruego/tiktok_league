@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Statistic, Row, Col, Typography, Spin, Button, Modal, Tag } from 'antd';
+import { Card, Statistic, Row, Col, Typography, Spin, Button, Modal, Divider } from 'antd';
 import { 
   PlayCircleOutlined, 
   TrophyOutlined, 
@@ -29,22 +29,45 @@ export const MatchSimulationDashboard: React.FC<SimulationStatsProps> = ({
   const [stats, setStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [nextMatches, setNextMatches] = useState<any[]>([]);
+  const [division1Matches, setDivision1Matches] = useState<any[]>([]);
 
   const loadStats = async () => {
     setLoadingStats(true);
     try {
       const [simulationStats, scheduledMatches] = await Promise.all([
         matchApi.getSimulationStats(),
-        matchApi.getMatches({ status: 'scheduled', limit: 5 })
+        matchApi.getMatches({ status: 'scheduled', limit: 20 })
       ]);
       
       setStats(simulationStats);
+      
+      // Todos los partidos programados
       setNextMatches(scheduledMatches.matches);
+      
+      // Filtrar solo los partidos de División 1 para la próxima fecha
+      const dates = scheduledMatches.matches.map(m => m.scheduledDate);
+      const uniqueDates = [...new Set(dates)].sort();
+      const nextDate = uniqueDates[0];
+      
+      const division1MatchesForNextDate = scheduledMatches.matches.filter(
+        m => m.scheduledDate === nextDate && m.league.name.includes('División 1')
+      );
+      
+      setDivision1Matches(division1MatchesForNextDate);
     } catch (error) {
       console.error('Error loading stats:', error);
     } finally {
       setLoadingStats(false);
     }
+  };
+
+  // Función para simular y actualizar los datos
+  const handleSimulateAndRefresh = async () => {
+    await onSimulate();
+    // Esperar un breve momento para que la simulación se complete en el backend
+    setTimeout(() => {
+      loadStats();
+    }, 1000);
   };
 
   useEffect(() => {
@@ -61,10 +84,16 @@ export const MatchSimulationDashboard: React.FC<SimulationStatsProps> = ({
     return uniqueDates[0];
   };
 
-  const getMatchesForNextDate = () => {
-    const nextDate = getNextMatchDate();
-    return nextMatches.filter(m => m.scheduledDate === nextDate);
+  // Función para dividir los partidos en dos columnas
+  const splitMatchesInColumns = (matches: any[]) => {
+    const halfLength = Math.ceil(matches.length / 2);
+    return [
+      matches.slice(0, halfLength),
+      matches.slice(halfLength)
+    ];
   };
+
+  const matchColumns = splitMatchesInColumns(division1Matches);
 
   return (
     <Modal
@@ -85,7 +114,7 @@ export const MatchSimulationDashboard: React.FC<SimulationStatsProps> = ({
           key="simulate" 
           type="primary" 
           loading={loading}
-          onClick={onSimulate}
+          onClick={handleSimulateAndRefresh}
           disabled={nextMatches.length === 0}
           style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
           icon={<PlayCircleOutlined />}
@@ -166,41 +195,87 @@ export const MatchSimulationDashboard: React.FC<SimulationStatsProps> = ({
               </Card>
             )}
 
-            {/* Próximos Partidos */}
+            {/* Próximos Partidos - División 1 */}
             <Card size="small">
-              <Title level={4}>⚽ Siguiente Jornada - {getNextMatchDate()}</Title>
-              {getMatchesForNextDate().length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {getMatchesForNextDate().map(match => (
-                    <div 
-                      key={match.id}
-                      style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        padding: '8px 12px',
-                        border: '1px solid #f0f0f0',
-                        borderRadius: 6,
-                        backgroundColor: '#fafafa'
-                      }}
-                    >
-                      <span>
-                        <strong>{match.homeTeam.name}</strong> vs <strong>{match.awayTeam.name}</strong>
-                      </span>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <Tag color="blue">{match.league.name}</Tag>
-                        <Tag>Jornada {match.matchday}</Tag>
-                      </div>
+              <Title level={4}>⚽ División 1 - Jornada {division1Matches.length > 0 ? division1Matches[0].matchday : "N/A"} ({getNextMatchDate()})</Title>
+              
+              {division1Matches.length > 0 ? (
+                <Row gutter={12}>
+                  {/* Columna izquierda de partidos */}
+                  <Col span={12}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {matchColumns[0].map(match => (
+                        <div 
+                          key={match.id}
+                          style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            padding: '6px 10px',
+                            border: '1px solid #f0f0f0',
+                            borderRadius: 6,
+                            backgroundColor: '#fafafa',
+                            fontSize: '13px'
+                          }}
+                        >
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            width: '100%',
+                            textAlign: 'center'
+                          }}>
+                            <strong>{match.homeTeam.name}</strong>
+                            <span style={{ margin: '0 6px', fontSize: '12px', color: '#888' }}>vs</span>
+                            <strong>{match.awayTeam.name}</strong>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  {nextMatches.length > getMatchesForNextDate().length && (
-                    <Text type="secondary">
-                      ... y {nextMatches.length - getMatchesForNextDate().length} partidos más en otras fechas
-                    </Text>
-                  )}
-                </div>
+                  </Col>
+                  
+                  {/* Columna derecha de partidos */}
+                  <Col span={12}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {matchColumns[1].map(match => (
+                        <div 
+                          key={match.id}
+                          style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            padding: '6px 10px',
+                            border: '1px solid #f0f0f0',
+                            borderRadius: 6,
+                            backgroundColor: '#fafafa',
+                            fontSize: '13px'
+                          }}
+                        >
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            width: '100%',
+                            textAlign: 'center'
+                          }}>
+                            <strong>{match.homeTeam.name}</strong>
+                            <span style={{ margin: '0 6px', fontSize: '12px', color: '#888' }}>vs</span>
+                            <strong>{match.awayTeam.name}</strong>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Col>
+                </Row>
               ) : (
-                <Text type="secondary">No hay partidos programados</Text>
+                <Text type="secondary">No hay partidos programados de División 1</Text>
+              )}
+              
+              {division1Matches.length === 0 && nextMatches.length > 0 && (
+                <>
+                  <Divider style={{ margin: '12px 0' }} />
+                  <Text type="secondary">Hay {nextMatches.length} partidos programados en otras divisiones</Text>
+                </>
               )}
             </Card>
           </>

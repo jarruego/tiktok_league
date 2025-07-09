@@ -66,12 +66,20 @@ export const leagueApi = {
   },
 
   // Inicializar sistema de ligas (ahora idempotente)
-  async initializeLeagueSystem(): Promise<{
+  async initializeLeagueSystem(runSeed: boolean = false): Promise<{
     message: string;
     isNewSystem: boolean;
     existingAssignments?: number;
+    seedResult?: string;
+    assignmentResult?: {
+      message: string;
+      assignedTeams: number;
+      skippedTeams: number;
+      totalTeams: number;
+      wasAlreadyAssigned: boolean;
+    };
   }> {
-    const response = await fetch(`${API_BASE_URL}/api/league-system/initialize`, {
+    const response = await fetch(`${API_BASE_URL}/api/league-system/initialize${runSeed ? '?seed=true' : ''}`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
     });
@@ -79,6 +87,26 @@ export const leagueApi = {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
     return response.json();
+  },
+
+  // Ejecutar seed de inicialización de la BD
+  async runDatabaseSeed(): Promise<{
+    message?: string;
+    success?: boolean;
+    details?: string;
+    isNewSystem?: boolean;
+    existingAssignments?: number;
+    seedResult?: string;
+    assignmentResult?: {
+      message: string;
+      assignedTeams: number;
+      skippedTeams: number;
+      totalTeams: number;
+      wasAlreadyAssigned: boolean;
+    };
+  }> {
+    // Usamos el endpoint de inicialización con el parámetro seed=true
+    return this.initializeLeagueSystem(true);
   },
 
   // Resetear sistema completo (PELIGROSO - solo desarrollo)

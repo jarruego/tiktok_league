@@ -58,37 +58,51 @@ export class LeagueSystemService {
   }
 
   /**
-   * Resetea completamente el sistema de ligas (PELIGROSO - solo usar en desarrollo)
+   * Resetea el sistema de ligas para la temporada activa (solo elimina standings, matches y team league assignments)
    */
   async resetLeagueSystem(): Promise<{ message: string; warning: string }> {
     const db = this.databaseService.db;
     
     try {
+      // Obtener la temporada activa
+      let activeSeason;
+      try {
+        activeSeason = await this.getActiveSeason();
+      } catch (error) {
+        return {
+          message: 'No se pudo realizar el reset',
+          warning: 'No hay temporada activa. Para realizar un reset, debe existir una temporada activa.'
+        };
+      }
+      
+      console.log(`Reseteando datos para la temporada activa (ID: ${activeSeason.id})`);
+      
       // Eliminar en orden correcto por las claves foráneas
-      // Primero las tablas que dependen de matches
-      const deletedStandings = await db.delete(standingsTable);
+      // Primero las tablas que dependen de matches para la temporada activa
+      const deletedStandings = await db.delete(standingsTable)
+        .where(eq(standingsTable.seasonId, activeSeason.id));
       
-      // Luego los partidos
-      const deletedMatches = await db.delete(matchTable);
+      // Luego los partidos de la temporada activa
+      const deletedMatches = await db.delete(matchTable)
+        .where(eq(matchTable.seasonId, activeSeason.id));
       
-      // Después las asignaciones
-      const deletedAssignments = await db.delete(teamLeagueAssignmentTable);
+      // Después las asignaciones de la temporada activa
+      const deletedAssignments = await db.delete(teamLeagueAssignmentTable)
+        .where(eq(teamLeagueAssignmentTable.seasonId, activeSeason.id));
       
-      // Finalmente las estructuras de ligas
-      const deletedLeagues = await db.delete(leagueTable);
-      const deletedDivisions = await db.delete(divisionTable);
+      // Mantenemos las ligas y divisiones, solo eliminamos los datos específicos de la temporada
       
-      console.log('Reset completo ejecutado:', { 
+      console.log('Reset de la temporada activa ejecutado:', { 
+        temporadaId: activeSeason.id,
+        temporadaNombre: activeSeason.name,
         deletedStandings, 
         deletedMatches, 
-        deletedAssignments, 
-        deletedLeagues, 
-        deletedDivisions 
+        deletedAssignments
       });
       
       return { 
-        message: 'Sistema de ligas reseteado completamente',
-        warning: 'Todas las asignaciones, partidos, clasificaciones y configuraciones han sido eliminadas'
+        message: `Temporada ${activeSeason.name} reseteada correctamente`,
+        warning: 'Se han eliminado clasificaciones, partidos y asignaciones de equipos para la temporada activa. Las ligas, divisiones y equipos se han mantenido intactos.'
       };
     } catch (error) {
       console.error('Error en resetLeagueSystem:', error);
@@ -136,11 +150,20 @@ export class LeagueSystemService {
   /**
    * Inicializa la estructura completa de divisiones y ligas según las especificaciones
    * Ahora es idempotente y preserva datos existentes
+   * @param runSeed Si es true, también ejecuta el seed de datos iniciales
    */
-  async initializeLeagueSystem(): Promise<{ 
+  async initializeLeagueSystem(runSeed: boolean = false): Promise<{ 
     message: string; 
     isNewSystem: boolean; 
-    existingAssignments?: number 
+    existingAssignments?: number;
+    seedResult?: string;
+    assignmentResult?: {
+      message: string;
+      assignedTeams: number;
+      skippedTeams: number;
+      totalTeams: number;
+      wasAlreadyAssigned: boolean;
+    };
   }> {
     const db = this.databaseService.db;
     
@@ -164,7 +187,7 @@ export class LeagueSystemService {
         promoteSlots: 0,
         promotePlayoffSlots: 0,
         relegateSlots: 3,
-        europeanSlots: 7 // Top 7 van a competiciones europeas
+        tournamentSlots: 8 // Top 8 van a torneos
       },
       {
         level: 2,
@@ -175,7 +198,7 @@ export class LeagueSystemService {
         promoteSlots: 2,
         promotePlayoffSlots: 4, // 3º al 6º juegan playoff
         relegateSlots: 3,
-        europeanSlots: 0
+        tournamentSlots: 0
       },
       {
         level: 3,
@@ -186,7 +209,7 @@ export class LeagueSystemService {
         promoteSlots: 2, // 1º de cada grupo
         promotePlayoffSlots: 4, // 2º y 3º de cada grupo
         relegateSlots: 6, // 3 últimos de cada grupo
-        europeanSlots: 0
+        tournamentSlots: 0
       },
       {
         level: 4,
@@ -197,7 +220,7 @@ export class LeagueSystemService {
         promoteSlots: 4, // 1º de cada grupo
         promotePlayoffSlots: 4, // 2ºs juegan playoff por 2 plazas
         relegateSlots: 12, // 3 últimos de cada grupo
-        europeanSlots: 0
+        tournamentSlots: 0
       },
       {
         level: 5,
@@ -208,7 +231,7 @@ export class LeagueSystemService {
         promoteSlots: 8, // 1º de cada grupo
         promotePlayoffSlots: 8, // 2ºs juegan playoff por 4 plazas
         relegateSlots: 0, // No hay descensos (última división)
-        europeanSlots: 0
+        tournamentSlots: 0
       }
     ];
 
@@ -256,12 +279,69 @@ export class LeagueSystemService {
 
     const finalExistingAssignments = (await db.select({ count: sql<number>`count(*)` }).from(teamLeagueAssignmentTable))[0].count;
 
+    // Si se solicita ejecutar el seed
+    let seedResult: string | undefined;
+    if (runSeed) {
+      console.log('Iniciando ejecución del seed por solicitud explícita');
+      try {
+        // Importamos y ejecutamos el script de seed
+        console.log('Intentando importar el módulo de seed');
+        const seedModule = await import('../database/seed');
+        console.log('Módulo seed importado:', Object.keys(seedModule));
+        
+        if (typeof seedModule.seed === 'function') {
+          console.log('Función seed encontrada, ejecutando...');
+          try {
+            // Pasamos la conexión existente a la base de datos
+            await seedModule.seed(this.databaseService.db);
+            seedResult = 'Seed ejecutado correctamente';
+            console.log('Seed completado exitosamente desde initializeLeagueSystem');
+          } catch (seedError) {
+            console.error('Error durante la ejecución de seed():', seedError);
+            seedResult = `Error durante la ejecución: ${seedError.message}`;
+          }
+        } else {
+          console.error('La función seed no se encontró en el módulo importado');
+          seedResult = 'Error: La función seed no se encontró en el módulo';
+        }
+      } catch (error) {
+        console.error('Error ejecutando seed:', error);
+        seedResult = `Error ejecutando seed: ${error.message}`;
+      }
+    } else {
+      console.log('No se solicitó ejecutar el seed (runSeed=false)');
+    }
+
+    // Asignar equipos a ligas en la temporada activa
+    let assignmentResult;
+    try {
+      // Obtener la temporada activa
+      const activeSeason = await this.getActiveSeason();
+      console.log(`Asignando equipos a ligas en la temporada activa (ID: ${activeSeason.id})`);
+      
+      // Asignar todos los equipos a ligas basados en seguidores de TikTok
+      assignmentResult = await this.assignTeamsToLeaguesByTikTokFollowers(activeSeason.id);
+      console.log('Resultado de la asignación:', assignmentResult);
+    } catch (error) {
+      console.error('Error al asignar equipos a ligas:', error);
+      // Si hay un error en la asignación, continuamos pero registramos el error
+      assignmentResult = {
+        message: `Error al asignar equipos: ${error.message}`,
+        assignedTeams: 0,
+        skippedTeams: 0,
+        totalTeams: 0,
+        wasAlreadyAssigned: false
+      };
+    }
+
     return { 
       message: systemExists ? 
         'Sistema de ligas ya estaba inicializado - estructura verificada' : 
         'Sistema de ligas inicializado correctamente',
       isNewSystem: !systemExists,
-      existingAssignments: finalExistingAssignments
+      existingAssignments: finalExistingAssignments,
+      seedResult,
+      assignmentResult
     };
   }
 
@@ -514,7 +594,7 @@ export class LeagueSystemService {
         promoteSlots: divisionTable.promoteSlots,
         promotePlayoffSlots: divisionTable.promotePlayoffSlots,
         relegateSlots: divisionTable.relegateSlots,
-        europeanSlots: divisionTable.europeanSlots,
+        tournamentSlots: divisionTable.tournamentSlots,
         leagueId: leagueTable.id,
         leagueName: leagueTable.name,
         groupCode: leagueTable.groupCode,
@@ -539,7 +619,7 @@ export class LeagueSystemService {
           promoteSlots: row.promoteSlots,
           promotePlayoffSlots: row.promotePlayoffSlots,
           relegateSlots: row.relegateSlots,
-          europeanSlots: row.europeanSlots,
+          tournamentSlots: row.tournamentSlots,
           leagues: []
         };
       }
