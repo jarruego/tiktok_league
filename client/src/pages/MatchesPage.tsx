@@ -11,28 +11,22 @@ import {
   Divider,
   Statistic,
   Row,
-  Col,
-  Modal,
-  Form,
-  InputNumber
+  Col
 } from 'antd';
 import { 
   CalendarOutlined, 
   TrophyOutlined, 
   TeamOutlined,
   PlayCircleOutlined,
-  DeleteOutlined,
   ReloadOutlined,
   ClearOutlined
 } from '@ant-design/icons';
 import { LayoutContainer } from '../components/LayoutContainer';
 import { matchApi } from '../api/matchApi';
 import { leagueApi } from '../api/leagueApi';
-import { usePermissions } from '../hooks/usePermissions';
 import type { 
   Match, 
-  MatchFilters, 
-  GenerateMatchesRequest 
+  MatchFilters
 } from '../types/match.types';
 import type { Season, Division } from '../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
@@ -60,7 +54,6 @@ const statusLabels = {
 export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
@@ -77,11 +70,6 @@ export default function MatchesPage() {
     totalMatchdays: 0,
     leaguesCount: 0
   });
-  const [generateModalVisible, setGenerateModalVisible] = useState(false);
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [form] = Form.useForm();
-
-  const { canAdministrate } = usePermissions();
 
   useEffect(() => {
     loadInitialData();
@@ -163,79 +151,6 @@ export default function MatchesPage() {
     setSelectedSeason(seasonId);
     // Limpiar filtros al cambiar temporada
     setFilters({});
-  };
-
-  const handleGenerateMatches = async (values: any) => {
-    try {
-      setGenerating(true);
-      
-      // Validar y asegurar que daysPerMatchday sea un entero válido
-      let daysPerMatchday = 7; // valor por defecto
-      if (values.daysPerMatchday !== undefined && values.daysPerMatchday !== null) {
-        const parsed = Number(values.daysPerMatchday);
-        if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 30) {
-          daysPerMatchday = parsed;
-        } else {
-          message.error('Los días entre jornadas debe ser un número entero entre 1 y 30');
-          return;
-        }
-      }
-      
-      const generateData: GenerateMatchesRequest = {
-        seasonId: selectedSeason!,
-        startDate: values.startDate ? dayjs(values.startDate).format('YYYY-MM-DD') : undefined,
-        daysPerMatchday
-      };
-      
-      const result = await matchApi.generateMatches(generateData);
-      
-      // Mostrar mensaje detallado con información de la generación
-      let detailMessage = `${result.totalMatches} partidos generados para ${result.leaguesProcessed} ligas`;
-      
-      if (result.leagueResults && result.leagueResults.length > 0) {
-        if (result.leagueResults.length <= 3) {
-          // Si hay pocas ligas, mostrar detalles completos
-          const leagueDetails = result.leagueResults.map((lr: any) => 
-            `${lr.leagueName}: ${lr.matchesGenerated} partidos (${lr.teamsCount} equipos)`
-          ).join(', ');
-          detailMessage += `. Detalles: ${leagueDetails}`;
-        } else {
-          // Si hay muchas ligas, mostrar solo un resumen
-          const totalTeams = result.leagueResults.reduce((sum: number, lr: any) => sum + lr.teamsCount, 0);
-          detailMessage += `. Total de ${totalTeams} equipos participando`;
-        }
-      }
-      
-      message.success(detailMessage, 6); // Mostrar durante 6 segundos
-      
-      setGenerateModalVisible(false);
-      form.resetFields();
-      loadMatches();
-      loadStats();
-    } catch (error: any) {
-      console.error('Error generating matches:', error);
-      message.error(error.message || 'Error generando partidos');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleDeleteAllMatches = async () => {
-    if (!selectedSeason) return;
-    setDeleteModalVisible(true);
-  };
-
-  const confirmDeleteAllMatches = async () => {
-    try {
-      const result = await matchApi.deleteAllMatchesBySeason(selectedSeason!);
-      message.success(`${result.deletedCount} partidos eliminados`);
-      setDeleteModalVisible(false);
-      loadMatches();
-      loadStats();
-    } catch (error: any) {
-      message.error(error.message || 'Error eliminando partidos');
-      setDeleteModalVisible(false);
-    }
   };
 
   const columns: ColumnsType<Match> = [
@@ -470,32 +385,6 @@ export default function MatchesPage() {
             </Space>
           </div>
 
-          {/* Acciones de administrador */}
-          {canAdministrate && selectedSeason && (
-            <div style={{ marginBottom: '16px' }}>
-              <Space>
-                <Button
-                  type="primary"
-                  icon={<CalendarOutlined />}
-                  onClick={() => setGenerateModalVisible(true)}
-                  disabled={stats.totalMatches > 0}
-                >
-                  Generar Calendario
-                </Button>
-                
-                {stats.totalMatches > 0 && (
-                  <Button
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={handleDeleteAllMatches}
-                  >
-                    Eliminar Todos los Partidos
-                  </Button>
-                )}
-              </Space>
-            </div>
-          )}
-
           {/* Tabla de partidos */}
           <Table
             columns={columns}
@@ -521,83 +410,6 @@ export default function MatchesPage() {
             scroll={{ x: 740 }}
           />
         </Card>
-
-        {/* Modal para generar partidos */}
-        <Modal
-          title="Generar Calendario de Partidos"
-          open={generateModalVisible}
-          onCancel={() => setGenerateModalVisible(false)}
-          footer={null}
-        >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleGenerateMatches}
-          >
-            <Form.Item
-              label="Fecha de inicio"
-              name="startDate"
-              tooltip="Si no se especifica, se usará la fecha de inicio de la temporada"
-            >
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              label="Días entre jornadas"
-              name="daysPerMatchday"
-              initialValue={7}
-              tooltip="Número de días entre cada jornada (por defecto 7 días = 1 semana)"
-              rules={[
-                {
-                  required: true,
-                  message: 'Este campo es requerido'
-                },
-                {
-                  type: 'number',
-                  min: 1,
-                  max: 30,
-                  message: 'Debe ser un número entre 1 y 30'
-                }
-              ]}
-            >
-              <InputNumber 
-                min={1} 
-                max={30}
-                placeholder="7"
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
-
-            <div style={{ textAlign: 'right' }}>
-              <Space>
-                <Button onClick={() => setGenerateModalVisible(false)}>
-                  Cancelar
-                </Button>
-                <Button 
-                  type="primary" 
-                  htmlType="submit" 
-                  loading={generating}
-                >
-                  Generar Partidos
-                </Button>
-              </Space>
-            </div>
-          </Form>
-        </Modal>
-
-        {/* Modal para confirmar eliminación de todos los partidos */}
-        <Modal
-          title="¿Eliminar todos los partidos?"
-          open={deleteModalVisible}
-          onCancel={() => setDeleteModalVisible(false)}
-          onOk={confirmDeleteAllMatches}
-          okText="Sí, eliminar"
-          okType="danger"
-          cancelText="Cancelar"
-        >
-          <p>Esta acción eliminará todos los partidos de la temporada seleccionada. ¿Estás seguro?</p>
-          <p><strong>Total de partidos a eliminar: {stats.totalMatches}</strong></p>
-        </Modal>
       </div>
     </LayoutContainer>
   );

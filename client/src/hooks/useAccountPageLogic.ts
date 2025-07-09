@@ -14,6 +14,17 @@ export function useAccountPageLogic() {
   const [caching, setCaching] = useState(false);
   const [simulatingMatches, setSimulatingMatches] = useState(false);
   const [showSimulationDashboard, setShowSimulationDashboard] = useState(false);
+  
+  // Estados para gestión de calendario
+  const [generating, setGenerating] = useState(false);
+  const [generateModalVisible, setGenerateModalVisible] = useState(false);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [activeSeason, setActiveSeason] = useState<any>(null);
+  const [matchStats, setMatchStats] = useState({
+    totalMatches: 0,
+    scheduledMatches: 0,
+    finishedMatches: 0
+  });
 
   // Simulación: el usuario tiene tiktokId si su username contiene "tiktok"
   const tiktokId = user?.username?.includes('tiktok') ? user.username : null;
@@ -214,6 +225,102 @@ export function useAccountPageLogic() {
     setShowSimulationDashboard(false);
   };
 
+  // Gestión de calendario de partidos
+  const loadActiveSeasonAndStats = async () => {
+    try {
+      const season = await leagueApi.getActiveSeason();
+      setActiveSeason(season);
+      
+      const stats = await matchApi.getSeasonStats(season.id);
+      setMatchStats({
+        totalMatches: stats.totalMatches,
+        scheduledMatches: stats.scheduledMatches,
+        finishedMatches: stats.finishedMatches
+      });
+    } catch (error) {
+      console.error('Error loading season stats:', error);
+    }
+  };
+
+  const handleShowGenerateModal = async () => {
+    await loadActiveSeasonAndStats();
+    setGenerateModalVisible(true);
+  };
+
+  const handleGenerateMatches = async (values: any) => {
+    if (!activeSeason) return;
+    
+    try {
+      setGenerating(true);
+      
+      // Validar y asegurar que daysPerMatchday sea un entero válido
+      let daysPerMatchday = 7; // valor por defecto
+      if (values.daysPerMatchday !== undefined && values.daysPerMatchday !== null) {
+        const parsed = Number(values.daysPerMatchday);
+        if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 30) {
+          daysPerMatchday = parsed;
+        } else {
+          message.error('Los días entre jornadas debe ser un número entero entre 1 y 30');
+          return;
+        }
+      }
+      
+      const generateData = {
+        seasonId: activeSeason.id,
+        startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : undefined,
+        daysPerMatchday
+      };
+      
+      const result = await matchApi.generateMatches(generateData);
+      
+      // Mostrar mensaje detallado con información de la generación
+      let detailMessage = `${result.totalMatches} partidos generados para ${result.leaguesProcessed} ligas`;
+      
+      if (result.leagueResults && result.leagueResults.length > 0) {
+        if (result.leagueResults.length <= 3) {
+          // Si hay pocas ligas, mostrar detalles completos
+          const leagueDetails = result.leagueResults.map((lr: any) => 
+            `${lr.leagueName}: ${lr.matchesGenerated} partidos (${lr.teamsCount} equipos)`
+          ).join(', ');
+          detailMessage += `. Detalles: ${leagueDetails}`;
+        } else {
+          // Si hay muchas ligas, mostrar solo un resumen
+          const totalTeams = result.leagueResults.reduce((sum: number, lr: any) => sum + lr.teamsCount, 0);
+          detailMessage += `. Total de ${totalTeams} equipos participando`;
+        }
+      }
+      
+      message.success(detailMessage, 6); // Mostrar durante 6 segundos
+      
+      setGenerateModalVisible(false);
+      await loadActiveSeasonAndStats(); // Recargar estadísticas
+    } catch (error: any) {
+      console.error('Error generating matches:', error);
+      message.error(error.message || 'Error generando partidos');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleShowDeleteModal = async () => {
+    await loadActiveSeasonAndStats();
+    setDeleteModalVisible(true);
+  };
+
+  const handleDeleteAllMatches = async () => {
+    if (!activeSeason) return;
+    
+    try {
+      const result = await matchApi.deleteAllMatchesBySeason(activeSeason.id);
+      message.success(`${result.deletedCount} partidos eliminados`);
+      setDeleteModalVisible(false);
+      await loadActiveSeasonAndStats(); // Recargar estadísticas
+    } catch (error: any) {
+      message.error(error.message || 'Error eliminando partidos');
+      setDeleteModalVisible(false);
+    }
+  };
+
   return {
     user,
     permissions,
@@ -224,11 +331,25 @@ export function useAccountPageLogic() {
     caching,
     simulatingMatches,
     showSimulationDashboard,
+    // Estados de calendario
+    generating,
+    generateModalVisible,
+    deleteModalVisible,
+    activeSeason,
+    matchStats,
+    // Funciones existentes
     handleInitializeSystem,
     handleResetSystem,
     handleCacheAllCompetitions,
     handleSimulateNextMatchday,
     handleOpenSimulationDashboard,
-    handleCloseSimulationDashboard
+    handleCloseSimulationDashboard,
+    // Funciones de calendario
+    handleShowGenerateModal,
+    handleGenerateMatches,
+    handleShowDeleteModal,
+    handleDeleteAllMatches,
+    setGenerateModalVisible,
+    setDeleteModalVisible
   };
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Dropdown, Avatar, Typography, Space, Tag } from 'antd';
-import { UserOutlined, LogoutOutlined, CrownOutlined, SafetyOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, CrownOutlined, SafetyOutlined, SettingOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { Link } from 'react-router-dom';
@@ -66,6 +66,19 @@ export const AuthStatus: React.FC<AuthStatusProps> = ({ style, size = 'middle' }
         </Link>
       ),
     },
+    ...(permissions.isAdmin ? [
+      {
+        key: 'config',
+        label: (
+          <Link to="/config" style={{ fontWeight: 500, color: '#222' }}>
+            <Space>
+              <SettingOutlined />
+              Configuración
+            </Space>
+          </Link>
+        ),
+      }
+    ] : []),
     {
       type: 'divider' as const,
     },
