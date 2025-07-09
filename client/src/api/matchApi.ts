@@ -216,6 +216,7 @@ export const matchApi = {
     goalsAgainst: number;
     goalDifference: number;
     points: number;
+    status: 'SAFE' | 'PROMOTES' | 'PLAYOFF' | 'RELEGATES' | 'TOURNAMENT';
   }[]> {
     const response = await fetch(
       `${API_BASE_URL}/api/matches/standings/league/${leagueId}/season/${seasonId}`,
@@ -461,5 +462,39 @@ export const matchApi = {
       matchesSimulated: result.length,
       results: result.results
     };
+  },
+
+  /**
+   * Obtener todas las clasificaciones de una temporada
+   */
+  async getAllStandingsForSeason(seasonId: number): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/api/matches/standings/season/${seasonId}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.json();
+  },
+
+  /**
+   * Recalcular clasificaciones para una temporada
+   */
+  async recalculateStandingsForSeason(seasonId: number): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/matches/standings/recalculate/season/${seasonId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authService.getAuthHeaders(),
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    
+    return response.json();
   }
 };

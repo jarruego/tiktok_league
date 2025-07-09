@@ -14,6 +14,7 @@ import {
 import { MatchService } from './match.service';
 import { MatchSimulationService, MatchSimulationResult } from './match-simulation.service';
 import { StandingsService } from './standings.service';
+import { SeasonTransitionService } from '../teams/season-transition.service';
 import { CreateMatchDto, GenerateMatchesDto } from './dto/create-match.dto';
 import { UpdateMatchDto } from './dto/update-match.dto';
 import { GetMatchesQueryDto } from './dto/get-matches-query.dto';
@@ -25,7 +26,8 @@ export class MatchController {
   constructor(
     private readonly matchService: MatchService,
     private readonly matchSimulationService: MatchSimulationService,
-    private readonly standingsService: StandingsService
+    private readonly standingsService: StandingsService,
+    private readonly seasonTransitionService: SeasonTransitionService
   ) {}
 
   /**
@@ -212,5 +214,18 @@ export class MatchController {
   ) {
     await this.standingsService.recalculateStandingsForLeague(seasonId, leagueId);
     return { message: 'Clasificación de liga recalculada exitosamente' };
+  }
+
+  /**
+   * Debug: Verificar estados de equipos en una temporada
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('debug/team-status/season/:seasonId')
+  async debugTeamStatus(
+    @Param('seasonId', ParseIntPipe) seasonId: number,
+    @Query('division') division?: string
+  ) {
+    await this.seasonTransitionService.debugTeamStatusInSeason(seasonId, division);
+    return { message: 'Debug de estados de equipos completado. Revisar logs del servidor.' };
   }
 }

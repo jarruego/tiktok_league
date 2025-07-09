@@ -137,4 +137,33 @@ export class SeasonTransitionController {
       body.nextSeasonName
     );
   }
+
+  /**
+   * Procesar ganadores de playoffs y marcarlos para ascenso
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post(':seasonId/process-playoff-winners')
+  async processPlayoffWinners(
+    @Param('seasonId', ParseIntPipe) seasonId: number
+  ): Promise<{ message: string; processed: boolean }> {
+    await this.seasonTransitionService.processPlayoffWinnersForPromotion(seasonId);
+    return {
+      message: 'Ganadores de playoffs procesados correctamente',
+      processed: true
+    };
+  }
+
+  /**
+   * Procesar ganadores de playoffs de la temporada activa (PUBLIC para testing)
+   */
+  @Post('test/process-playoff-winners')
+  async processPlayoffWinnersPublicTest(): Promise<{ message: string; processed: boolean }> {
+    console.log('🚨 WARNING: Usando endpoint público de testing para ganadores de playoffs');
+    const activeSeason = await this.seasonTransitionService.getActiveSeason();
+    await this.seasonTransitionService.processPlayoffWinnersForPromotion(activeSeason.id);
+    return {
+      message: `Ganadores de playoffs procesados para temporada ${activeSeason.name}`,
+      processed: true
+    };
+  }
 }

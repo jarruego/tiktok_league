@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, timestamp, uniqueIndex, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, serial, integer, timestamp, uniqueIndex, boolean, varchar } from 'drizzle-orm/pg-core';
 import { InferInsertModel, InferSelectModel, sql } from 'drizzle-orm';
 import { teamTable } from './team.table';
 import { leagueTable } from './league.table';

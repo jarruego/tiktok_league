@@ -8,6 +8,7 @@ import {
   teamTable,
   leagueTable,
   divisionTable,
+  teamLeagueAssignmentTable,
   MatchStatus 
 } from '../database/schema';
 import { eq, and, sql, inArray } from 'drizzle-orm';
@@ -94,6 +95,9 @@ export class MatchSimulationService {
           
           // Crear finales automáticamente si las semifinales están completadas
           await this.seasonTransitionService.createPlayoffFinalsIfNeeded(seasonId);
+          
+          // Procesar ganadores de playoffs para marcarlos para ascenso
+          await this.seasonTransitionService.processPlayoffWinnersForPromotion(seasonId);
         }
 
         this.logger.log('✅ Clasificaciones actualizadas y playoffs verificados');
@@ -163,6 +167,9 @@ export class MatchSimulationService {
         
         // Crear finales automáticamente si las semifinales están completadas
         await this.seasonTransitionService.createPlayoffFinalsIfNeeded(seasonId);
+        
+        // Procesar ganadores de playoffs para marcarlos para ascenso
+        await this.seasonTransitionService.processPlayoffWinnersForPromotion(seasonId);
       }
 
       this.logger.log('✅ Clasificaciones actualizadas y playoffs verificados');
@@ -238,6 +245,14 @@ export class MatchSimulationService {
     this.logger.log(
       `⚽ Partido simulado: ${homeTeam.name} ${simulationResult.homeGoals}-${simulationResult.awayGoals} ${awayTeam.name}`
     );
+
+    // Si es un partido de playoff, actualizar estados de equipos
+    if (match.isPlayoff) {
+      await this.seasonTransitionService.updateTeamStatusAfterPlayoffMatch(matchId);
+    } else {
+      // Si es un partido de liga regular, verificar si se completó la división
+      await this.checkAndMarkTeamsIfRegularSeasonComplete(match.leagueId, match.seasonId);
+    }
 
     return {
       matchId,
@@ -387,6 +402,9 @@ export class MatchSimulationService {
         
         // Crear finales automáticamente si las semifinales están completadas
         await this.seasonTransitionService.createPlayoffFinalsIfNeeded(seasonId);
+        
+        // Procesar ganadores de playoffs para marcarlos para ascenso
+        await this.seasonTransitionService.processPlayoffWinnersForPromotion(seasonId);
       }
       
       this.logger.log('✅ Playoffs verificados y rondas siguientes creadas');
@@ -434,7 +452,10 @@ export class MatchSimulationService {
         const isCompleted = await this.isDivisionCompleted(division.id, seasonId);
         
         if (isCompleted) {
-          this.logger.log(`✅ División ${division.name} completada - verificando playoffs...`);
+          this.logger.log(`✅ División ${division.name} completada - procesando clasificación final...`);
+          
+          // NUEVO: Marcar equipos según posición final en liga regular
+          await this.seasonTransitionService.markTeamsBasedOnRegularSeasonPosition(division.id, seasonId);
           
           // Verificar si ya existen partidos de playoff para esta división
           const existingPlayoffs = await this.hasExistingPlayoffs(division.id, seasonId);
@@ -526,5 +547,68 @@ export class MatchSimulationService {
       );
 
     return Number(playoffCount.count) > 0;
+  }
+
+  /**
+   * Verifica si se completó la liga regular de una división y marca automáticamente a los equipos
+   */
+  private async checkAndMarkTeamsIfRegularSeasonComplete(leagueId: number, seasonId: number): Promise<void> {
+    const db = this.databaseService.db;
+    
+    try {
+      // Obtener información de la liga y división
+      const [leagueInfo] = await db
+        .select({
+          leagueId: leagueTable.id,
+          divisionId: leagueTable.divisionId,
+          divisionName: divisionTable.name,
+          divisionLevel: divisionTable.level
+        })
+        .from(leagueTable)
+        .innerJoin(divisionTable, eq(leagueTable.divisionId, divisionTable.id))
+        .where(eq(leagueTable.id, leagueId));
+
+      if (!leagueInfo) return;
+
+      // Verificar si la división ha completado todos sus partidos regulares
+      const isComplete = await this.seasonTransitionService.isDivisionRegularSeasonComplete(
+        leagueInfo.divisionId, 
+        seasonId
+      );
+
+      if (isComplete) {
+        // Verificar si ya se marcaron los equipos para esta división
+        const [existingMarks] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(teamLeagueAssignmentTable)
+          .innerJoin(leagueTable, eq(teamLeagueAssignmentTable.leagueId, leagueTable.id))
+          .where(
+            and(
+              eq(teamLeagueAssignmentTable.seasonId, seasonId),
+              eq(leagueTable.divisionId, leagueInfo.divisionId),
+              sql`(
+                ${teamLeagueAssignmentTable.promotedNextSeason} = true OR 
+                ${teamLeagueAssignmentTable.relegatedNextSeason} = true OR 
+                ${teamLeagueAssignmentTable.playoffNextSeason} = true OR 
+                ${teamLeagueAssignmentTable.qualifiedForTournament} = true
+              )`
+            )
+          );
+
+        if (Number(existingMarks.count) === 0) {
+          this.logger.log(`🏁 Liga regular completada en ${leagueInfo.divisionName}. Marcando equipos automáticamente...`);
+          
+          // Marcar equipos según posición final
+          await this.seasonTransitionService.markTeamsBasedOnRegularSeasonPosition(
+            leagueInfo.divisionId,
+            seasonId
+          );
+
+          this.logger.log(`✅ Equipos marcados automáticamente en ${leagueInfo.divisionName}`);
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error verificando finalización de liga regular:', error);
+    }
   }
 }

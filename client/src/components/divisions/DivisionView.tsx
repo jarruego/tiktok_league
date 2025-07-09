@@ -12,68 +12,45 @@ import '../../styles/DivisionView.css';
 const { Text } = Typography;
 const { Option } = Select;
 
-// Función para determinar el estado de clasificación de un equipo (optimizada)
-const getTeamStatus = (
-  position: number, 
-  division: Division, 
-  totalTeamsInLeague: number
-): { status: string; color: string; badge: string; backgroundColor: string } => {
-  const { level, promoteSlots, promotePlayoffSlots, relegateSlots } = division;
-  
-  // Plazas de torneo (solo División 1) - 8 primeros puestos
-  if (level === 1 && position <= 8) {
-    return {
-      status: 'tournament',
-      color: '#722ed1',
-      badge: '🏆 Torneo',
-      backgroundColor: '#f9f0ff'
-    };
+// Función para obtener el diseño visual de cada estado
+const getStatusDisplay = (status: string): { color: string; badge: string; backgroundColor: string } => {
+  switch (status) {
+    case 'PROMOTES':
+      return {
+        color: '#52c41a',
+        badge: '⬆️ Asciende',
+        backgroundColor: '#f6ffed'
+      };
+    case 'PLAYOFF':
+      return {
+        color: '#fa8c16',
+        badge: '🎯 Playoff',
+        backgroundColor: '#fff7e6'
+      };
+    case 'RELEGATES':
+      return {
+        color: '#ff4d4f',
+        badge: '⬇️ Desciende',
+        backgroundColor: '#fff2f0'
+      };
+    case 'TOURNAMENT':
+      return {
+        color: '#722ed1',
+        badge: '🏆 Torneo',
+        backgroundColor: '#f9f0ff'
+      };
+    case 'SAFE':
+    default:
+      return {
+        color: '#8c8c8c',
+        badge: '✓ Seguro',
+        backgroundColor: '#ffffff'
+      };
   }
-
-  // Ascenso directo
-  if (level > 1 && position <= promoteSlots) {
-    return {
-      status: 'promotion',
-      color: '#52c41a',
-      badge: '⬆️ Asciende',
-      backgroundColor: '#f6ffed'
-    };
-  }
-
-  // Playoff de ascenso
-  if (level > 1 && 
-      position > promoteSlots && 
-      position <= (promoteSlots + promotePlayoffSlots)) {
-    return {
-      status: 'playoff',
-      color: '#fa8c16',
-      badge: '🎯 Playoff',
-      backgroundColor: '#fff7e6'
-    };
-  }
-
-  // Descenso
-  if (relegateSlots > 0 && 
-      position > (totalTeamsInLeague - relegateSlots)) {
-    return {
-      status: 'relegation',
-      color: '#ff4d4f',
-      badge: '⬇️ Desciende',
-      backgroundColor: '#fff2f0'
-    };
-  }
-
-  // Posición segura
-  return {
-    status: 'safe',
-    color: '#8c8c8c',
-    badge: '✓ Seguro',
-    backgroundColor: '#ffffff'
-  };
 };
 
-// Función para crear las columnas dinámicamente según la división (optimizada con memoización)
-const createColumns = (selectedDivision: Division | null, navigate: any): ColumnsType<ExtendedTeamInLeague> => {
+// Función para crear las columnas dinámicamente (optimizada con memoización)
+const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
   const handleTeamClick = (teamId: number) => navigate(`/team/${teamId}`);
   
   return [
@@ -91,12 +68,14 @@ const createColumns = (selectedDivision: Division | null, navigate: any): Column
       key: 'status', 
       width: 120,
       render: (_, record: ExtendedTeamInLeague) => {
-        if (!selectedDivision || !record.standing?.position) return null;
+        // Usar el status que viene del backend en lugar de calcularlo localmente
+        const backendStatus = (record.standing as any)?.status;
+        if (!backendStatus) return null;
         
-        const status = getTeamStatus(record.standing.position, selectedDivision, 20); // Asumimos 20 equipos por liga
+        const statusDisplay = getStatusDisplay(backendStatus);
         return (
-          <Tag color={status.color} style={{ margin: 0 }}>
-            {status.badge}
+          <Tag color={statusDisplay.color} style={{ margin: 0 }}>
+            {statusDisplay.badge}
           </Tag>
         );
       }
@@ -460,7 +439,7 @@ export default function DivisionView() {
         {selectedLeagueData && (
           <Card style={{ marginTop: 0, width: '100%' }} styles={{ body: { padding: 0, width: '100%' } }}>
             <Table
-              columns={createColumns(selectedDivision, navigate)}
+              columns={createColumns(navigate)}
               dataSource={teams}
               rowKey="teamId"
               loading={teamsLoading}
@@ -469,19 +448,18 @@ export default function DivisionView() {
               scroll={{ x: '100%' }}
               style={{ width: '100%' }}
               rowClassName={(record: ExtendedTeamInLeague) => {
-                if (!selectedDivision || !record.position) return '';
-                const position = record.standing?.position || record.position;
-                const status = getTeamStatus(position, selectedDivision, teams.length);
-                return `team-row-${status.status}`;
+                const backendStatus = (record.standing as any)?.status;
+                if (!backendStatus) return '';
+                return `team-row-${backendStatus.toLowerCase()}`;
               }}
               onRow={(record: ExtendedTeamInLeague) => ({
                 style: (() => {
-                  if (!selectedDivision || !record.position) return {};
-                  const position = record.standing?.position || record.position;
-                  const status = getTeamStatus(position, selectedDivision, teams.length);
+                  const backendStatus = (record.standing as any)?.status;
+                  if (!backendStatus) return {};
+                  const statusDisplay = getStatusDisplay(backendStatus);
                   return {
-                    backgroundColor: status.backgroundColor,
-                    borderLeft: `4px solid ${status.color}`
+                    backgroundColor: statusDisplay.backgroundColor,
+                    borderLeft: `4px solid ${statusDisplay.color}`
                   };
                 })()
               })}

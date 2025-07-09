@@ -6,6 +6,7 @@ import {
   teamTable,
   leagueTable,
   seasonTable,
+  teamLeagueAssignmentTable,
   MatchStatus 
 } from '../database/schema';
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
@@ -27,6 +28,7 @@ export interface StandingData {
   goalsAgainst: number;
   goalDifference: number;
   points: number;
+  status: 'SAFE' | 'PROMOTES' | 'PLAYOFF' | 'RELEGATES' | 'TOURNAMENT';
 }
 
 export interface LeagueStandings {
@@ -336,10 +338,23 @@ export class StandingsService {
         teamName: teamTable.name,
         teamShortName: teamTable.shortName,
         teamCrest: teamTable.crest,
-        followers: teamTable.followers
+        followers: teamTable.followers,
+        // Campos de estado del equipo
+        promotedNextSeason: teamLeagueAssignmentTable.promotedNextSeason,
+        relegatedNextSeason: teamLeagueAssignmentTable.relegatedNextSeason,
+        playoffNextSeason: teamLeagueAssignmentTable.playoffNextSeason,
+        qualifiedForTournament: teamLeagueAssignmentTable.qualifiedForTournament
       })
       .from(standingsTable)
       .innerJoin(teamTable, eq(standingsTable.teamId, teamTable.id))
+      .leftJoin(
+        teamLeagueAssignmentTable,
+        and(
+          eq(teamLeagueAssignmentTable.teamId, teamTable.id),
+          eq(teamLeagueAssignmentTable.seasonId, seasonId),
+          eq(teamLeagueAssignmentTable.leagueId, leagueId)
+        )
+      )
       .where(
         and(
           eq(standingsTable.seasonId, seasonId),
@@ -368,6 +383,15 @@ export class StandingsService {
     // Mapear a StandingData con posiciones dinámicas
     const standings = sortedTeamStats.map((stats, index) => {
       const rawData = rawStandings.find(r => r.teamId === stats.teamId)!;
+      
+      // Determinar el estado del equipo
+      const status = this.determineTeamStatus(
+        rawData.promotedNextSeason || false,
+        rawData.relegatedNextSeason || false,
+        rawData.playoffNextSeason || false,
+        rawData.qualifiedForTournament || false
+      );
+      
       return {
         position: index + 1, // Posición dinámica basada en la nueva lógica
         team: {
@@ -383,7 +407,8 @@ export class StandingsService {
         goalsFor: stats.goalsFor,
         goalsAgainst: stats.goalsAgainst,
         goalDifference: stats.goalDifference,
-        points: stats.points
+        points: stats.points,
+        status: status
       };
     });
 
@@ -592,5 +617,21 @@ export class StandingsService {
     });
     
     return results;
+  }
+
+  /**
+   * Determinar el estado del equipo basado en los campos booleanos de asignación
+   */
+  private determineTeamStatus(
+    promotedNextSeason: boolean,
+    relegatedNextSeason: boolean,
+    playoffNextSeason: boolean,
+    qualifiedForTournament: boolean
+  ): 'SAFE' | 'PROMOTES' | 'PLAYOFF' | 'RELEGATES' | 'TOURNAMENT' {
+    if (promotedNextSeason) return 'PROMOTES';
+    if (relegatedNextSeason) return 'RELEGATES';
+    if (playoffNextSeason) return 'PLAYOFF';
+    if (qualifiedForTournament) return 'TOURNAMENT';
+    return 'SAFE';
   }
 }
