@@ -380,6 +380,16 @@ export class MatchSimulationService {
       }
 
       this.logger.log('✅ Clasificaciones actualizadas');
+      
+      // Verificar y generar playoffs automáticamente para divisiones completadas
+      for (const seasonId of affectedSeasons) {
+        await this.checkAndGeneratePlayoffs(seasonId);
+        
+        // Crear finales automáticamente si las semifinales están completadas
+        await this.seasonTransitionService.createPlayoffFinalsIfNeeded(seasonId);
+      }
+      
+      this.logger.log('✅ Playoffs verificados y rondas siguientes creadas');
     }
     
     return results;
