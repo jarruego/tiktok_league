@@ -33,6 +33,10 @@ export const matchTable = pgTable('matches', {
   homeGoals: integer('home_goals'), // null = no jugado aún
   awayGoals: integer('away_goals'), // null = no jugado aún
   
+  // Información de playoff
+  isPlayoff: boolean('is_playoff').default(false),
+  playoffRound: varchar('playoff_round', { length: 50 }),
+  
   // Detalles de la simulación (JSON)
   simulationDetails: varchar('simulation_details', { length: 1000 }), // JSON con detalles del algoritmo
   

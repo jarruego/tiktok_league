@@ -43,9 +43,16 @@ export const matchApi = {
       }
     });
     
-    const response = await fetch(`${API_BASE_URL}/api/matches?${params}`, {
+    const url = `${API_BASE_URL}/api/matches?${params}`;
+    console.log('🔍 [DEBUG] Making request to:', url);
+    console.log('🔍 [DEBUG] API_BASE_URL:', API_BASE_URL);
+    console.log('🔍 [DEBUG] Filters:', filters);
+    
+    const response = await fetch(url, {
       headers: authService.getAuthHeaders(),
     });
+    
+    console.log('🔍 [DEBUG] Response status:', response.status, response.statusText);
     
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -364,17 +371,32 @@ export const matchApi = {
     length: number;
     results: Array<any>;
   }> {
+    const headers = authService.getAuthHeaders();
+    console.log('🔍 [DEBUG] Headers a enviar:', headers);
+    console.log('🔍 [DEBUG] URL completa:', `${API_BASE_URL}/api/matches/simulate/all`);
+    
     const response = await fetch(`${API_BASE_URL}/api/matches/simulate/all`, {
-      method: 'POST',
-      headers: authService.getAuthHeaders(),
+      method: 'GET',
+      headers,
     });
+    
+    console.log('🔍 [DEBUG] Response status:', response.status);
+    console.log('🔍 [DEBUG] Response ok:', response.ok);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.log('🔍 [DEBUG] Error data:', errorData);
+      
+      // Mejor manejo de errores de autenticación
+      if (response.status === 401) {
+        throw new Error('No tienes permisos para realizar esta acción. Por favor, inicia sesión nuevamente.');
+      }
+      
       throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
     }
     
     const results = await response.json();
+    console.log('🔍 [DEBUG] Results:', results);
     return {
       length: results.length,
       results

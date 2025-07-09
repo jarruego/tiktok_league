@@ -382,6 +382,14 @@ export class MatchService {
     if (query.toDate) {
       conditions.push(lte(matchTable.scheduledDate, query.toDate));
     }
+    
+    if (query.isPlayoff !== undefined) {
+      conditions.push(eq(matchTable.isPlayoff, query.isPlayoff));
+    }
+    
+    if (query.playoffRound) {
+      conditions.push(eq(matchTable.playoffRound, query.playoffRound));
+    }
 
     // Calcular offset para paginación
     const offset = ((query.page || 1) - 1) * (query.limit || 50);
@@ -395,6 +403,8 @@ export class MatchService {
         homeGoals: matchTable.homeGoals,
         awayGoals: matchTable.awayGoals,
         notes: matchTable.notes,
+        isPlayoff: matchTable.isPlayoff,
+        playoffRound: matchTable.playoffRound,
         // Información del equipo local
         homeTeamId: teamTable.id,
         homeTeamName: teamTable.name,
@@ -443,6 +453,8 @@ export class MatchService {
       homeGoals: match.homeGoals,
       awayGoals: match.awayGoals,
       notes: match.notes,
+      isPlayoff: match.isPlayoff,
+      playoffRound: match.playoffRound,
       homeTeam: {
         id: match.homeTeamId,
         name: match.homeTeamName,

@@ -1,5 +1,5 @@
-import { pgTable, serial, integer, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
-import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import { pgTable, serial, integer, timestamp, uniqueIndex, boolean } from 'drizzle-orm/pg-core';
+import { InferInsertModel, InferSelectModel, sql } from 'drizzle-orm';
 import { teamTable } from './team.table';
 import { leagueTable } from './league.table';
 import { seasonTable } from './season.table';
@@ -23,8 +23,15 @@ export const teamLeagueAssignmentTable = pgTable('team_league_assignments', {
   tiktokFollowersAtAssignment: integer('tiktok_followers_at_assignment').default(0),
   assignmentReason: integer('assignment_reason').notNull().default(AssignmentReason.INITIAL_TIKTOK),
   
+  // Información para transición de temporada
+  promotedNextSeason: boolean('promoted_next_season').default(false),
+  relegatedNextSeason: boolean('relegated_next_season').default(false),
+  playoffNextSeason: boolean('playoff_next_season').default(false),
+  qualifiedForTournament: boolean('qualified_for_tournament').default(false),
+  
   // Timestamps
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
   teamSeasonUnique: uniqueIndex('team_season_unique').on(table.teamId, table.seasonId),
 }));

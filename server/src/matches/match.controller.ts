@@ -154,8 +154,9 @@ export class MatchController {
    * ⚠️ Usar con precaución - simula TODOS los partidos programados
    */
   @UseGuards(JwtAuthGuard)
-  @Post('simulate/all')
+  @Get('simulate/all')
   async simulateAllPendingMatches(): Promise<MatchSimulationResult[]> {
+    console.log('🔍 [DEBUG] Endpoint simulateAllPendingMatches llamado');
     return this.matchSimulationService.simulateAllPendingMatches();
   }
 

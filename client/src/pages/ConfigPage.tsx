@@ -6,7 +6,8 @@ import {
   DeleteOutlined,
   ReloadOutlined,
   DatabaseOutlined,
-  TableOutlined 
+  TableOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons';
 import { LayoutContainer } from '../components/LayoutContainer';
 import { MatchSimulationDashboard } from '../components/MatchSimulationDashboard';
@@ -37,6 +38,7 @@ export default function ConfigPage() {
     handleRunDatabaseSeed,
     handleCacheAllCompetitions,
     handleSimulateNextMatchday,
+    handleSimulateAllPendingMatches,
     handleOpenSimulationDashboard,
     handleCloseSimulationDashboard,
     // Funciones de calendario
@@ -197,6 +199,25 @@ export default function ConfigPage() {
               }}
             >
               ⚽ Simular
+            </Button>
+            
+            <Button 
+              type="primary" 
+              icon={<ThunderboltOutlined />}
+              loading={simulatingMatches}
+              onClick={handleSimulateAllPendingMatches}
+              style={{ 
+                height: '50px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                justifyContent: 'center',
+                fontSize: '11px',
+                backgroundColor: '#ff7a00', 
+                borderColor: '#ff7a00'
+              }}
+              title="Simula automáticamente TODOS los partidos pendientes de la temporada activa"
+            >
+              Simular Todo
             </Button>
           </div>
         </Card>

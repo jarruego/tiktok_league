@@ -181,6 +181,8 @@ export const matches = pgTable("matches", {
 	status: varchar({ length: 20 }).default('scheduled').notNull(),
 	homeGoals: integer("home_goals"),
 	awayGoals: integer("away_goals"),
+	isPlayoff: boolean("is_playoff").default(false),
+	playoffRound: varchar("playoff_round", { length: 50 }),
 	notes: varchar({ length: 500 }),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),

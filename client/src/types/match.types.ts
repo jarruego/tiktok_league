@@ -8,6 +8,8 @@ export interface Match {
   homeGoals?: number;
   awayGoals?: number;
   notes?: string;
+  isPlayoff?: boolean;
+  playoffRound?: string;
   homeTeam: TeamInfo;
   awayTeam: TeamInfo;
   league: LeagueInfo;
@@ -98,6 +100,8 @@ export interface MatchFilters {
   status?: MatchStatus;
   fromDate?: string;
   toDate?: string;
+  isPlayoff?: boolean;
+  playoffRound?: string;
   page?: number;
   limit?: number;
 }

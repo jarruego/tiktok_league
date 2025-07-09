@@ -289,6 +289,32 @@ export function useConfigPageLogic() {
     }
   };
 
+  // Función para simular todos los partidos pendientes
+  const handleSimulateAllPendingMatches = async () => {
+    setSimulatingMatches(true);
+    try {
+      console.log('🔍 [DEBUG] Iniciando simulación de todos los partidos pendientes...');
+      const result = await matchApi.simulateAllPendingMatches();
+      
+      if (result.length === 0) {
+        message.info('No hay partidos pendientes para simular');
+      } else {
+        message.success(`✅ ${result.length} partidos simulados correctamente`);
+      }
+      
+      // Breve pausa para asegurar que el backend haya procesado todo
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      return result;
+    } catch (error: any) {
+      console.error('❌ [DEBUG] Error al simular todos los partidos:', error);
+      message.error(`Error al simular todos los partidos: ${error.message}`);
+      return null;
+    } finally {
+      setSimulatingMatches(false);
+    }
+  };
+
   // Retornar todas las propiedades y funciones
   return {
     user,
@@ -313,6 +339,7 @@ export function useConfigPageLogic() {
     handleRunDatabaseSeed,
     handleCacheAllCompetitions,
     handleSimulateNextMatchday,
+    handleSimulateAllPendingMatches,
     handleOpenSimulationDashboard,
     handleCloseSimulationDashboard,
     // Funciones de calendario

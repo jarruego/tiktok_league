@@ -1,5 +1,5 @@
-import { IsOptional, IsInt, Min, IsString, IsDateString } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsOptional, IsInt, Min, IsString, IsDateString, IsBoolean } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class GetMatchesQueryDto {
   @IsOptional()
@@ -43,6 +43,19 @@ export class GetMatchesQueryDto {
   @IsOptional()
   @IsDateString()
   toDate?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  isPlayoff?: boolean;
+
+  @IsOptional()
+  @IsString()
+  playoffRound?: string;
 
   @IsOptional()
   @IsInt()
