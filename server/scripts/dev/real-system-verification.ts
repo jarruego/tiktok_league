@@ -76,7 +76,8 @@ async function realSystemVerification() {
       // Crear instancia mockup para verificar métodos
       const mockDbService = { db: db, databaseConfig: null } as any;
       const mockAssignmentService = {} as any;
-      const seasonService = new SeasonTransitionService(mockDbService, mockAssignmentService);
+      const mockStandingsService = {} as any;
+      const seasonService = new SeasonTransitionService(mockDbService, mockAssignmentService, mockStandingsService);
       
       // Verificar que el método organizePlayoffs existe
       if (typeof seasonService.organizePlayoffs === 'function') {

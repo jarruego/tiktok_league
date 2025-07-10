@@ -34,7 +34,12 @@ async function generatePlayoffsDirectly() {
       // Métodos mínimos requeridos para el testing
     } as any;
     
-    const seasonTransitionService = new SeasonTransitionService(databaseService, assignmentService);
+    // Crear mock del standingsService
+    const standingsService = {
+      // Métodos mínimos requeridos para el testing
+    } as any;
+    
+    const seasonTransitionService = new SeasonTransitionService(databaseService, assignmentService, standingsService);
     
     // Obtener la temporada activa
     const [activeSeason] = await db

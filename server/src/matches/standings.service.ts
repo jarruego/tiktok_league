@@ -7,6 +7,7 @@ import {
   leagueTable,
   seasonTable,
   teamLeagueAssignmentTable,
+  divisionTable,
   MatchStatus 
 } from '../database/schema';
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
@@ -107,8 +108,10 @@ export class StandingsService {
   async recalculateStandingsForLeague(seasonId: number, leagueId: number): Promise<void> {
     const db = this.databaseService.db;
     
-    // Usar la función unificada de cálculo de clasificaciones
-    const sortedTeamStats = await this.calculateStandings(seasonId, leagueId);
+    // Usar la función unificada de cálculo de clasificaciones CON consecuencias
+    // Esto asegura que las marcas de ascenso/descenso/playoff/torneo se apliquen automáticamente
+    const result = await this.calculateStandingsWithConsequences(seasonId, leagueId, true);
+    const sortedTeamStats = result.standings;
 
     // Eliminar clasificaciones existentes
     await db
@@ -667,226 +670,6 @@ export class StandingsService {
   }
 
   /**
-   * @deprecated Usar calculateStandings() en su lugar
-   * Aplicar reglas de desempate según el orden establecido:
-   * 1. Puntos en enfrentamientos directos
-   * 2. Diferencia de goles en enfrentamientos directos
-   * 3. Diferencia de goles general
-   * 4. Goles marcados en la liga
-   * 5. Número de seguidores
-   */
-  private async applyTiebreakingRules(seasonId: number, leagueId: number, teamStats: TeamStats[]): Promise<TeamStats[]> {
-    // Crear grupos de equipos empatados por puntos
-    const pointGroups = this.groupTeamsByPoints(teamStats);
-    
-    const sortedTeams: TeamStats[] = [];
-    
-    for (const group of pointGroups) {
-      if (group.length === 1) {
-        // Sin empate, agregar directamente
-        sortedTeams.push(...group);
-      } else {
-        // Resolver empate usando las reglas de desempate
-        const resolvedGroup = await this.resolveTiedTeams(seasonId, leagueId, group);
-        sortedTeams.push(...resolvedGroup);
-      }
-    }
-    
-    return sortedTeams;
-  }
-
-  /**
-   * Agrupar equipos por puntos (orden descendente)
-   */
-  private groupTeamsByPoints(teams: TeamStats[]): TeamStats[][] {
-    // Ordenar por puntos descendentemente
-    teams.sort((a, b) => b.points - a.points);
-    
-    const groups: TeamStats[][] = [];
-    let currentGroup: TeamStats[] = [];
-    let currentPoints = -1;
-    
-    for (const team of teams) {
-      if (team.points !== currentPoints) {
-        if (currentGroup.length > 0) {
-          groups.push(currentGroup);
-        }
-        currentGroup = [team];
-        currentPoints = team.points;
-      } else {
-        currentGroup.push(team);
-      }
-    }
-    
-    if (currentGroup.length > 0) {
-      groups.push(currentGroup);
-    }
-    
-    return groups;
-  }
-
-  /**
-   * Resolver empate entre equipos usando las reglas de desempate
-   */
-  private async resolveTiedTeams(seasonId: number, leagueId: number, tiedTeams: TeamStats[]): Promise<TeamStats[]> {
-    if (tiedTeams.length <= 1) {
-      return tiedTeams;
-    }
-
-    this.logger.log(`🔍 Resolviendo empate entre ${tiedTeams.length} equipos: ${tiedTeams.map(t => `Team ${t.teamId} (${t.points} pts, DG: ${t.goalDifference})`).join(', ')}`);
-
-    // 1. Diferencia de goles
-    let sortedTeams = [...tiedTeams].sort((a, b) => b.goalDifference - a.goalDifference);
-
-    // 2. Goles a favor
-    let firstGroup = this.groupBy(sortedTeams, t => t.goalDifference);
-    sortedTeams = [];
-    for (const group of firstGroup) {
-      if (group.length === 1) {
-        sortedTeams.push(...group);
-      } else {
-        // Empate en DG, ordenar por GF
-        const gfSorted = [...group].sort((a, b) => b.goalsFor - a.goalsFor);
-        sortedTeams.push(...gfSorted);
-      }
-    }
-
-    // 3. Enfrentamientos directos
-    let secondGroup = this.groupBy(sortedTeams, t => [t.goalDifference, t.goalsFor].join('-'));
-    let afterDirect: TeamStats[] = [];
-    for (const group of secondGroup) {
-      if (group.length === 1) {
-        afterDirect.push(...group);
-      } else {
-        // Empate en DG y GF, aplicar enfrentamientos directos
-        const teamIds = group.map(t => t.teamId);
-        const directResults = await this.calculateDirectMatches(seasonId, leagueId, teamIds);
-        const directSorted = [...group].sort((a, b) => {
-          const aRes = directResults.get(a.teamId)!;
-          const bRes = directResults.get(b.teamId)!;
-          // 1. Puntos en enfrentamientos directos
-          if (aRes.points !== bRes.points) return bRes.points - aRes.points;
-          // 2. Diferencia de goles en enfrentamientos directos
-          if (aRes.goalDifference !== bRes.goalDifference) return bRes.goalDifference - aRes.goalDifference;
-          // 3. Goles a favor en enfrentamientos directos
-          if (aRes.goalsFor !== bRes.goalsFor) return bRes.goalsFor - aRes.goalsFor;
-          return 0;
-        });
-        afterDirect.push(...directSorted);
-      }
-    }
-
-    // 4. Número de seguidores
-    let thirdGroup = this.groupBy(afterDirect, t => [t.goalDifference, t.goalsFor, t.teamId].join('-'));
-    let afterFollowers: TeamStats[] = [];
-    for (const group of thirdGroup) {
-      if (group.length === 1) {
-        afterFollowers.push(...group);
-      } else {
-        // Empate en todo lo anterior, ordenar por seguidores
-        const followersSorted = [...group].sort((a, b) => b.followers - a.followers);
-        afterFollowers.push(...followersSorted);
-      }
-    }
-
-    // 5. Aleatorio si persiste el empate
-    let finalGroup = this.groupBy(afterFollowers, t => [t.goalDifference, t.goalsFor, t.teamId, t.followers].join('-'));
-    let finalSorted: TeamStats[] = [];
-    for (const group of finalGroup) {
-      if (group.length === 1) {
-        finalSorted.push(...group);
-      } else {
-        // Empate total, ordenar aleatoriamente
-        const shuffled = [...group].sort(() => Math.random() - 0.5);
-        finalSorted.push(...shuffled);
-      }
-    }
-
-    this.logger.log(`   ✅ Orden final: ${finalSorted.map(t => `Team ${t.teamId} (DG: ${t.goalDifference}, GF: ${t.goalsFor}, Followers: ${t.followers})`).join(', ')}`);
-    return finalSorted;
-  }
-
-  // Agrupar por función
-  private groupBy<T>(arr: T[], keyFn: (item: T) => any): T[][] {
-    const map: Map<string, T[]> = new Map();
-    for (const item of arr) {
-      const key = JSON.stringify(keyFn(item));
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(item);
-    }
-    return Array.from(map.values());
-  }
-
-  /**
-   * Calcular resultados de enfrentamientos directos entre equipos
-   */
-  private async calculateDirectMatches(seasonId: number, leagueId: number, teamIds: number[]): Promise<Map<number, DirectMatchResult>> {
-    const db = this.databaseService.db;
-    const results = new Map<number, DirectMatchResult>();
-    
-    // Inicializar resultados para cada equipo
-    teamIds.forEach(teamId => {
-      results.set(teamId, {
-        points: 0,
-        goalsFor: 0,
-        goalsAgainst: 0,
-        goalDifference: 0
-      });
-    });
-    
-    // Obtener todos los partidos entre estos equipos
-    const directMatches = await db
-      .select({
-        homeTeamId: matchTable.homeTeamId,
-        awayTeamId: matchTable.awayTeamId,
-        homeGoals: matchTable.homeGoals,
-        awayGoals: matchTable.awayGoals,
-        status: matchTable.status
-      })
-      .from(matchTable)
-      .where(
-        and(
-          eq(matchTable.seasonId, seasonId),
-          eq(matchTable.leagueId, leagueId),
-          eq(matchTable.status, MatchStatus.FINISHED),
-          inArray(matchTable.homeTeamId, teamIds),
-          inArray(matchTable.awayTeamId, teamIds)
-        )
-      );
-    
-    // Procesar cada partido
-    for (const match of directMatches) {
-      if (match.homeGoals !== null && match.awayGoals !== null) {
-        const homeResult = results.get(match.homeTeamId)!;
-        const awayResult = results.get(match.awayTeamId)!;
-        
-        // Actualizar goles
-        homeResult.goalsFor += match.homeGoals;
-        homeResult.goalsAgainst += match.awayGoals;
-        awayResult.goalsFor += match.awayGoals;
-        awayResult.goalsAgainst += match.homeGoals;
-        
-        // Actualizar puntos
-        if (match.homeGoals > match.awayGoals) {
-          homeResult.points += 3;
-        } else if (match.homeGoals === match.awayGoals) {
-          homeResult.points += 1;
-          awayResult.points += 1;
-        } else {
-          awayResult.points += 3;
-        }
-      }
-    }
-    
-    // Calcular diferencias de goles
-    results.forEach(result => {
-      result.goalDifference = result.goalsFor - result.goalsAgainst;
-    });
-    
-    return results;
-  }
-
-  /**
    * Determinar el estado del equipo basado en los campos booleanos de asignación
    */
   private determineTeamStatus(
@@ -900,5 +683,171 @@ export class StandingsService {
     if (playoffNextSeason) return 'PLAYOFF';
     if (qualifiedForTournament) return 'TOURNAMENT';
     return 'SAFE';
+  }
+
+  /**
+   * Calcula clasificaciones y aplica automáticamente las consecuencias según la división
+   * (ascensos, descensos, playoffs, torneos)
+   * 
+   * @param seasonId ID de la temporada
+   * @param leagueId ID de la liga
+   * @param applyConsequences Si debe aplicar las marcas automáticamente (por defecto true)
+   * @returns Clasificaciones con información de consecuencias aplicadas
+   */
+  async calculateStandingsWithConsequences(
+    seasonId: number, 
+    leagueId: number,
+    applyConsequences: boolean = true
+  ): Promise<{
+    standings: Array<{ teamId: number; teamName: string; position: number; points: number; goalDifference: number; goalsFor: number; goalsAgainst: number; played: number; won: number; drawn: number; lost: number; followers: number; consequence?: 'PROMOTION' | 'RELEGATION' | 'PLAYOFF' | 'TOURNAMENT' | 'SAFE' }>;
+    consequences: {
+      directPromotions: number;
+      directRelegations: number;
+      playoffTeams: number;
+      tournamentQualifiers: number;
+      applied: boolean;
+    };
+  }> {
+    const db = this.databaseService.db;
+    
+    // 1. Calcular clasificaciones usando la lógica unificada
+    const standings = await this.calculateStandings(seasonId, leagueId);
+    
+    // 2. Obtener información de la división
+    const [leagueInfo] = await db
+      .select({
+        divisionId: leagueTable.divisionId,
+        divisionLevel: divisionTable.level,
+        divisionName: divisionTable.name,
+        promoteSlots: divisionTable.promoteSlots,
+        promotePlayoffSlots: divisionTable.promotePlayoffSlots,
+        relegateSlots: divisionTable.relegateSlots,
+        tournamentSlots: divisionTable.tournamentSlots
+      })
+      .from(leagueTable)
+      .innerJoin(divisionTable, eq(leagueTable.divisionId, divisionTable.id))
+      .where(eq(leagueTable.id, leagueId));
+    
+    if (!leagueInfo) {
+      throw new Error(`No se encontró información de la liga ${leagueId}`);
+    }
+    
+    // 3. Determinar consecuencias para cada equipo
+    const standingsWithConsequences = standings.map(team => {
+      let consequence: 'PROMOTION' | 'RELEGATION' | 'PLAYOFF' | 'TOURNAMENT' | 'SAFE' = 'SAFE';
+      
+      // Torneos (solo División 1)
+      if (leagueInfo.divisionLevel === 1 && Number(leagueInfo.tournamentSlots || 0) > 0) {
+        if (team.position <= Number(leagueInfo.tournamentSlots || 0)) {
+          consequence = 'TOURNAMENT';
+        }
+      }
+      
+      // Ascensos directos (no División 1)
+      if (leagueInfo.divisionLevel > 1 && Number(leagueInfo.promoteSlots || 0) > 0) {
+        if (team.position <= Number(leagueInfo.promoteSlots || 0)) {
+          consequence = 'PROMOTION';
+        }
+      }
+      
+      // Playoffs de ascenso (no División 1)
+      if (leagueInfo.divisionLevel > 1 && Number(leagueInfo.promotePlayoffSlots || 0) > 0) {
+        const startPos = Number(leagueInfo.promoteSlots || 0) + 1;
+        const endPos = startPos + Number(leagueInfo.promotePlayoffSlots || 0) - 1;
+        if (team.position >= startPos && team.position <= endPos) {
+          consequence = 'PLAYOFF';
+        }
+      }
+      
+      // Descensos directos (no División 5 - ajustar según estructura real)
+      if (leagueInfo.divisionLevel < 5 && Number(leagueInfo.relegateSlots || 0) > 0) {
+        const relegationStartPos = standings.length - Number(leagueInfo.relegateSlots || 0) + 1;
+        if (team.position >= relegationStartPos) {
+          consequence = 'RELEGATION';
+        }
+      }
+      
+      return {
+        ...team,
+        consequence
+      };
+    });
+    
+    // 4. Aplicar marcas automáticamente si se solicita
+    const consequences = {
+      directPromotions: 0,
+      directRelegations: 0,
+      playoffTeams: 0,
+      tournamentQualifiers: 0,
+      applied: false
+    };
+    
+    if (applyConsequences) {
+      // Limpiar flags existentes para esta liga y temporada
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({
+          promotedNextSeason: false,
+          relegatedNextSeason: false,
+          playoffNextSeason: false,
+          qualifiedForTournament: false,
+          updatedAt: new Date()
+        })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, leagueId)
+          )
+        );
+      
+      // Aplicar nuevas marcas
+      for (const team of standingsWithConsequences) {
+        if (team.consequence !== 'SAFE') {
+          const updateData: any = { updatedAt: new Date() };
+          
+          switch (team.consequence) {
+            case 'PROMOTION':
+              updateData.promotedNextSeason = true;
+              consequences.directPromotions++;
+              this.logger.log(`⬆️ ${team.teamName} marcado para ascenso directo (${team.position}º puesto)`);
+              break;
+            case 'RELEGATION':
+              updateData.relegatedNextSeason = true;
+              consequences.directRelegations++;
+              this.logger.log(`⬇️ ${team.teamName} marcado para descenso directo (${team.position}º puesto)`);
+              break;
+            case 'PLAYOFF':
+              updateData.playoffNextSeason = true;
+              consequences.playoffTeams++;
+              this.logger.log(`🎯 ${team.teamName} marcado para playoff de ascenso (${team.position}º puesto)`);
+              break;
+            case 'TOURNAMENT':
+              updateData.qualifiedForTournament = true;
+              consequences.tournamentQualifiers++;
+              this.logger.log(`🏆 ${team.teamName} marcado para torneo (${team.position}º puesto)`);
+              break;
+          }
+          
+          await db
+            .update(teamLeagueAssignmentTable)
+            .set(updateData)
+            .where(
+              and(
+                eq(teamLeagueAssignmentTable.teamId, team.teamId),
+                eq(teamLeagueAssignmentTable.seasonId, seasonId),
+                eq(teamLeagueAssignmentTable.leagueId, leagueId)
+              )
+            );
+        }
+      }
+      
+      consequences.applied = true;
+      this.logger.log(`✅ Consecuencias aplicadas para liga ${leagueId} (División ${leagueInfo.divisionName})`);
+    }
+    
+    return {
+      standings: standingsWithConsequences,
+      consequences
+    };
   }
 }

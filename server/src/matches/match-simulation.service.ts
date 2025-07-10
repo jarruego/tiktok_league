@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, Logger, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DatabaseService } from '../database/database.service';
 import { StandingsService } from './standings.service';
@@ -43,6 +43,7 @@ export class MatchSimulationService {
     @Inject(DATABASE_PROVIDER)
     private readonly databaseService: DatabaseService,
     private readonly standingsService: StandingsService,
+    @Inject(forwardRef(() => SeasonTransitionService))
     private readonly seasonTransitionService: SeasonTransitionService,
   ) {}
 

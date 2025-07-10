@@ -39,7 +39,10 @@ async function testAutoPlayoffDetectionInSimulation() {
     // Crear mock del assignmentService
     const assignmentService = {} as any;
     
-    const seasonTransitionService = new SeasonTransitionService(databaseService, assignmentService);
+    // Crear mock del standingsService
+    const standingsService = {} as any;
+    
+    const seasonTransitionService = new SeasonTransitionService(databaseService, assignmentService, standingsService);
     
     // Obtener la temporada activa
     const [activeSeason] = await db
