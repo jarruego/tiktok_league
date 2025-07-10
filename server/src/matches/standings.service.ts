@@ -516,38 +516,89 @@ export class StandingsService {
     if (tiedTeams.length <= 1) {
       return tiedTeams;
     }
-    
+
     this.logger.log(`🔍 Resolviendo empate entre ${tiedTeams.length} equipos: ${tiedTeams.map(t => `Team ${t.teamId} (${t.points} pts, DG: ${t.goalDifference})`).join(', ')}`);
-    
-    // Aplicar criterios de desempate directamente, sin enfrentamientos directos por ahora
-    const sortedTeams = [...tiedTeams].sort((a, b) => {
-      const teamAId = a.teamId;
-      const teamBId = b.teamId;
-      
-      // 3. Diferencia de goles general (criterio principal por ahora)
-      if (a.goalDifference !== b.goalDifference) {
-        this.logger.log(`   └─ Team ${teamAId} vs Team ${teamBId}: General GD ${a.goalDifference} vs ${b.goalDifference}`);
-        return b.goalDifference - a.goalDifference;
+
+    // 1. Diferencia de goles
+    let sortedTeams = [...tiedTeams].sort((a, b) => b.goalDifference - a.goalDifference);
+
+    // 2. Goles a favor
+    let firstGroup = this.groupBy(sortedTeams, t => t.goalDifference);
+    sortedTeams = [];
+    for (const group of firstGroup) {
+      if (group.length === 1) {
+        sortedTeams.push(...group);
+      } else {
+        // Empate en DG, ordenar por GF
+        const gfSorted = [...group].sort((a, b) => b.goalsFor - a.goalsFor);
+        sortedTeams.push(...gfSorted);
       }
-      
-      // 4. Goles marcados en la liga
-      if (a.goalsFor !== b.goalsFor) {
-        this.logger.log(`   └─ Team ${teamAId} vs Team ${teamBId}: Goals for ${a.goalsFor} vs ${b.goalsFor}`);
-        return b.goalsFor - a.goalsFor;
+    }
+
+    // 3. Enfrentamientos directos
+    let secondGroup = this.groupBy(sortedTeams, t => [t.goalDifference, t.goalsFor].join('-'));
+    let afterDirect: TeamStats[] = [];
+    for (const group of secondGroup) {
+      if (group.length === 1) {
+        afterDirect.push(...group);
+      } else {
+        // Empate en DG y GF, aplicar enfrentamientos directos
+        const teamIds = group.map(t => t.teamId);
+        const directResults = await this.calculateDirectMatches(seasonId, leagueId, teamIds);
+        const directSorted = [...group].sort((a, b) => {
+          const aRes = directResults.get(a.teamId)!;
+          const bRes = directResults.get(b.teamId)!;
+          // 1. Puntos en enfrentamientos directos
+          if (aRes.points !== bRes.points) return bRes.points - aRes.points;
+          // 2. Diferencia de goles en enfrentamientos directos
+          if (aRes.goalDifference !== bRes.goalDifference) return bRes.goalDifference - aRes.goalDifference;
+          // 3. Goles a favor en enfrentamientos directos
+          if (aRes.goalsFor !== bRes.goalsFor) return bRes.goalsFor - aRes.goalsFor;
+          return 0;
+        });
+        afterDirect.push(...directSorted);
       }
-      
-      // 5. Número de seguidores
-      if (a.followers !== b.followers) {
-        this.logger.log(`   └─ Team ${teamAId} vs Team ${teamBId}: Followers ${a.followers} vs ${b.followers}`);
-        return b.followers - a.followers;
+    }
+
+    // 4. Número de seguidores
+    let thirdGroup = this.groupBy(afterDirect, t => [t.goalDifference, t.goalsFor, t.teamId].join('-'));
+    let afterFollowers: TeamStats[] = [];
+    for (const group of thirdGroup) {
+      if (group.length === 1) {
+        afterFollowers.push(...group);
+      } else {
+        // Empate en todo lo anterior, ordenar por seguidores
+        const followersSorted = [...group].sort((a, b) => b.followers - a.followers);
+        afterFollowers.push(...followersSorted);
       }
-      
-      return 0;
-    });
-    
-    this.logger.log(`   ✅ Orden final: ${sortedTeams.map(t => `Team ${t.teamId} (DG: ${t.goalDifference}, GF: ${t.goalsFor})`).join(', ')}`);
-    
-    return sortedTeams;
+    }
+
+    // 5. Aleatorio si persiste el empate
+    let finalGroup = this.groupBy(afterFollowers, t => [t.goalDifference, t.goalsFor, t.teamId, t.followers].join('-'));
+    let finalSorted: TeamStats[] = [];
+    for (const group of finalGroup) {
+      if (group.length === 1) {
+        finalSorted.push(...group);
+      } else {
+        // Empate total, ordenar aleatoriamente
+        const shuffled = [...group].sort(() => Math.random() - 0.5);
+        finalSorted.push(...shuffled);
+      }
+    }
+
+    this.logger.log(`   ✅ Orden final: ${finalSorted.map(t => `Team ${t.teamId} (DG: ${t.goalDifference}, GF: ${t.goalsFor}, Followers: ${t.followers})`).join(', ')}`);
+    return finalSorted;
+  }
+
+  // Agrupar por función
+  private groupBy<T>(arr: T[], keyFn: (item: T) => any): T[][] {
+    const map: Map<string, T[]> = new Map();
+    for (const item of arr) {
+      const key = JSON.stringify(keyFn(item));
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(item);
+    }
+    return Array.from(map.values());
   }
 
   /**

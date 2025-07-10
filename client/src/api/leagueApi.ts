@@ -147,7 +147,13 @@ export const leagueApi = {
       body: JSON.stringify(seasonData),
     });
     if (!response.ok) {
-      throw new Error(`Error ${response.status}: ${response.statusText}`);
+      let errorMsg = `Error ${response.status}: ${response.statusText}`;
+      try {
+        const err = await response.json();
+        // Mostrar mensaje personalizado si viene del backend
+        errorMsg = err.userMessage || err.message || errorMsg;
+      } catch {}
+      throw new Error(errorMsg);
     }
     return response.json();
   },

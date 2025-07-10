@@ -1,3 +1,5 @@
+import { recalculateAllStandings } from '../api/recalculateApi';
+import { organizeAllPlayoffs } from '../api/seasonTransitionApi';
 import { useState } from 'react';
 import { message } from 'antd';
 import { usePermissions } from './usePermissions';
@@ -324,6 +326,64 @@ export function useConfigPageLogic() {
     }
   };
 
+  // Recalcular todas las posiciones de la temporada activa
+  const [recalculating, setRecalculating] = useState(false);
+  const handleRecalculateAllStandings = async () => {
+    console.log('[DEBUG] handleRecalculateAllStandings CLICKED');
+    let season = activeSeason;
+    if (!season) {
+      console.warn('[DEBUG] No active season, trying to refresh...');
+      await refreshActiveSeason();
+      season = activeSeason;
+      // Try to get the updated value after refresh
+      if (!season) {
+        // setActiveSeason is async, so we need to fetch directly
+        try {
+          season = await leagueApi.getActiveSeason();
+          if (!season) {
+            message.error('No hay temporada activa.');
+            return;
+          }
+        } catch (err) {
+          message.error('Error obteniendo la temporada activa.');
+          return;
+        }
+      }
+    }
+    setRecalculating(true);
+    try {
+      console.log('[DEBUG] Recalculando standings para seasonId:', season.id);
+      const result = await recalculateAllStandings(season.id);
+      console.log('[DEBUG] Resultado recalculateAllStandings:', result);
+      message.success(result.message || 'Clasificaciones recalculadas correctamente');
+
+      console.log('[DEBUG] Llamando a organizeAllPlayoffs...');
+      const playoffResult = await organizeAllPlayoffs();
+      console.log('[DEBUG] Resultado organizeAllPlayoffs:', playoffResult);
+      message.success(playoffResult.message || 'Playoffs organizados');
+
+      // Forzar recarga de temporada y standings tras recalcular y organizar playoffs
+      await refreshActiveSeason();
+      if (season && matchApi && matchApi.getSeasonStats) {
+        try {
+          const stats = await matchApi.getSeasonStats(season.id);
+          setMatchStats({
+            totalMatches: stats.totalMatches,
+            scheduledMatches: stats.scheduledMatches,
+            finishedMatches: stats.finishedMatches
+          });
+        } catch (err) {
+          console.warn('[DEBUG] No se pudieron refrescar las stats tras recalcular:', err);
+        }
+      }
+    } catch (error: any) {
+      console.error('[DEBUG] Error en handleRecalculateAllStandings:', error);
+      message.error(error.message || 'Error al recalcular clasificaciones y playoffs');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   // Retornar todas las propiedades y funciones
   return {
     permissions,
@@ -357,6 +417,9 @@ export function useConfigPageLogic() {
     handleDeleteAllMatches,
     setGenerateModalVisible,
     setDeleteModalVisible,
-    refreshActiveSeason
+    refreshActiveSeason,
+    // Recalcular standings
+    handleRecalculateAllStandings,
+    recalculating
   };
 }

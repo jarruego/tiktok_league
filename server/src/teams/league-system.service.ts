@@ -668,18 +668,32 @@ export class LeagueSystemService {
    */
   async createSeason(createSeasonDto: CreateSeasonDto) {
     const db = this.databaseService.db;
-    
+
+    // Comprobar si ya existe una temporada activa
+    const [activeSeason] = await db
+      .select()
+      .from(seasonTable)
+      .where(eq(seasonTable.isActive, true))
+      .limit(1);
+    if (activeSeason) {
+      throw new BadRequestException({
+        message: 'No se puede crear una nueva temporada porque ya existe una temporada activa.',
+        userMessage: 'Ya hay una temporada en curso. Debes finalizar la temporada actual antes de poder crear una nueva.',
+        code: 'SEASON_ACTIVE_EXISTS'
+      });
+    }
+
     const seasonData = {
       ...createSeasonDto,
       startDate: createSeasonDto.startDate ? new Date(createSeasonDto.startDate) : null,
       endDate: createSeasonDto.endDate ? new Date(createSeasonDto.endDate) : null,
     };
-    
+
     const [season] = await db
       .insert(seasonTable)
       .values(seasonData)
       .returning();
-    
+
     return season;
   }
 

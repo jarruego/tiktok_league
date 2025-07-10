@@ -50,7 +50,10 @@ export default function ConfigPage() {
     handleDeleteAllMatches,
     setGenerateModalVisible,
     setDeleteModalVisible,
-    refreshActiveSeason
+    refreshActiveSeason,
+    // Recalcular standings
+    handleRecalculateAllStandings,
+    recalculating
   } = useConfigPageLogic();
 
   // Estado para modal de crear temporada
@@ -99,22 +102,7 @@ export default function ConfigPage() {
   return (
     <LayoutContainer>
       <div style={{ padding: '16px' }}>
-        {/* Botón para crear temporada solo si no hay ninguna o no hay activa */}
-        <div style={{ marginBottom: 16 }}>
-          {(!activeSeason) && (
-            <Button type="primary" onClick={() => setCreateSeasonModalVisible(true)}>
-              Crear temporada
-            </Button>
-          )}
-          {activeSeason && (
-            <Alert
-              message={`Temporada activa: ${activeSeason.name}`}
-              type="info"
-              showIcon
-              style={{ marginBottom: 0, marginTop: 0 }}
-            />
-          )}
-        </div>
+        {/* Espacio superior eliminado: el botón de crear temporada solo está en la Card de Sistema */}
         {/* Modal para crear temporada */}
         <Modal
           title="Crear nueva temporada"
@@ -230,6 +218,65 @@ export default function ConfigPage() {
               Ejecutar Seed
             </Button>
           </div>
+          {/* Botón para crear temporada solo si no hay ninguna o no hay activa */}
+          {(!activeSeason) && (
+            <>
+              <Button type="primary" onClick={() => setCreateSeasonModalVisible(true)} style={{ marginTop: 16 }}>
+                Crear temporada
+              </Button>
+            </>
+          )}
+          <Modal
+            title="Crear nueva temporada"
+            open={createSeasonModalVisible}
+            onCancel={() => {
+              setCreateSeasonModalVisible(false);
+              setCreateSeasonError(null);
+              setCreateSeasonSuccess(null);
+              setAutoSeasonName('');
+            }}
+            onOk={async () => {
+              // Seguridad extra: no permitir crear si hay temporada activa
+              if (activeSeason) {
+                setCreateSeasonError('Ya existe una temporada activa. No puedes crear otra.');
+                return;
+              }
+              setCreateSeasonLoading(true);
+              setCreateSeasonError(null);
+              setCreateSeasonSuccess(null);
+              try {
+                const year = new Date().getFullYear();
+                // @ts-ignore
+                const newSeason = await leagueApi.createSeason({ name: autoSeasonName, year, isActive: true });
+                setCreateSeasonSuccess('Temporada creada correctamente');
+                setAutoSeasonName('');
+                refreshActiveSeason && refreshActiveSeason();
+              } catch (err: any) {
+                setCreateSeasonError(err.message || 'Error al crear la temporada');
+              } finally {
+                setCreateSeasonLoading(false);
+              }
+            }}
+            okText="Crear"
+            confirmLoading={createSeasonLoading}
+            okButtonProps={{ disabled: !!activeSeason }}
+          >
+            <Form layout="vertical">
+              <Form.Item label="Nombre de la temporada" required>
+                <Input value={autoSeasonName} disabled />
+              </Form.Item>
+              {createSeasonError && <Alert message={createSeasonError} type="error" showIcon style={{ marginBottom: 8 }} />}
+              {createSeasonSuccess && <Alert message={createSeasonSuccess} type="success" showIcon style={{ marginBottom: 8 }} />}
+            </Form>
+          </Modal>
+          {activeSeason && (
+            <Alert
+              message={`Temporada activa: ${activeSeason.name}`}
+              type="info"
+              showIcon
+              style={{ marginBottom: 0, marginTop: 16 }}
+            />
+          )}
         </Card>
 
         {/* Card de Partidos */}
@@ -271,6 +318,25 @@ export default function ConfigPage() {
               }}
             >
               Eliminar Partidos
+            </Button>
+            <Button
+              type="default"
+              icon={<ReloadOutlined />}
+              loading={recalculating}
+              onClick={handleRecalculateAllStandings}
+              style={{
+                height: '50px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                fontSize: '11px',
+                backgroundColor: '#e6f7ff',
+                borderColor: '#91d5ff',
+                color: '#1890ff'
+              }}
+              title="Recalcula todas las posiciones y desempates de la temporada activa"
+            >
+              Recalcular Posiciones
             </Button>
             
             <Button 

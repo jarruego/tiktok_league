@@ -180,7 +180,7 @@ export class SeasonTransitionService {
     tournamentQualifiers: number;
   }> {
     const db = this.databaseService.db;
-    
+
     // Obtener información de la división
     const [division] = await db
       .select()
@@ -190,7 +190,27 @@ export class SeasonTransitionService {
     if (!division) {
       throw new NotFoundException(`División no encontrada: ${divisionId}`);
     }
-    
+
+    // --- RESETEAR FLAGS DE PLAYOFF PARA TODOS LOS EQUIPOS DE LA DIVISIÓN EN LA TEMPORADA ACTUAL ---
+    // Buscar todas las ligas de la división
+    const leaguesToReset = await db
+      .select({ id: leagueTable.id })
+      .from(leagueTable)
+      .where(eq(leagueTable.divisionId, divisionId));
+    const leagueIdsToReset = leaguesToReset.map(l => l.id);
+    if (leagueIdsToReset.length > 0) {
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ playoffNextSeason: false, updatedAt: new Date() })
+        .where(
+          and(
+            inArray(teamLeagueAssignmentTable.leagueId, leagueIdsToReset),
+            eq(teamLeagueAssignmentTable.seasonId, currentSeasonId)
+          )
+        );
+    }
+    // --- FIN RESET ---
+
     // Obtener todas las ligas de esta división
     const leagues = await db
       .select()
