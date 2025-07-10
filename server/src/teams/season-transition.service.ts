@@ -2235,72 +2235,96 @@ export class SeasonTransitionService {
    */
   async markTeamsBasedOnRegularSeasonPosition(divisionId: number, seasonId: number): Promise<void> {
     const db = this.databaseService.db;
-    
+
     try {
       this.logger.log(`📊 Marcando equipos por posición final en liga regular - División ${divisionId}, Temporada ${seasonId}`);
-      
+
       // Obtener información de la división
       const [division] = await db
         .select()
         .from(divisionTable)
         .where(eq(divisionTable.id, divisionId));
-        
+
       if (!division) {
         this.logger.warn(`División ${divisionId} no encontrada`);
         return;
       }
-      
+
+      // Limpiar todos los flags de equipos de esta división y temporada
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({
+          promotedNextSeason: false,
+          relegatedNextSeason: false,
+          playoffNextSeason: false,
+          qualifiedForTournament: false,
+          updatedAt: new Date()
+        })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            inArray(
+              teamLeagueAssignmentTable.leagueId,
+              (await db
+                .select({ id: leagueTable.id })
+                .from(leagueTable)
+                .where(eq(leagueTable.divisionId, divisionId))
+              ).map(l => l.id)
+            )
+          )
+        );
+
       // Obtener todas las ligas de esta división
       const leagues = await db
         .select()
         .from(leagueTable)
         .where(eq(leagueTable.divisionId, divisionId));
-        
+
       for (const league of leagues) {
         // Calcular clasificación final dinámicamente
         const standings = await this.calculateDynamicStandings(league.id, seasonId);
-        
+
         if (standings.length === 0) {
           this.logger.warn(`No hay clasificación disponible para la liga ${league.name}`);
           continue;
         }
-        
+
         this.logger.log(`🏆 Procesando clasificación final de ${league.name} (${standings.length} equipos)`);
-        
+
         // 1. MARCAR EQUIPOS PARA TORNEOS (solo División 1)
         if (Number(division.tournamentSlots || 0) > 0 && division.level === 1) {
           const tournamentTeams = standings.slice(0, Number(division.tournamentSlots || 0));
-          
+
           for (const team of tournamentTeams) {
             await this.markTeamForTournament(team.teamId, seasonId);
             this.logger.log(`🏆 ${team.teamName} clasificado para torneo (${team.position}º puesto)`);
           }
         }
-        
+
         // 2. MARCAR ASCENSOS DIRECTOS
         if (Number(division.promoteSlots || 0) > 0 && division.level > 1) {
           const directPromoteTeams = standings.slice(0, Number(division.promoteSlots || 0));
-          
+
           for (const team of directPromoteTeams) {
             await this.markTeamForPromotion(team.teamId, seasonId);
             this.logger.log(`⬆️ ${team.teamName} asciende directamente (${team.position}º puesto)`);
           }
         }
-        
+
         // 3. MARCAR EQUIPOS PARA PLAYOFFS DE ASCENSO
         if (Number(division.promotePlayoffSlots || 0) > 0 && division.level > 1) {
           const startPos = Number(division.promoteSlots || 0) + 1; // Después de los ascensos directos
           const endPos = startPos + Number(division.promotePlayoffSlots || 0) - 1;
-          const playoffTeams = standings.filter(team => 
+          const playoffTeams = standings.filter(team =>
             team.position >= startPos && team.position <= endPos
           );
-          
+
           for (const team of playoffTeams) {
             await this.markTeamForPlayoff(team.teamId, seasonId);
             this.logger.log(`🎯 ${team.teamName} clasificado para playoff de ascenso (${team.position}º puesto)`);
           }
         }
-        
+
         // 4. MARCAR DESCENSOS DIRECTOS (asegurar orden correcto por posición antes de seleccionar)
         if (Number(division.relegateSlots || 0) > 0 && division.level < 5) {
           const relegateSlots = Number(division.relegateSlots || 0);
@@ -2313,9 +2337,9 @@ export class SeasonTransitionService {
           }
         }
       }
-      
+
       this.logger.log(`✅ Marcado completado para División ${division.name}`);
-      
+
     } catch (error) {
       this.logger.error(`❌ Error marcando equipos por posición final en División ${divisionId}:`, error);
     }
