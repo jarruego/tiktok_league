@@ -1,5 +1,5 @@
-import { recalculateAllStandingsAndStates } from '../api/seasonTransitionApi';
-import { useState } from 'react';
+import { recalculateAllStandingsAndStates, checkActiveSeasonComplete, createNewSeasonFromCompleted } from '../api/seasonTransitionApi';
+import { useState, useEffect } from 'react';
 import { message } from 'antd';
 import { usePermissions } from './usePermissions';
 import { leagueApi } from '../api/leagueApi';
@@ -8,6 +8,23 @@ import { matchApi } from '../api/matchApi';
 export function useConfigPageLogic() {
   // Estados para gestión de calendario (deben ir antes de refreshActiveSeason)
   const [activeSeason, setActiveSeason] = useState<any>(null);
+  
+  // Estados para nueva temporada
+  const [seasonComplete, setSeasonComplete] = useState<{
+    isComplete: boolean;
+    readyForNewSeason: boolean;
+    pendingIssues: string[];
+    summary: {
+      promotions: number;
+      relegations: number;
+      tournamentQualifiers: number;
+      pendingPlayoffs: number;
+      errors: number;
+    };
+  } | null>(null);
+  const [checkingSeasonComplete, setCheckingSeasonComplete] = useState(false);
+  const [creatingNewSeason, setCreatingNewSeason] = useState(false);
+  
   // Refrescar temporada activa tras crear una nueva
   const refreshActiveSeason = async () => {
     try {
@@ -17,6 +34,104 @@ export function useConfigPageLogic() {
       setActiveSeason(null);
     }
   };
+  
+  // Verificar estado de temporada
+  const checkSeasonCompletionStatus = async () => {
+    if (!activeSeason) return;
+    
+    console.log('[DEBUG] Verificando estado de temporada:', activeSeason.id);
+    setCheckingSeasonComplete(true);
+    try {
+      const status = await checkActiveSeasonComplete();
+      console.log('[DEBUG] Estado recibido:', status);
+      setSeasonComplete(status);
+    } catch (error) {
+      console.error('[DEBUG] Error checking season completion:', error);
+      setSeasonComplete(null);
+    } finally {
+      setCheckingSeasonComplete(false);
+    }
+  };
+  
+  // Crear nueva temporada
+  const handleCreateNewSeason = async (newSeasonName?: string) => {
+    console.log('[DEBUG] Iniciando creación de nueva temporada:', { newSeasonName, seasonComplete: seasonComplete?.readyForNewSeason });
+    
+    if (!seasonComplete?.readyForNewSeason) {
+      const errorMsg = 'La temporada actual no está lista para crear una nueva';
+      console.error('[DEBUG]', errorMsg);
+      message.error(errorMsg);
+      return;
+    }
+    
+    setCreatingNewSeason(true);
+    try {
+      console.log('[DEBUG] Llamando a createNewSeasonFromCompleted...');
+      const result = await createNewSeasonFromCompleted({
+        newSeasonName
+      });
+      
+      console.log('[DEBUG] Resultado recibido:', result);
+      
+      if (result.success) {
+        message.success(result.message);
+        
+        // Refrescar datos para obtener la nueva temporada activa
+        await refreshActiveSeason();
+        await checkSeasonCompletionStatus();
+        
+        // Generar automáticamente el calendario de partidos para la nueva temporada
+        if (result.newSeasonId) {
+          try {
+            console.log('[DEBUG] Generando calendario automáticamente para la nueva temporada...');
+            
+            // Usar valores por defecto: 7 días entre jornadas, sin fecha de inicio específica
+            const generateData = {
+              seasonId: result.newSeasonId, // Usar el ID de la nueva temporada
+              daysPerMatchday: 7
+            };
+            
+            const matchResult = await matchApi.generateMatches(generateData);
+            console.log('[DEBUG] Partidos generados:', matchResult);
+            
+            message.success(`Nueva temporada creada con ${matchResult.totalMatches} partidos generados automáticamente`);
+          } catch (matchError: any) {
+            console.error('[DEBUG] Error generando partidos automáticamente:', matchError);
+            message.warning(`Temporada creada exitosamente, pero hubo un error generando el calendario: ${matchError.message}`);
+          }
+        } else {
+          message.warning('Temporada creada exitosamente, pero no se pudo obtener el ID para generar el calendario');
+        }
+        
+        // Mostrar resumen de la transición
+        const summary = result.transitionSummary;
+        message.info(
+          `Transición completada: ${summary.promotedTeams} ascensos, ${summary.relegatedTeams} descensos, ${summary.tournamentQualified} a torneos, ${summary.teamsTransitioned} equipos transferidos`
+        );
+        
+        // Recargar estadísticas después de generar partidos
+        await loadActiveSeasonAndStats();
+      } else {
+        console.error('[DEBUG] Resultado sin éxito:', result);
+        message.error('Error creando nueva temporada');
+      }
+    } catch (error: any) {
+      console.error('[DEBUG] Error en handleCreateNewSeason:', error);
+      message.error(error.message || 'Error creando nueva temporada');
+    } finally {
+      setCreatingNewSeason(false);
+    }
+  };
+  
+  // Verificar estado cuando cambie la temporada activa
+  useEffect(() => {
+    if (activeSeason) {
+      checkSeasonCompletionStatus();
+    } else {
+      setSeasonComplete(null);
+    }
+  }, [activeSeason]);
+  
 // Eliminado: auth ya no se usa
 // Eliminado: recalculateAllStandings import y uso legacy
   const permissions = usePermissions();
@@ -81,6 +196,8 @@ export function useConfigPageLogic() {
       message.error(`Error al inicializar el sistema: ${error.message}`);
     } finally {
       setLoading(false);
+      // Actualizar todos los datos de pantalla
+      await refreshAllData();
     }
   };
 
@@ -103,6 +220,8 @@ export function useConfigPageLogic() {
       message.error(`Error al resetear el sistema: ${error.message}`);
     } finally {
       setLoading(false);
+      // Actualizar todos los datos de pantalla
+      await refreshAllData();
     }
   };
 
@@ -139,6 +258,8 @@ export function useConfigPageLogic() {
       message.error(`Error al ejecutar el seed de la BD: ${error.message}`);
     } finally {
       setLoading(false);
+      // Actualizar todos los datos de pantalla
+      await refreshAllData();
     }
   };
 
@@ -175,6 +296,8 @@ export function useConfigPageLogic() {
       return null;
     } finally {
       setSimulatingMatches(false);
+      // Actualizar todos los datos de pantalla
+      await refreshAllData();
     }
   };
 
@@ -201,6 +324,22 @@ export function useConfigPageLogic() {
       });
     } catch (error) {
       console.error('Error loading season stats:', error);
+    }
+  };
+
+  // Función para actualizar todos los datos de pantalla después de una acción
+  const refreshAllData = async () => {
+    try {
+      // Actualizar temporada y estadísticas
+      await refreshActiveSeason();
+      
+      // Si hay temporada activa, cargar sus estadísticas y verificar estado
+      if (activeSeason) {
+        await loadActiveSeasonAndStats();
+        await checkSeasonCompletionStatus();
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
     }
   };
 
@@ -274,6 +413,8 @@ export function useConfigPageLogic() {
       }
     } finally {
       setGenerating(false);
+      // Actualizar todos los datos de pantalla
+      await refreshAllData();
     }
   };
 
@@ -293,7 +434,7 @@ export function useConfigPageLogic() {
       const result = await matchApi.deleteAllMatchesBySeason(activeSeason.id);
       setSuccessMessage(`${result.deletedCount} partidos eliminados`);
       setDeleteModalVisible(false);
-      await loadActiveSeasonAndStats();
+      await refreshAllData();
     } catch (error: any) {
       setErrorMessage(error.message || 'Error eliminando partidos');
       // No cerramos el modal en caso de error para mostrar el mensaje
@@ -323,6 +464,8 @@ export function useConfigPageLogic() {
       return null;
     } finally {
       setSimulatingMatches(false);
+      // Actualizar todos los datos de pantalla
+      await refreshAllData();
     }
   };
 
@@ -333,24 +476,12 @@ export function useConfigPageLogic() {
     try {
       const result = await recalculateAllStandingsAndStates();
       message.success(result.message || 'Clasificaciones y estados recalculados correctamente');
-      // Forzar recarga de temporada y standings tras recalcular
-      await refreshActiveSeason();
-      if (activeSeason && matchApi && matchApi.getSeasonStats) {
-        try {
-          const stats = await matchApi.getSeasonStats(activeSeason.id);
-          setMatchStats({
-            totalMatches: stats.totalMatches,
-            scheduledMatches: stats.scheduledMatches,
-            finishedMatches: stats.finishedMatches
-          });
-        } catch (err) {
-          console.warn('[DEBUG] No se pudieron refrescar las stats tras recalcular:', err);
-        }
-      }
     } catch (error: any) {
       message.error(error.message || 'Error al recalcular clasificaciones');
     } finally {
       setRecalculating(false);
+      // Actualizar todos los datos de pantalla
+      await refreshAllData();
     }
   };
 
@@ -390,6 +521,11 @@ export function useConfigPageLogic() {
     refreshActiveSeason,
     // Recalcular standings
     handleRecalculateAllStandings,
-    recalculating
+    recalculating,
+    // Nuevas funciones para gestión de temporada
+    seasonComplete,
+    checkingSeasonComplete,
+    creatingNewSeason,
+    handleCreateNewSeason
   };
 }

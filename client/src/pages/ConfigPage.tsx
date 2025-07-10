@@ -50,19 +50,20 @@ export default function ConfigPage() {
     handleDeleteAllMatches,
     setGenerateModalVisible,
     setDeleteModalVisible,
-    refreshActiveSeason,
     // Recalcular standings
     handleRecalculateAllStandings,
-    recalculating
+    recalculating,
+    // Nuevas funciones para gestión de temporada
+    seasonComplete,
+    checkingSeasonComplete,
+    creatingNewSeason,
+    handleCreateNewSeason
   } = useConfigPageLogic();
 
-  // Estado para modal de crear temporada
-  const [createSeasonModalVisible, setCreateSeasonModalVisible] = React.useState(false);
-  const [createSeasonLoading, setCreateSeasonLoading] = React.useState(false);
-  const [createSeasonError, setCreateSeasonError] = React.useState<string | null>(null);
-  const [createSeasonSuccess, setCreateSeasonSuccess] = React.useState<string | null>(null);
-  // Eliminado: seasonName y setSeasonName ya no se usan
-  const [autoSeasonName, setAutoSeasonName] = React.useState('');
+  // Estado para modal de crear nueva temporada desde completada
+  const [newSeasonModalVisible, setNewSeasonModalVisible] = React.useState(false);
+  const [newSeasonName, setNewSeasonName] = React.useState('');
+  const [newSeasonError, setNewSeasonError] = React.useState<string | null>(null);
   const [form] = Form.useForm();
 
   // Solo mostrar la página si el usuario es administrador
@@ -92,58 +93,16 @@ export default function ConfigPage() {
 
   // Cuando se abre el modal, autogenerar el nombre
   React.useEffect(() => {
-    if (createSeasonModalVisible) {
+    if (newSeasonModalVisible) {
       generateNextSeasonName().then(name => {
-        setAutoSeasonName(name);
+        setNewSeasonName(name);
       });
     }
-  }, [createSeasonModalVisible]);
+  }, [newSeasonModalVisible]);
 
   return (
     <LayoutContainer>
       <div style={{ padding: '16px' }}>
-        {/* Espacio superior eliminado: el botón de crear temporada solo está en la Card de Sistema */}
-        {/* Modal para crear temporada */}
-        <Modal
-          title="Crear nueva temporada"
-          open={createSeasonModalVisible}
-          onCancel={() => {
-            setCreateSeasonModalVisible(false);
-            setCreateSeasonError(null);
-            setCreateSeasonSuccess(null);
-            // eliminado setSeasonName
-            setAutoSeasonName('');
-          }}
-          onOk={async () => {
-            setCreateSeasonLoading(true);
-            setCreateSeasonError(null);
-            setCreateSeasonSuccess(null);
-            try {
-              // El backend requiere name y year como obligatorios, y isActive para dejarla activa
-              const year = new Date().getFullYear();
-              // @ts-ignore
-              const newSeason = await leagueApi.createSeason({ name: autoSeasonName, year, isActive: true });
-              setCreateSeasonSuccess('Temporada creada correctamente');
-              // eliminado setSeasonName
-              setAutoSeasonName('');
-              refreshActiveSeason && refreshActiveSeason();
-            } catch (err: any) {
-              setCreateSeasonError(err.message || 'Error al crear la temporada');
-            } finally {
-              setCreateSeasonLoading(false);
-            }
-          }}
-          okText="Crear"
-          confirmLoading={createSeasonLoading}
-        >
-          <Form layout="vertical">
-            <Form.Item label="Nombre de la temporada" required>
-              <Input value={autoSeasonName} disabled />
-            </Form.Item>
-            {createSeasonError && <Alert message={createSeasonError} type="error" showIcon style={{ marginBottom: 8 }} />}
-            {createSeasonSuccess && <Alert message={createSeasonSuccess} type="success" showIcon style={{ marginBottom: 8 }} />}
-          </Form>
-        </Modal>
         <div style={{ marginBottom: '20px' }}>
           <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <SettingOutlined />
@@ -218,65 +177,6 @@ export default function ConfigPage() {
               Ejecutar Seed
             </Button>
           </div>
-          {/* Botón para crear temporada solo si no hay ninguna o no hay activa */}
-          {(!activeSeason) && (
-            <>
-              <Button type="primary" onClick={() => setCreateSeasonModalVisible(true)} style={{ marginTop: 16 }}>
-                Crear temporada
-              </Button>
-            </>
-          )}
-          <Modal
-            title="Crear nueva temporada"
-            open={createSeasonModalVisible}
-            onCancel={() => {
-              setCreateSeasonModalVisible(false);
-              setCreateSeasonError(null);
-              setCreateSeasonSuccess(null);
-              setAutoSeasonName('');
-            }}
-            onOk={async () => {
-              // Seguridad extra: no permitir crear si hay temporada activa
-              if (activeSeason) {
-                setCreateSeasonError('Ya existe una temporada activa. No puedes crear otra.');
-                return;
-              }
-              setCreateSeasonLoading(true);
-              setCreateSeasonError(null);
-              setCreateSeasonSuccess(null);
-              try {
-                const year = new Date().getFullYear();
-                // @ts-ignore
-                const newSeason = await leagueApi.createSeason({ name: autoSeasonName, year, isActive: true });
-                setCreateSeasonSuccess('Temporada creada correctamente');
-                setAutoSeasonName('');
-                refreshActiveSeason && refreshActiveSeason();
-              } catch (err: any) {
-                setCreateSeasonError(err.message || 'Error al crear la temporada');
-              } finally {
-                setCreateSeasonLoading(false);
-              }
-            }}
-            okText="Crear"
-            confirmLoading={createSeasonLoading}
-            okButtonProps={{ disabled: !!activeSeason }}
-          >
-            <Form layout="vertical">
-              <Form.Item label="Nombre de la temporada" required>
-                <Input value={autoSeasonName} disabled />
-              </Form.Item>
-              {createSeasonError && <Alert message={createSeasonError} type="error" showIcon style={{ marginBottom: 8 }} />}
-              {createSeasonSuccess && <Alert message={createSeasonSuccess} type="success" showIcon style={{ marginBottom: 8 }} />}
-            </Form>
-          </Modal>
-          {activeSeason && (
-            <Alert
-              message={`Temporada activa: ${activeSeason.name}`}
-              type="info"
-              showIcon
-              style={{ marginBottom: 0, marginTop: 16 }}
-            />
-          )}
         </Card>
 
         {/* Card de Partidos */}
@@ -375,6 +275,165 @@ export default function ConfigPage() {
             </Button>
           </div>
         </Card>
+
+        {/* Card de Gestión de Temporada - Solo aparece si hay temporada activa */}
+        {activeSeason && (seasonComplete || checkingSeasonComplete) && (
+          <Card 
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <SettingOutlined />
+                <span>Gestión de Temporada</span>
+                {seasonComplete?.readyForNewSeason && (
+                  <span style={{ 
+                    backgroundColor: '#52c41a', 
+                    color: 'white', 
+                    padding: '2px 8px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px',
+                    fontWeight: 'bold'
+                  }}>
+                    LISTA PARA NUEVA TEMPORADA
+                  </span>
+                )}
+              </div>
+            }
+            size="small"
+            style={{ marginBottom: '16px' }}
+            loading={checkingSeasonComplete && !seasonComplete}
+          >
+            {checkingSeasonComplete && !seasonComplete ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <Text>Verificando estado de la temporada...</Text>
+              </div>
+            ) : seasonComplete ? (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                  gap: '8px',
+                  marginBottom: '12px',
+                  fontSize: '12px'
+                }}>
+                  <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#f0f8ff', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#1890ff' }}>{seasonComplete.summary.promotions}</div>
+                    <div>Ascensos</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#fff2e8', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#fa8c16' }}>{seasonComplete.summary.relegations}</div>
+                    <div>Descensos</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '8px', backgroundColor: '#f6ffed', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#52c41a' }}>{seasonComplete.summary.tournamentQualifiers}</div>
+                    <div>Torneos</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '8px', backgroundColor: seasonComplete.summary.pendingPlayoffs > 0 ? '#fff1f0' : '#f0f8ff', borderRadius: '4px' }}>
+                    <div style={{ fontWeight: 'bold', color: seasonComplete.summary.pendingPlayoffs > 0 ? '#ff4d4f' : '#1890ff' }}>
+                      {seasonComplete.summary.pendingPlayoffs}
+                    </div>
+                    <div>Playoffs Pend.</div>
+                  </div>
+                </div>
+
+                {seasonComplete.pendingIssues.length > 0 && (
+                  <Alert
+                    message="Problemas pendientes"
+                    description={seasonComplete.pendingIssues.join(', ')}
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: '12px', fontSize: '12px' }}
+                  />
+                )}
+
+                {seasonComplete.readyForNewSeason ? (
+                  <div>
+                    <Alert
+                      message="¡Temporada completada!"
+                      description="Todos los partidos regulares y playoffs han terminado. Puedes crear una nueva temporada."
+                      type="success"
+                      showIcon
+                      style={{ marginBottom: '12px' }}
+                    />
+                    <Button
+                      type="primary"
+                      icon={<CalendarOutlined />}
+                      loading={creatingNewSeason}
+                      onClick={() => setNewSeasonModalVisible(true)}
+                      style={{ width: '100%' }}
+                    >
+                      Crear Nueva Temporada
+                    </Button>
+                  </div>
+                ) : (
+                  <Alert
+                    message="Temporada en progreso"
+                    description="Aún hay partidos o playoffs pendientes por completar."
+                    type="info"
+                    showIcon
+                  />
+                )}
+              </div>
+            ) : null}
+          </Card>
+        )}
+
+        {/* Modal para crear nueva temporada desde completada */}
+        <Modal
+          title="Crear Nueva Temporada"
+          open={newSeasonModalVisible}
+          onCancel={() => {
+            setNewSeasonModalVisible(false);
+            setNewSeasonName('');
+            setNewSeasonError(null);
+          }}
+          onOk={async () => {
+            if (!newSeasonName.trim()) {
+              setNewSeasonError('El nombre de la temporada es obligatorio');
+              return;
+            }
+            
+            try {
+              await handleCreateNewSeason(newSeasonName.trim());
+              setNewSeasonModalVisible(false);
+              setNewSeasonName('');
+              setNewSeasonError(null);
+            } catch (error: any) {
+              setNewSeasonError(error.message || 'Error creando nueva temporada');
+            }
+          }}
+          okText="Crear Temporada"
+          confirmLoading={creatingNewSeason}
+          okButtonProps={{ disabled: !newSeasonName.trim() }}
+        >
+          <Form layout="vertical">
+            <Form.Item 
+              label="Nombre de la nueva temporada" 
+              required
+              help="Se creará automáticamente con los equipos ascendidos y descendidos, y se generará el calendario completo de partidos"
+            >
+              <Input 
+                value={newSeasonName}
+                onChange={(e) => setNewSeasonName(e.target.value)}
+                placeholder="Ej: Temporada 2024-25"
+              />
+            </Form.Item>
+            
+            {seasonComplete && (
+              <div style={{ marginBottom: '16px' }}>
+                <Text strong>Resumen de la transición:</Text>
+                <ul style={{ margin: '8px 0', paddingLeft: '20px', fontSize: '12px' }}>
+                  <li>{seasonComplete.summary.promotions} equipos ascenderán</li>
+                  <li>{seasonComplete.summary.relegations} equipos descenderán</li>
+                  <li>{seasonComplete.summary.tournamentQualifiers} equipos clasificados a torneos</li>
+                  <li><strong>Se generará automáticamente el calendario completo de partidos</strong></li>
+                </ul>
+              </div>
+            )}
+            
+            {newSeasonError && (
+              <Alert message={newSeasonError} type="error" showIcon style={{ marginBottom: 8 }} />
+            )}
+          </Form>
+        </Modal>
 
         {/* Card de Competiciones */}
         <Card 

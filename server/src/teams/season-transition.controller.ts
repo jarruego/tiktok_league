@@ -107,16 +107,7 @@ export class SeasonTransitionController {
     return results;
   }
 
-  /**
-   * Generar reporte de estado de cierre de temporada
-   */
-  @UseGuards(JwtAuthGuard)
-  @Get(':seasonId/closure-report')
-  async getSeasonClosureReport(
-    @Param('seasonId', ParseIntPipe) seasonId: number
-  ): Promise<any> {
-    return this.seasonTransitionService.generateSeasonClosureReport(seasonId);
-  }
+
 
   /**
    * Verificar si una división está lista para playoffs
@@ -154,6 +145,132 @@ export class SeasonTransitionController {
       seasonId!,
       body.nextSeasonName
     );
+  }
+
+  /**
+   * Verificar si la temporada activa está completamente terminada
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('active-season/is-complete')
+  async checkActiveSeasonComplete(): Promise<{
+    isComplete: boolean;
+    readyForNewSeason: boolean;
+    pendingIssues: string[];
+    seasonId: number;
+    seasonName: string;
+    summary: {
+      promotions: number;
+      relegations: number;
+      tournamentQualifiers: number;
+      pendingPlayoffs: number;
+      errors: number;
+    };
+  }> {
+    console.log('[DEBUG CONTROLLER] checkActiveSeasonComplete - iniciando');
+    
+    const activeSeason = await this.seasonTransitionService.getActiveSeason();
+    console.log('[DEBUG CONTROLLER] Temporada activa:', activeSeason.id, activeSeason.name);
+    
+    const status = await this.seasonTransitionService.isSeasonCompletelyFinished(activeSeason.id);
+    console.log('[DEBUG CONTROLLER] Estado recibido del service:', status);
+    
+    const result = {
+      isComplete: status.isComplete,
+      readyForNewSeason: status.readyForNewSeason,
+      pendingIssues: status.pendingIssues,
+      seasonId: activeSeason.id,
+      seasonName: activeSeason.name,
+      summary: {
+        promotions: status.report.promotions.length,
+        relegations: status.report.relegations.length,
+        tournamentQualifiers: status.report.tournamentQualifiers.length,
+        pendingPlayoffs: status.report.pendingPlayoffs.length,
+        errors: status.report.errors.length
+      }
+    };
+    
+    console.log('[DEBUG CONTROLLER] Devolviendo resultado:', result);
+    return result;
+  }
+
+  /**
+   * Verificar si la temporada está completamente terminada y lista para crear una nueva
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get(':seasonId/is-complete')
+  async checkSeasonComplete(
+    @Param('seasonId', ParseIntPipe) seasonId: number
+  ): Promise<{
+    isComplete: boolean;
+    readyForNewSeason: boolean;
+    pendingIssues: string[];
+    summary: {
+      promotions: number;
+      relegations: number;
+      tournamentQualifiers: number;
+      pendingPlayoffs: number;
+      errors: number;
+    };
+  }> {
+    const status = await this.seasonTransitionService.isSeasonCompletelyFinished(seasonId);
+    
+    return {
+      isComplete: status.isComplete,
+      readyForNewSeason: status.readyForNewSeason,
+      pendingIssues: status.pendingIssues,
+      summary: {
+        promotions: status.report.promotions.length,
+        relegations: status.report.relegations.length,
+        tournamentQualifiers: status.report.tournamentQualifiers.length,
+        pendingPlayoffs: status.report.pendingPlayoffs.length,
+        errors: status.report.errors.length
+      }
+    };
+  }
+
+  /**
+   * Crear nueva temporada desde una temporada completamente terminada
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('create-new-season')
+  async createNewSeasonFromCompleted(
+    @Body() body: { 
+      completedSeasonId?: number; 
+      newSeasonName?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    newSeasonId?: number;
+    newSeasonName?: string;
+    previousSeasonClosed: boolean;
+    transitionSummary: {
+      promotedTeams: number;
+      relegatedTeams: number;
+      tournamentQualified: number;
+      teamsTransitioned: number;
+    };
+  }> {
+    console.log('[DEBUG CONTROLLER] createNewSeasonFromCompleted - iniciando con body:', body);
+    
+    // Si no se especifica temporada, usar la activa
+    let seasonId = body.completedSeasonId;
+    
+    if (!seasonId) {
+      const activeSeason = await this.seasonTransitionService.getActiveSeason();
+      seasonId = activeSeason.id;
+      console.log('[DEBUG CONTROLLER] Usando temporada activa:', seasonId);
+    }
+    
+    console.log('[DEBUG CONTROLLER] Llamando al service con seasonId:', seasonId, 'y newSeasonName:', body.newSeasonName);
+    
+    const result = await this.seasonTransitionService.createNewSeasonFromCompleted(
+      seasonId!,
+      body.newSeasonName
+    );
+    
+    console.log('[DEBUG CONTROLLER] Resultado del service:', result);
+    return result;
   }
 
   /**
