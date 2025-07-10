@@ -4,6 +4,7 @@ import { validateConfig } from './config/env.validation';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
+import { StandingsModule } from './standings/standings.module';
 import { TeamModule } from './teams/team.module';
 import { PlayerModule } from './players/player.module';
 import { CoachModule } from './coaches/coach.module';
@@ -23,6 +24,7 @@ import { AuthModule } from './auth/auth.module';
     DatabaseModule, 
     ScheduleModule.forRoot(), 
     AuthModule, 
+    StandingsModule,
     TeamModule, 
     PlayerModule, 
     CoachModule,

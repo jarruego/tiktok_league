@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { SeasonTransitionAssignmentService, TeamAssignmentPlan } from './season-transition-assignment.service';
-import { StandingsService } from '../matches/standings.service';
+import { StandingsService } from '../standings/standings.service';
 import { 
   divisionTable, 
   leagueTable, 
@@ -79,7 +79,6 @@ export class SeasonTransitionService {
     @Inject(DATABASE_PROVIDER)
     private readonly databaseService: DatabaseService,
     private readonly assignmentService: SeasonTransitionAssignmentService,
-    @Inject(forwardRef(() => StandingsService))
     private readonly standingsService: StandingsService,
   ) {}
 

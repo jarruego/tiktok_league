@@ -8,10 +8,11 @@ import { SeasonTransitionController } from './season-transition.controller';
 import { SeasonTransitionAssignmentService } from './season-transition-assignment.service';
 import { DatabaseModule } from '../database/database.module';
 import { CoachModule } from '../coaches/coach.module';
+import { StandingsModule } from '../standings/standings.module';
 import { MatchModule } from '../matches/match.module';
 
 @Module({
-  imports: [DatabaseModule, CoachModule, forwardRef(() => MatchModule)],
+  imports: [DatabaseModule, CoachModule, StandingsModule, forwardRef(() => MatchModule)],
   controllers: [TeamController, LeagueSystemController, SeasonTransitionController],
   providers: [TeamService, LeagueSystemService, SeasonTransitionService, SeasonTransitionAssignmentService],
   exports: [TeamService, LeagueSystemService, SeasonTransitionService, SeasonTransitionAssignmentService],

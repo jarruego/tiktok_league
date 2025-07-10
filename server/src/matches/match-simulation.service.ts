@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, Inject, Logger, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DatabaseService } from '../database/database.service';
-import { StandingsService } from './standings.service';
+import { StandingsService } from '../standings/standings.service';
 import { SeasonTransitionService } from '../teams/season-transition.service';
 import { 
   matchTable, 

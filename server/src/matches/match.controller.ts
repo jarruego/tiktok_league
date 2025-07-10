@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { MatchService } from './match.service';
 import { MatchSimulationService, MatchSimulationResult } from './match-simulation.service';
-import { StandingsService } from './standings.service';
+import { StandingsService } from '../standings/standings.service';
 import { SeasonTransitionService } from '../teams/season-transition.service';
 import { CreateMatchDto, GenerateMatchesDto } from './dto/create-match.dto';
 import { UpdateMatchDto } from './dto/update-match.dto';

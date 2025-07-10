@@ -156,6 +156,42 @@ Se han eliminado exitosamente todos los métodos marcados como deprecated:
 5. **Trazabilidad**: Todos los cálculos pasan por un punto central facilitando debugging
 6. **🆕 Coherencia de Estado**: Al recalcular automáticamente tras cada partido, las marcas siempre están actualizadas
 7. **🆕 Rendimiento Optimizado**: La mayoría de operaciones solo leen clasificaciones ya calculadas, reduciendo carga computacional
+8. **🆕 Arquitectura Modular**: StandingsService ahora es independiente, eliminando dependencias circulares
+
+---
+
+## 🏗️ **Arquitectura Final Optimizada**
+
+### **Estructura de Módulos:**
+```
+StandingsModule (independiente)
+├── StandingsService
+└── Solo depende de DatabaseModule
+
+MatchModule  
+├── MatchService, MatchSimulationService
+├── Importa: StandingsModule, TeamModule (forwardRef)
+└── Usa StandingsService para recálculos tras partidos
+
+TeamModule
+├── TeamService, SeasonTransitionService, etc.
+├── Importa: StandingsModule, MatchModule (forwardRef)  
+└── Usa StandingsService para clasificaciones en transiciones
+
+AppModule
+├── Importa todos los módulos incluyendo StandingsModule
+└── Gestiona la aplicación completa
+```
+
+### **Flujo de Dependencias (Sin Ciclos):**
+- `StandingsModule` → `DatabaseModule` ✅
+- `MatchModule` → `StandingsModule`, `DatabaseModule` ✅  
+- `TeamModule` → `StandingsModule`, `DatabaseModule` ✅
+- `MatchModule` ↔ `TeamModule` (solo para operaciones específicas post-partido) ✅
+
+### **Eliminación de Dependencias Circulares:**
+- ❌ **Antes**: `TeamModule` ↔ `MatchModule` (StandingsService en MatchModule)
+- ✅ **Ahora**: `StandingsModule` independiente, importado por ambos
 
 ---
 
@@ -163,9 +199,9 @@ Se han eliminado exitosamente todos los métodos marcados como deprecated:
 
 1. ✅ **Completado**: Centralizar lógica en `calculateStandings` y `calculateStandingsWithConsequences`
 2. ✅ **Completado**: Actualizar todos los servicios para usar la lógica unificada
-3. ✅ **Completado**: Resolver dependencias circulares entre módulos
+3. ✅ **Completado**: Resolver dependencias circulares entre módulos - Creado StandingsModule independiente
 4. ✅ **Completado**: Optimizar estrategia de uso - Recálculo tras partidos + Lectura eficiente
 5. ✅ **Completado**: Eliminar métodos @deprecated ya que no son necesarios
 6. ✅ **Completado**: Arreglar simulateSingleMatch para recalcular clasificaciones automáticamente
-7. 📋 **Pendiente**: Realizar pruebas funcionales para validar la lógica en escenarios reales
-8. 📋 **Pendiente**: Considerar refactoring de estructura de módulos para evitar dependencias circulares
+7. ✅ **Completado**: Refactoring de estructura de módulos - StandingsService ahora es independiente
+8. 📋 **Pendiente**: Realizar pruebas funcionales para validar la lógica en escenarios reales
