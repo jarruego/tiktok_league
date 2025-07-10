@@ -340,9 +340,8 @@ export class SeasonTransitionService {
     seasonId: number,
     division: any
   ): Promise<PlayoffMatchup[]> {
-    // Calcular clasificaciones CON consecuencias para asegurar que las marcas estén actualizadas
-    const result = await this.standingsService.calculateStandingsWithConsequences(seasonId, leagueId, true);
-    const standings = result.standings;
+    // Leer clasificaciones existentes (deberían estar actualizadas tras los partidos)
+    const standings = await this.standingsService.calculateStandings(seasonId, leagueId);
     
     // Obtener equipos clasificados al playoff
     const startPos = Number(division.promoteSlots || 0) + 1; // +1 porque positions son 1-indexed
@@ -429,9 +428,8 @@ export class SeasonTransitionService {
     }[] = [];
     
     for (const league of leagues) {
-      // Calcular clasificaciones CON consecuencias para asegurar marcas actualizadas
-      const result = await this.standingsService.calculateStandingsWithConsequences(seasonId, league.id, true);
-      const standings = result.standings;
+      // Leer clasificaciones existentes (deberían estar actualizadas tras los partidos)
+      const standings = await this.standingsService.calculateStandings(seasonId, league.id);
       
       let playoffTeams: { teamId: number; teamName: string; position: number; }[] = [];
       

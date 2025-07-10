@@ -17,67 +17,81 @@ Este documento lista todos los lugares donde4. **Automatización**: `calculateSt
 
 ---
 
-## Usos de `calculateStandings`
-
-### 1. **StandingsService.recalculateStandingsForLeague()** (línea 112) ⚡ **ACTUALIZADO**
-**Archivo**: `src/matches/standings.service.ts`
-**Motivo**: Recalcula y persiste las clasificaciones en la base de datos tras cambios en los partidos. **AHORA USA `calculateStandingsWithConsequences`** para asegurar que las marcas de ascenso/descenso/playoff/torneo se apliquen automáticamente.
-
-### 2. **StandingsService.getLeagueStandings()** (línea 282)
-**Archivo**: `src/matches/standings.service.ts`
-**Motivo**: Obtiene clasificaciones en tiempo real para mostrar en la interfaz. Combina datos calculados con información adicional de equipos (escudos, estados). **Mantiene `calculateStandings`** porque solo es para visualización y no modifica marcas.
-
-### 3. **StandingsService.calculateStandingsWithConsequences()** (línea 932)
-**Archivo**: `src/matches/standings.service.ts`
-**Motivo**: Método que extiende `calculateStandings` para aplicar automáticamente marcas de ascenso/descenso/playoff/torneo.
-
-### 4. **SeasonTransitionService.organizeSingleLeaguePlayoff()** (línea 344) ⚡ **ACTUALIZADO**
-**Archivo**: `src/teams/season-transition.service.ts`
-**Motivo**: Determina qué equipos se clasifican para playoffs basándose en sus posiciones finales. **AHORA USA `calculateStandingsWithConsequences`** para asegurar que las marcas estén actualizadas antes de generar playoffs.
-
-### 5. **SeasonTransitionService.generateCrossGroupPlayoffs()** (línea 431) ⚡ **ACTUALIZADO**
-**Archivo**: `src/teams/season-transition.service.ts`
-**Motivo**: Genera playoffs cruzados entre grupos de una división. **AHORA USA `calculateStandingsWithConsequences`** para asegurar que las marcas de playoff estén aplicadas correctamente.
-
-### 6. **SeasonTransitionController.testUnifiedLogic()** (línea 201)
-**Archivo**: `src/teams/season-transition.controller.ts`
-**Motivo**: Endpoint de prueba para verificar que la lógica unificada funciona correctamente. **Mantiene `calculateStandings`** porque es solo para testing y no necesita aplicar marcas.
-
----
-
 ## Usos de `calculateStandingsWithConsequences`
 
-### 1. **SeasonTransitionService.processSeasonEnd()** (línea 229)
+### 1. **StandingsService.recalculateStandingsForLeague()** (línea 113) ⚡ **ACTUALIZADO**
+**Archivo**: `src/matches/standings.service.ts`
+**Motivo**: Recalcula y persiste las clasificaciones en la base de datos tras cambios en los partidos. Aplica automáticamente las marcas de ascenso/descenso/playoff/torneo para mantener coherencia.
+
+### 2. **SeasonTransitionService.processSeasonEnd()** (línea 229)
 **Archivo**: `src/teams/season-transition.service.ts`
 **Motivo**: Procesa el final de temporada aplicando automáticamente todas las consecuencias (ascensos, descensos, playoffs, torneos) para cada liga de cada división.
 
-### 2. **SeasonTransitionService.processPromotion()** (línea 1993)
+### 3. **SeasonTransitionService.organizeSingleLeaguePlayoff()** (línea 344) ⚡ **OPTIMIZADO**
 **Archivo**: `src/teams/season-transition.service.ts`
-**Motivo**: Procesa ascensos tras finalizar playoffs. Aplica las marcas correspondientes automáticamente según los resultados de los playoffs.
+**Motivo**: Genera playoffs para una liga específica. **AHORA USA `calculateStandings`** (lectura rápida) ya que las marcas deberían estar actualizadas tras los partidos regulares.
+
+### 4. **SeasonTransitionService.generateCrossGroupPlayoffs()** (línea 433) ⚡ **OPTIMIZADO**
+**Archivo**: `src/teams/season-transition.service.ts`
+**Motivo**: Genera playoffs cruzados entre grupos de una división. **AHORA USA `calculateStandings`** (lectura rápida) para obtener las posiciones ya calculadas.
+
+### 5. **SeasonTransitionService.processPromotion()** (línea 1777)
+**Archivo**: `src/teams/season-transition.service.ts`
+**Motivo**: Procesa ascensos tras finalizar playoffs. Mantiene `calculateStandingsWithConsequences` porque es un proceso oficial de transición que debe asegurar coherencia final.
 
 ---
 
-## Usos Indirectos (a través de `recalculateStandingsForSeason/League`)
+## Usos de `calculateStandings` (solo cálculo, sin aplicar consecuencias)
 
-### 1. **MatchSimulationService.simulateRandomMatches()** (línea 92)
+### 1. **StandingsService.getLeagueStandings()** (línea 282)
+**Archivo**: `src/matches/standings.service.ts`
+**Motivo**: Obtiene clasificaciones en tiempo real para mostrar en la interfaz. Combina datos calculados con información adicional de equipos (escudos, estados). Ideal para visualización sin modificar marcas.
+
+### 2. **StandingsService.calculateStandingsWithConsequences()** (línea 697)
+**Archivo**: `src/matches/standings.service.ts`
+**Motivo**: Método que internamente llama a `calculateStandings` y luego aplica las consecuencias automáticamente.
+
+### 3. **SeasonTransitionService.organizeSingleLeaguePlayoff()** (línea 344) ⚡ **OPTIMIZADO**
+**Archivo**: `src/teams/season-transition.service.ts`
+**Motivo**: Genera playoffs para una liga específica. Usa lectura rápida ya que las marcas deberían estar actualizadas tras los partidos regulares.
+
+### 4. **SeasonTransitionService.generateCrossGroupPlayoffs()** (línea 433) ⚡ **OPTIMIZADO**
+**Archivo**: `src/teams/season-transition.service.ts`
+**Motivo**: Genera playoffs cruzados entre grupos. Usa lectura rápida para obtener las posiciones ya calculadas.
+
+### 5. **SeasonTransitionController.testUnifiedLogic()** (línea 201)
+**Archivo**: `src/teams/season-transition.controller.ts`
+**Motivo**: Endpoint de prueba para verificar que la lógica unificada funciona correctamente. Ideal para testing sin aplicar marcas.
+
+### 6. **MatchSimulationService.simulateSingleMatch()** (línea 253) ⚡ **NUEVO**
 **Archivo**: `src/matches/match-simulation.service.ts`
-**Motivo**: Después de simular partidos aleatorios, recalcula las clasificaciones de todas las ligas afectadas para mantener los datos actualizados.
+**Motivo**: Ahora recalcula clasificaciones automáticamente tras simular un partido individual para mantener coherencia.
 
-### 2. **MatchSimulationService.simulateMatchday()** (línea 164)
+---
+
+## Usos Indirectos de `calculateStandingsWithConsequences` (a través de `recalculateStandingsForSeason/League`)
+
+**IMPORTANTE**: Estos métodos ahora usan indirectamente `calculateStandingsWithConsequences` porque `recalculateStandingsForLeague` fue actualizado para usar la versión con consecuencias.
+
+### 1. **MatchSimulationService.simulateRandomMatches()** (línea 92) ⚡ **AHORA APLICA CONSECUENCIAS**
 **Archivo**: `src/matches/match-simulation.service.ts`
-**Motivo**: Tras simular una jornada completa, actualiza las clasificaciones para reflejar los resultados.
+**Motivo**: Después de simular partidos aleatorios, recalcula las clasificaciones de todas las ligas afectadas Y aplica automáticamente ascensos/descensos/playoffs/torneos.
 
-### 3. **MatchSimulationService.simulateAllMatches()** (línea 395)
+### 2. **MatchSimulationService.simulateMatchday()** (línea 164) ⚡ **AHORA APLICA CONSECUENCIAS**
 **Archivo**: `src/matches/match-simulation.service.ts`
-**Motivo**: Después de simular todos los partidos pendientes, recalcula clasificaciones finales.
+**Motivo**: Tras simular una jornada completa, actualiza las clasificaciones Y aplica las marcas correspondientes automáticamente.
 
-### 4. **MatchController.recalculateStandingsForSeason()** (línea 202)
+### 3. **MatchSimulationService.simulateAllMatches()** (línea 395) ⚡ **AHORA APLICA CONSECUENCIAS**
+**Archivo**: `src/matches/match-simulation.service.ts`
+**Motivo**: Después de simular todos los partidos pendientes, recalcula clasificaciones finales Y marca automáticamente equipos para ascenso/descenso/playoff/torneo.
+
+### 4. **MatchController.recalculateStandingsForSeason()** (línea 202) ⚡ **AHORA APLICA CONSECUENCIAS**
 **Archivo**: `src/matches/match.controller.ts`
-**Motivo**: Endpoint para recalcular manualmente las clasificaciones de una temporada completa.
+**Motivo**: Endpoint para recalcular manualmente las clasificaciones de una temporada completa Y aplicar todas las marcas automáticamente.
 
-### 5. **MatchController.recalculateStandingsForLeague()** (línea 215)
+### 5. **MatchController.recalculateStandingsForLeague()** (línea 215) ⚡ **AHORA APLICA CONSECUENCIAS**
 **Archivo**: `src/matches/match.controller.ts`
-**Motivo**: Endpoint para recalcular manualmente las clasificaciones de una liga específica.
+**Motivo**: Endpoint para recalcular manualmente las clasificaciones de una liga específica Y aplicar las marcas correspondientes.
 
 ---
 
@@ -107,22 +121,29 @@ Se han eliminado exitosamente todos los métodos marcados como deprecated:
 
 ---
 
-## Estrategia de Uso Actualizada
+## Estrategia de Uso Optimizada
 
-### 🎯 **Regla General**: Usar `calculateStandingsWithConsequences` por defecto
+### 🎯 **Nueva Regla Optimizada**: Recálculo automático tras partidos + Lectura eficiente
 
-La mayoría de operaciones que calculan clasificaciones necesitan también actualizar las marcas de ascenso/descenso/playoff/torneo. Por esto:
+**Principio**: Las clasificaciones se recalculan automáticamente después de cada partido/jornada, por lo que la mayoría de operaciones solo necesitan **leer** las clasificaciones existentes.
 
-**✅ Usar `calculateStandingsWithConsequences`:**
-- Cuando se recalculan clasificaciones tras partidos
-- Cuando se generan playoffs
-- Cuando se procesa el final de temporada
-- Cuando se necesita que las marcas estén actualizadas
+**✅ Usar `calculateStandingsWithConsequences` (SOLO cuando sea necesario):**
+- ❗ **Procesos oficiales de transición de temporada** (`processSeasonEnd`, `processPromotion`)
+- ❗ **Recálculo manual forzado** tras cambios en partidos (`recalculateStandingsForLeague`)
+- ❗ **Endpoints administrativos** para recálculo manual
 
-**📊 Usar `calculateStandings` (casos específicos):**
-- Visualización en tiempo real sin modificar marcas
-- Testing y debugging
-- Cuando solo se necesitan las posiciones sin aplicar consecuencias
+**📊 Usar `calculateStandings` (lectura rápida - PREFERIDO para operaciones):**
+- ✅ **Generación de playoffs** (las marcas ya están aplicadas tras partidos)
+- ✅ **Visualización en tiempo real** en interfaces
+- ✅ **Testing y debugging**
+- ✅ **Cualquier operación que necesite posiciones actuales** pero no modifique marcas
+
+### 🔄 **Flujo Optimizado:**
+
+1. **Simulación de partido individual** → `recalculateStandingsForLeague` → Marcas actualizadas ✅
+2. **Simulación de jornada/múltiples partidos** → `recalculateStandingsForSeason` → Todas las marcas actualizadas ✅
+3. **Generación de playoffs** → `calculateStandings` (lectura rápida) → Usa marcas ya aplicadas ✅
+4. **Final de temporada** → `calculateStandingsWithConsequences` → Asegura coherencia final ✅
 
 ---
 
@@ -133,6 +154,8 @@ La mayoría de operaciones que calculan clasificaciones necesitan también actua
 3. **Automatización**: `calculateStandingsWithConsequences` elimina la necesidad de marcar manualmente ascensos/descensos
 4. **Reducción de Duplicación**: Se eliminó `calculateDynamicStandings` que duplicaba lógica
 5. **Trazabilidad**: Todos los cálculos pasan por un punto central facilitando debugging
+6. **🆕 Coherencia de Estado**: Al recalcular automáticamente tras cada partido, las marcas siempre están actualizadas
+7. **🆕 Rendimiento Optimizado**: La mayoría de operaciones solo leen clasificaciones ya calculadas, reduciendo carga computacional
 
 ---
 
@@ -141,7 +164,8 @@ La mayoría de operaciones que calculan clasificaciones necesitan también actua
 1. ✅ **Completado**: Centralizar lógica en `calculateStandings` y `calculateStandingsWithConsequences`
 2. ✅ **Completado**: Actualizar todos los servicios para usar la lógica unificada
 3. ✅ **Completado**: Resolver dependencias circulares entre módulos
-4. ✅ **Completado**: Optimizar estrategia de uso - Usar `calculateStandingsWithConsequences` por defecto
+4. ✅ **Completado**: Optimizar estrategia de uso - Recálculo tras partidos + Lectura eficiente
 5. ✅ **Completado**: Eliminar métodos @deprecated ya que no son necesarios
-6. 📋 **Pendiente**: Realizar pruebas funcionales para validar la lógica en escenarios reales
-7. 📋 **Pendiente**: Considerar refactoring de estructura de módulos para evitar dependencias circulares
+6. ✅ **Completado**: Arreglar simulateSingleMatch para recalcular clasificaciones automáticamente
+7. 📋 **Pendiente**: Realizar pruebas funcionales para validar la lógica en escenarios reales
+8. 📋 **Pendiente**: Considerar refactoring de estructura de módulos para evitar dependencias circulares

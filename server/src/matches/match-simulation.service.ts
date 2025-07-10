@@ -251,7 +251,10 @@ export class MatchSimulationService {
     if (match.isPlayoff) {
       await this.seasonTransitionService.updateTeamStatusAfterPlayoffMatch(matchId);
     } else {
-      // Si es un partido de liga regular, verificar si se completó la división
+      // Si es un partido de liga regular, recalcular clasificaciones para esta liga
+      await this.standingsService.recalculateStandingsForLeague(match.seasonId, match.leagueId);
+      
+      // Verificar si se completó la división tras el recálculo
       await this.checkAndMarkTeamsIfRegularSeasonComplete(match.leagueId, match.seasonId);
     }
 
