@@ -26,7 +26,7 @@ export const matchTable = pgTable('matches', {
   
   // Información del partido
   matchday: integer('matchday').notNull(), // Jornada (1, 2, 3...)
-  scheduledDate: date('scheduled_date').notNull(), // Fecha programada
+  scheduledDate: timestamp('scheduled_date').notNull(), // Fecha y hora programada
   status: varchar('status', { length: 20 }).notNull().default(MatchStatus.SCHEDULED),
   
   // Resultados (para futuro)

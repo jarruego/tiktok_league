@@ -33,6 +33,7 @@ export class MatchService {
     
     const [match] = await db.insert(matchTable).values({
       ...createMatchDto,
+      scheduledDate: new Date(createMatchDto.scheduledDate),
       status: MatchStatus.SCHEDULED
     }).returning();
     
@@ -163,13 +164,17 @@ export class MatchService {
     
     for (const roundMatches of firstRoundMatches) {
       for (const match of roundMatches) {
+        // Crear fecha con hora específica (17:00)
+        const matchDateTime = new Date(currentDate);
+        matchDateTime.setHours(17, 0, 0, 0); // 17:00:00
+        
         matches.push({
           seasonId,
           leagueId,
           homeTeamId: match.homeTeamId,
           awayTeamId: match.awayTeamId,
           matchday,
-          scheduledDate: currentDate.toISOString().split('T')[0],
+          scheduledDate: matchDateTime,
           status: MatchStatus.SCHEDULED,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -185,13 +190,17 @@ export class MatchService {
     
     for (const roundMatches of firstRoundMatches) {
       for (const match of roundMatches) {
+        // Crear fecha con hora específica (17:00)
+        const matchDateTime = new Date(currentDate);
+        matchDateTime.setHours(17, 0, 0, 0); // 17:00:00
+        
         matches.push({
           seasonId,
           leagueId,
           homeTeamId: match.awayTeamId, // Intercambiar local y visitante
           awayTeamId: match.homeTeamId,
           matchday,
-          scheduledDate: currentDate.toISOString().split('T')[0],
+          scheduledDate: matchDateTime,
           status: MatchStatus.SCHEDULED,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -376,11 +385,11 @@ export class MatchService {
     }
     
     if (query.fromDate) {
-      conditions.push(gte(matchTable.scheduledDate, query.fromDate));
+      conditions.push(gte(matchTable.scheduledDate, new Date(query.fromDate)));
     }
     
     if (query.toDate) {
-      conditions.push(lte(matchTable.scheduledDate, query.toDate));
+      conditions.push(lte(matchTable.scheduledDate, new Date(query.toDate)));
     }
     
     if (query.isPlayoff !== undefined) {
@@ -532,9 +541,15 @@ export class MatchService {
   async update(id: number, updateMatchDto: UpdateMatchDto) {
     const db = this.databaseService.db;
     
+    // Convertir scheduledDate a Date si está presente
+    const updateData: any = { ...updateMatchDto, updatedAt: new Date() };
+    if (updateData.scheduledDate) {
+      updateData.scheduledDate = new Date(updateData.scheduledDate);
+    }
+    
     const [match] = await db
       .update(matchTable)
-      .set({ ...updateMatchDto, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(matchTable.id, id))
       .returning();
       

@@ -9,22 +9,11 @@ import {
   teamLeagueAssignmentTable,
   teamTable,
   matchTable,
-  standingsTable,
   AssignmentReason,
   MatchStatus
 } from '../database/schema';
-import { eq, and, or, desc, asc, sql, inArray } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 import { DATABASE_PROVIDER } from '../database/database.module';
-
-export interface StandingsEntry {
-  teamId: number;
-  teamName: string;
-  position: number;
-  leagueId: number;
-  leagueName: string;
-  divisionLevel: number;
-  groupCode: string;
-}
 
 export interface PlayoffMatchup {
   round: string;
@@ -258,16 +247,6 @@ export class SeasonTransitionService {
    * Organiza los playoffs para una división
    */
   async organizePlayoffs(
-    divisionId: number,
-    seasonId: number
-  ): Promise<PlayoffMatchup[]> {
-    return this.organizePlayoffsInternal(divisionId, seasonId);
-  }
-  
-  /**
-   * Organiza los playoffs para una división (implementación interna mejorada)
-   */
-  private async organizePlayoffsInternal(
     divisionId: number,
     seasonId: number
   ): Promise<PlayoffMatchup[]> {
@@ -521,7 +500,7 @@ export class SeasonTransitionService {
       homeTeamId: matchup.homeTeamId,
       awayTeamId: matchup.awayTeamId,
       matchday: matchup.matchday,
-      scheduledDate: matchup.scheduledDate.toISOString().split('T')[0],
+      scheduledDate: matchup.scheduledDate,
       status: MatchStatus.SCHEDULED,
       isPlayoff: true,
       playoffRound: matchup.round,
@@ -530,56 +509,6 @@ export class SeasonTransitionService {
     }));
     
     await db.insert(matchTable).values(matchesToInsert);
-  }
-  
-  /**
-   * Crea una asignación de equipo para la próxima temporada
-   */
-  private async createTeamAssignmentForNextSeason(
-    teamId: number,
-    leagueId: number,
-    nextSeasonId: number,
-    reason: AssignmentReason
-  ): Promise<void> {
-    const db = this.databaseService.db;
-    
-    // Obtener información del equipo
-    const [team] = await db
-      .select()
-      .from(teamTable)
-      .where(eq(teamTable.id, teamId));
-      
-    if (!team) {
-      this.logger.warn(`No se encontró el equipo con ID ${teamId}`);
-      return;
-    }
-    
-    // Verificar si ya existe una asignación para la próxima temporada
-    const [existingAssignment] = await db
-      .select()
-      .from(teamLeagueAssignmentTable)
-      .where(
-        and(
-          eq(teamLeagueAssignmentTable.teamId, teamId),
-          eq(teamLeagueAssignmentTable.seasonId, nextSeasonId)
-        )
-      );
-      
-    if (existingAssignment) {
-      this.logger.log(`Ya existe una asignación para el equipo ${team.name} en la temporada ${nextSeasonId}`);
-      return;
-    }
-    
-    // Crear nueva asignación
-    await db
-      .insert(teamLeagueAssignmentTable)
-      .values({
-        teamId,
-        leagueId,
-        seasonId: nextSeasonId,
-        tiktokFollowersAtAssignment: team.followers,
-        assignmentReason: reason
-      });
   }
   
   /**
@@ -742,21 +671,11 @@ export class SeasonTransitionService {
   }
 
   /**
-   * Cierra la temporada actual y procesa transiciones
+   * Cierra la temporada activa actual
+   * Método de conveniencia que obtiene la temporada activa y llama a finalizeSeason
    */
   async closeCurrentSeason(createNextSeason: boolean = false): Promise<SeasonTransitionResult> {
-    const db = this.databaseService.db;
-    
-    // Obtener temporada activa
-    const [activeSeason] = await db
-      .select()
-      .from(seasonTable)
-      .where(eq(seasonTable.isActive, true));
-      
-    if (!activeSeason) {
-      throw new NotFoundException('No hay temporada activa para cerrar');
-    }
-    
+    const activeSeason = await this.getActiveSeason();
     return this.finalizeSeason(activeSeason.id, undefined, createNextSeason);
   }
 
@@ -1309,7 +1228,7 @@ export class SeasonTransitionService {
               homeTeamId: winners[0], // Ganador cuarto 1 (local)
               awayTeamId: winners[3], // Ganador cuarto 4 (visitante)
               matchday: 2, // Semifinal en jornada 2
-              scheduledDate: semifinalDate.toISOString().split('T')[0],
+              scheduledDate: semifinalDate,
               status: MatchStatus.SCHEDULED,
               isPlayoff: true,
               playoffRound: 'Semifinal',
@@ -1324,7 +1243,7 @@ export class SeasonTransitionService {
               homeTeamId: winners[1], // Ganador cuarto 2 (local)
               awayTeamId: winners[2], // Ganador cuarto 3 (visitante)
               matchday: 2,
-              scheduledDate: semifinalDate.toISOString().split('T')[0],
+              scheduledDate: semifinalDate,
               status: MatchStatus.SCHEDULED,
               isPlayoff: true,
               playoffRound: 'Semifinal',
@@ -1429,7 +1348,7 @@ export class SeasonTransitionService {
               homeTeamId: winners[0], // Ganador de primera semifinal (local)
               awayTeamId: winners[1], // Ganador de segunda semifinal (visitante)
               matchday: divisionData.divisionLevel === 5 ? 3 : 2, // División 5: cuartos=1, semis=2, final=3; Otras: semis=1, final=2
-              scheduledDate: finalDate.toISOString().split('T')[0],
+              scheduledDate: finalDate,
               status: MatchStatus.SCHEDULED,
               isPlayoff: true,
               playoffRound: 'Final',
@@ -2034,31 +1953,6 @@ export class SeasonTransitionService {
 
     } catch (error) {
       this.logger.error(`❌ Error en debug de estados de equipos:`, error);
-    }
-  }
-
-  /**
-   * Limpia todos los estados de playoff/ascenso/descenso al iniciar nueva temporada
-   */
-  async clearAllTeamStatusForNewSeason(seasonId: number): Promise<void> {
-    const db = this.databaseService.db;
-    
-    try {
-      const result = await db
-        .update(teamLeagueAssignmentTable)
-        .set({
-          promotedNextSeason: false,
-          relegatedNextSeason: false,
-          playoffNextSeason: false,
-          qualifiedForTournament: false,
-          updatedAt: new Date()
-        })
-        .where(eq(teamLeagueAssignmentTable.seasonId, seasonId));
-
-      this.logger.log(`🧹 Estados de equipos limpiados para temporada ${seasonId}`);
-      
-    } catch (error) {
-      this.logger.error(`❌ Error limpiando estados de equipos para temporada ${seasonId}:`, error);
     }
   }
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "matches" ALTER COLUMN "scheduled_date" SET DATA TYPE timestamp;

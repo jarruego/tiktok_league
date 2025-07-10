@@ -11,7 +11,7 @@ import {
   teamLeagueAssignmentTable,
   MatchStatus 
 } from '../database/schema';
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { eq, and, sql, inArray, gte, lte } from 'drizzle-orm';
 import { DATABASE_PROVIDER } from '../database/database.module';
 
 interface TeamWithFollowers {
@@ -116,6 +116,18 @@ export class MatchSimulationService {
   async simulateMatchesByDate(date: string): Promise<MatchSimulationResult[]> {
     const db = this.databaseService.db;
     
+    this.logger.log(`🎯 Buscando partidos para la fecha: ${date}`);
+    
+    // Extraer solo la fecha si viene con timestamp completo
+    const dateOnly = date.includes('T') ? date.split('T')[0] : date;
+    
+    // Convertir la fecha string a Date para comparación
+    const targetDate = new Date(dateOnly + 'T00:00:00.000Z');
+    const nextDay = new Date(dateOnly + 'T23:59:59.999Z');
+    
+    this.logger.log(`🔍 Fecha procesada: ${dateOnly}`);
+    this.logger.log(`🔍 Rango de fechas: ${targetDate.toISOString()} - ${nextDay.toISOString()}`);
+    
     // Obtener partidos programados para esta fecha
     const matches = await db
       .select({
@@ -129,10 +141,13 @@ export class MatchSimulationService {
       .from(matchTable)
       .where(
         and(
-          eq(matchTable.scheduledDate, date),
+          gte(matchTable.scheduledDate, targetDate),
+          lte(matchTable.scheduledDate, nextDay),
           eq(matchTable.status, MatchStatus.SCHEDULED)
         )
       );
+
+    this.logger.log(`🔍 Partidos encontrados: ${matches.length}`);
 
     if (matches.length === 0) {
       return [];
