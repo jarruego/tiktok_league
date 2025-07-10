@@ -170,6 +170,18 @@ export class MatchController {
     return this.matchSimulationService.getSimulationStats();
   }
 
+  /**
+   * Simular partidos en un rango de fechas (recuperación manual)
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('simulate/date-range')
+  async simulatePendingMatchesInRange(@Body() simulateDto: { startDate: string, endDate: string }): Promise<MatchSimulationResult[]> {
+    const startDate = new Date(simulateDto.startDate + 'T00:00:00.000Z');
+    const endDate = new Date(simulateDto.endDate + 'T23:59:59.999Z');
+    
+    return this.matchSimulationService.simulatePendingMatchesInRange(startDate, endDate);
+  }
+
   // ==========================================
   // ENDPOINTS DE CLASIFICACIONES
   // ==========================================
