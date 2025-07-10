@@ -1013,18 +1013,6 @@ export class SeasonTransitionService {
   }
 
   /**
-   * Calcula las clasificaciones dinámicamente para una liga usando la lógica unificada
-   * @deprecated Usar standingsService.calculateStandings() directamente
-   */
-  private async calculateDynamicStandings(
-    leagueId: number,
-    seasonId: number
-  ): Promise<Array<{ teamId: number; teamName: string; position: number; points: number; goalDifference: number }>> {
-    // Usar la función unificada del StandingsService
-    return this.standingsService.calculateStandings(seasonId, leagueId);
-  }
-
-  /**
    * Verifica si una división ha completado todos sus partidos regulares
    */
   async isDivisionRegularSeasonComplete(divisionId: number, seasonId: number): Promise<boolean> {
@@ -2050,8 +2038,8 @@ export class SeasonTransitionService {
         .where(eq(leagueTable.divisionId, divisionId));
 
       for (const league of leagues) {
-        // Calcular clasificación final dinámicamente
-        const standings = await this.calculateDynamicStandings(league.id, seasonId);
+        // Calcular clasificación final usando la lógica unificada
+        const standings = await this.standingsService.calculateStandings(seasonId, league.id);
 
         if (standings.length === 0) {
           this.logger.warn(`No hay clasificación disponible para la liga ${league.name}`);
