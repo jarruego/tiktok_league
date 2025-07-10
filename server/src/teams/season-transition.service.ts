@@ -1147,9 +1147,59 @@ export class SeasonTransitionService {
       if (!group || group.length === 0) continue;
       if (group.length === 1) {
         sortedStandings.push(group[0]);
+      } else if (group.length === 2) {
+        // CASO ESPECIAL: SOLO DOS EQUIPOS EMPATADOS
+        const [teamA, teamB] = group;
+        // Buscar los dos partidos directos
+        const directMatches = completedMatches.filter(
+          m => (m.homeTeamId === teamA.teamId && m.awayTeamId === teamB.teamId) ||
+               (m.homeTeamId === teamB.teamId && m.awayTeamId === teamA.teamId)
+        );
+        let pointsA = 0, pointsB = 0, goalDiffA = 0, goalDiffB = 0, goalsForA = 0, goalsForB = 0;
+        directMatches.forEach(m => {
+          if (typeof m.homeGoals !== 'number' || typeof m.awayGoals !== 'number') return;
+          if (m.homeTeamId === teamA.teamId) {
+            goalsForA += m.homeGoals;
+            goalsForB += m.awayGoals;
+            goalDiffA += m.homeGoals - m.awayGoals;
+            goalDiffB += m.awayGoals - m.homeGoals;
+            if (m.homeGoals > m.awayGoals) pointsA += 3;
+            else if (m.homeGoals < m.awayGoals) pointsB += 3;
+            else { pointsA += 1; pointsB += 1; }
+          } else {
+            goalsForB += m.homeGoals;
+            goalsForA += m.awayGoals;
+            goalDiffB += m.homeGoals - m.awayGoals;
+            goalDiffA += m.awayGoals - m.homeGoals;
+            if (m.homeGoals > m.awayGoals) pointsB += 3;
+            else if (m.homeGoals < m.awayGoals) pointsA += 3;
+            else { pointsA += 1; pointsB += 1; }
+          }
+        });
+        // 1. Puntos en enfrentamientos directos
+        if (pointsA !== pointsB) {
+          sortedStandings.push(...(pointsA > pointsB ? [teamA, teamB] : [teamB, teamA]));
+        } else if (goalDiffA !== goalDiffB) {
+          // 2. Diferencia de goles en enfrentamientos directos
+          sortedStandings.push(...(goalDiffA > goalDiffB ? [teamA, teamB] : [teamB, teamA]));
+        } else if (goalsForA !== goalsForB) {
+          // 3. Goles a favor en enfrentamientos directos
+          sortedStandings.push(...(goalsForA > goalsForB ? [teamA, teamB] : [teamB, teamA]));
+        } else if (teamA.goalDifference !== teamB.goalDifference) {
+          // 4. Diferencia de goles general
+          sortedStandings.push(...(teamA.goalDifference > teamB.goalDifference ? [teamA, teamB] : [teamB, teamA]));
+        } else if (teamA.goalsFor !== teamB.goalsFor) {
+          // 5. Goles a favor general
+          sortedStandings.push(...(teamA.goalsFor > teamB.goalsFor ? [teamA, teamB] : [teamB, teamA]));
+        } else if ((teamA.followers || 0) !== (teamB.followers || 0)) {
+          // 6. Seguidores
+          sortedStandings.push(...((teamA.followers || 0) > (teamB.followers || 0) ? [teamA, teamB] : [teamB, teamA]));
+        } else {
+          // 7. Sorteo (aleatorio)
+          sortedStandings.push(...(Math.random() > 0.5 ? [teamA, teamB] : [teamB, teamA]));
+        }
       } else {
-        // 1. Enfrentamientos directos (diferencia de goles entre los empatados)
-        // Filtrar partidos solo entre los equipos empatados
+        // 3 o más equipos empatados: mini-liga de enfrentamientos directos
         const ids = group.map(t => t.teamId);
         const directMatches = completedMatches.filter(m => ids.includes(m.homeTeamId) && ids.includes(m.awayTeamId));
         // Calcular mini-liga de enfrentamientos directos
