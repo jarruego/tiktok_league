@@ -1058,7 +1058,8 @@ export class SeasonTransitionService {
     const teamsInLeague = await db
       .select({
         teamId: teamTable.id,
-        teamName: teamTable.name
+        teamName: teamTable.name,
+        followers: teamTable.followers
       })
       .from(teamTable)
       .innerJoin(teamLeagueAssignmentTable, eq(teamTable.id, teamLeagueAssignmentTable.teamId))
@@ -1116,28 +1117,91 @@ export class SeasonTransitionService {
     });
     
     // Convertir a array y ordenar
-    const standings = Array.from(teamStats.values())
-      .map(stats => ({
+    // Preparamos el array base con stats extendidos
+    let standings = Array.from(teamStats.values()).map(stats => {
+      const teamInfo = teamsInLeague.find(t => t.teamId === stats.teamId);
+      return {
         teamId: stats.teamId,
         teamName: stats.teamName,
         position: 0, // Se asignará después del ordenamiento
         points: stats.points,
         goalDifference: stats.goalsFor - stats.goalsAgainst,
-        played: stats.played
-      }))
-      .sort((a, b) => {
-        // Ordenar por puntos, luego por diferencia de goles
-        if (b.points !== a.points) return b.points - a.points;
-        return b.goalDifference - a.goalDifference;
-      });
-    
+        goalsFor: stats.goalsFor,
+        goalsAgainst: stats.goalsAgainst,
+        played: stats.played,
+        followers: teamInfo && typeof teamInfo.followers === 'number' ? teamInfo.followers : 0
+      };
+    });
+
+    // Agrupar por puntos
+    const groupsByPoints = new Map<number, any[]>();
+    standings.forEach(team => {
+      if (!groupsByPoints.has(team.points)) groupsByPoints.set(team.points, []);
+      groupsByPoints.get(team.points)!.push(team);
+    });
+
+    // Para cada grupo de equipos empatados a puntos, aplicar criterios de desempate
+    let sortedStandings: any[] = [];
+    for (const points of Array.from(groupsByPoints.keys()).sort((a, b) => b - a)) {
+      const group = groupsByPoints.get(points);
+      if (!group || group.length === 0) continue;
+      if (group.length === 1) {
+        sortedStandings.push(group[0]);
+      } else {
+        // 1. Enfrentamientos directos (diferencia de goles entre los empatados)
+        // Filtrar partidos solo entre los equipos empatados
+        const ids = group.map(t => t.teamId);
+        const directMatches = completedMatches.filter(m => ids.includes(m.homeTeamId) && ids.includes(m.awayTeamId));
+        // Calcular mini-liga de enfrentamientos directos
+        const directStats = new Map<number, { points: number; goalDiff: number; goalsFor: number; followers: number }>();
+        group.forEach(t => directStats.set(t.teamId, { points: 0, goalDiff: 0, goalsFor: 0, followers: t.followers || 0 }));
+        directMatches.forEach(m => {
+          // Home
+          if (directStats.has(m.homeTeamId) && typeof m.homeGoals === 'number' && typeof m.awayGoals === 'number') {
+            let s = directStats.get(m.homeTeamId)!;
+            s.goalsFor += m.homeGoals;
+            s.goalDiff += m.homeGoals - m.awayGoals;
+            if (m.homeGoals > m.awayGoals) s.points += 3;
+            else if (m.homeGoals === m.awayGoals) s.points += 1;
+          }
+          // Away
+          if (directStats.has(m.awayTeamId) && typeof m.homeGoals === 'number' && typeof m.awayGoals === 'number') {
+            let s = directStats.get(m.awayTeamId)!;
+            s.goalsFor += m.awayGoals;
+            s.goalDiff += m.awayGoals - m.homeGoals;
+            if (m.awayGoals > m.homeGoals) s.points += 3;
+            else if (m.awayGoals === m.homeGoals) s.points += 1;
+          }
+        });
+        // Ordenar el grupo por criterios
+        group.sort((a, b) => {
+          // 1. Puntos en enfrentamientos directos
+          if (directStats.get(b.teamId)!.points !== directStats.get(a.teamId)!.points)
+            return directStats.get(b.teamId)!.points - directStats.get(a.teamId)!.points;
+          // 2. Diferencia de goles en enfrentamientos directos
+          if (directStats.get(b.teamId)!.goalDiff !== directStats.get(a.teamId)!.goalDiff)
+            return directStats.get(b.teamId)!.goalDiff - directStats.get(a.teamId)!.goalDiff;
+          // 3. Diferencia de goles general
+          if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+          // 4. Goles a favor general
+          if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+          // 5. Seguidores
+          if ((b.followers || 0) !== (a.followers || 0))
+            return (b.followers || 0) - (a.followers || 0);
+          // 6. Sorteo (aleatorio)
+          return Math.random() - 0.5;
+        });
+        sortedStandings.push(...group);
+      }
+    }
+
     // Asignar posiciones
-    standings.forEach((team, index) => {
+    sortedStandings.forEach((team, index) => {
       team.position = index + 1;
     });
-    
-    this.logger.log(`Clasificación calculada para liga ${leagueId}: ${standings.length} equipos`);
-    return standings;
+
+    this.logger.log(`Clasificación calculada para liga ${leagueId}: ${sortedStandings.length} equipos`);
+    return sortedStandings;
   }
 
   /**
