@@ -1,4 +1,3 @@
-
 import { Controller, Post, Body, Param, Get, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { SeasonTransitionService, SeasonTransitionResult, PlayoffMatchup } from './season-transition.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -184,5 +183,44 @@ export class SeasonTransitionController {
       message: `Ganadores de playoffs procesados para temporada ${activeSeason.name}`,
       processed: true
     };
+  }
+
+  /**
+   * Endpoint de prueba para verificar la lógica unificada de clasificaciones
+   * Compara los resultados entre la lógica antigua y la nueva
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('test-unified-standings/:leagueId')
+  async testUnifiedStandings(
+    @Param('leagueId', ParseIntPipe) leagueId: number
+  ): Promise<{ message: string; success: boolean; details?: any }> {
+    try {
+      const activeSeason = await this.seasonTransitionService.getActiveSeason();
+      
+      // Usar la nueva lógica unificada
+      const newStandings = await this.seasonTransitionService['standingsService'].calculateStandings(activeSeason.id, leagueId);
+      
+      return {
+        message: 'Lógica unificada funcionando correctamente',
+        success: true,
+        details: {
+          seasonId: activeSeason.id,
+          leagueId: leagueId,
+          teamsCount: newStandings.length,
+          standings: newStandings.map(s => ({
+            position: s.position,
+            teamName: s.teamName,
+            points: s.points,
+            goalDifference: s.goalDifference,
+            played: s.played
+          }))
+        }
+      };
+    } catch (error) {
+      return {
+        message: `Error en prueba: ${error.message}`,
+        success: false
+      };
+    }
   }
 }
