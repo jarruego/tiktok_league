@@ -140,13 +140,7 @@ export const leagueApi = {
   },
 
   // Crear temporada
-  async createSeason(seasonData: {
-    name: string;
-    year: number;
-    isActive?: boolean;
-    startDate?: string;
-    endDate?: string;
-  }): Promise<Season> {
+  async createSeason(seasonData: { name: string }): Promise<Season> {
     const response = await fetch(`${API_BASE_URL}/api/league-system/seasons`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),

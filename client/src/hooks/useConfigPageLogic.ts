@@ -6,6 +6,17 @@ import { leagueApi } from '../api/leagueApi';
 import { matchApi } from '../api/matchApi';
 
 export function useConfigPageLogic() {
+  // Estados para gestión de calendario (deben ir antes de refreshActiveSeason)
+  const [activeSeason, setActiveSeason] = useState<any>(null);
+  // Refrescar temporada activa tras crear una nueva
+  const refreshActiveSeason = async () => {
+    try {
+      const season = await leagueApi.getActiveSeason();
+      setActiveSeason(season);
+    } catch {
+      setActiveSeason(null);
+    }
+  };
   const auth = useAuth();
   const permissions = usePermissions();
   const user = auth.user;
@@ -20,7 +31,6 @@ export function useConfigPageLogic() {
   const [generating, setGenerating] = useState(false);
   const [generateModalVisible, setGenerateModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [activeSeason, setActiveSeason] = useState<any>(null);
   const [matchStats, setMatchStats] = useState({
     totalMatches: 0,
     scheduledMatches: 0,
@@ -317,7 +327,6 @@ export function useConfigPageLogic() {
 
   // Retornar todas las propiedades y funciones
   return {
-    user,
     permissions,
     loading,
     caching,
@@ -348,6 +357,7 @@ export function useConfigPageLogic() {
     handleShowDeleteModal,
     handleDeleteAllMatches,
     setGenerateModalVisible,
-    setDeleteModalVisible
+    setDeleteModalVisible,
+    refreshActiveSeason
   };
 }

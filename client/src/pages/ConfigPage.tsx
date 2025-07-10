@@ -1,4 +1,5 @@
-import { Card, Typography, Button, Modal, Form, DatePicker, InputNumber, Space, Alert } from 'antd';
+import React from 'react';
+import { Card, Typography, Button, Modal, Form, Input, Alert, DatePicker, InputNumber, Space } from 'antd';
 import { Link } from 'react-router-dom';
 import { 
   SettingOutlined,
@@ -12,6 +13,7 @@ import {
 import { LayoutContainer } from '../components/LayoutContainer';
 import { MatchSimulationDashboard } from '../components/MatchSimulationDashboard';
 import { useConfigPageLogic } from '../hooks/useConfigPageLogic';
+import { leagueApi } from '../api/leagueApi';
 
 const { Title, Text } = Typography;
 
@@ -47,9 +49,17 @@ export default function ConfigPage() {
     handleShowDeleteModal,
     handleDeleteAllMatches,
     setGenerateModalVisible,
-    setDeleteModalVisible
+    setDeleteModalVisible,
+    refreshActiveSeason
   } = useConfigPageLogic();
 
+  // Estado para modal de crear temporada
+  const [createSeasonModalVisible, setCreateSeasonModalVisible] = React.useState(false);
+  const [createSeasonLoading, setCreateSeasonLoading] = React.useState(false);
+  const [createSeasonError, setCreateSeasonError] = React.useState<string | null>(null);
+  const [createSeasonSuccess, setCreateSeasonSuccess] = React.useState<string | null>(null);
+  const [seasonName, setSeasonName] = React.useState('');
+  const [autoSeasonName, setAutoSeasonName] = React.useState('');
   const [form] = Form.useForm();
 
   // Solo mostrar la página si el usuario es administrador
@@ -65,9 +75,88 @@ export default function ConfigPage() {
     );
   }
 
+  // Generar nombre automático de temporada
+  const generateNextSeasonName = async () => {
+    try {
+      // @ts-ignore
+      const seasons = await leagueApi.getAllSeasons();
+      const nextNumber = (seasons?.length || 0) + 1;
+      return `Temporada ${String(nextNumber).padStart(2, '0')}`;
+    } catch {
+      return 'Temporada 01';
+    }
+  };
+
+  // Cuando se abre el modal, autogenerar el nombre
+  React.useEffect(() => {
+    if (createSeasonModalVisible) {
+      generateNextSeasonName().then(name => {
+        setAutoSeasonName(name);
+        setSeasonName(name);
+      });
+    }
+  }, [createSeasonModalVisible]);
+
   return (
     <LayoutContainer>
       <div style={{ padding: '16px' }}>
+        {/* Botón para crear temporada solo si no hay ninguna o no hay activa */}
+        <div style={{ marginBottom: 16 }}>
+          {(!activeSeason) && (
+            <Button type="primary" onClick={() => setCreateSeasonModalVisible(true)}>
+              Crear temporada
+            </Button>
+          )}
+          {activeSeason && (
+            <Alert
+              message={`Temporada activa: ${activeSeason.name}`}
+              type="info"
+              showIcon
+              style={{ marginBottom: 0, marginTop: 0 }}
+            />
+          )}
+        </div>
+        {/* Modal para crear temporada */}
+        <Modal
+          title="Crear nueva temporada"
+          open={createSeasonModalVisible}
+          onCancel={() => {
+            setCreateSeasonModalVisible(false);
+            setCreateSeasonError(null);
+            setCreateSeasonSuccess(null);
+            setSeasonName('');
+            setAutoSeasonName('');
+          }}
+          onOk={async () => {
+            setCreateSeasonLoading(true);
+            setCreateSeasonError(null);
+            setCreateSeasonSuccess(null);
+            try {
+              // El backend requiere name y year como obligatorios, y isActive para dejarla activa
+              const year = new Date().getFullYear();
+              // @ts-ignore
+              const newSeason = await leagueApi.createSeason({ name: autoSeasonName, year, isActive: true });
+              setCreateSeasonSuccess('Temporada creada correctamente');
+              setSeasonName('');
+              setAutoSeasonName('');
+              refreshActiveSeason && refreshActiveSeason();
+            } catch (err: any) {
+              setCreateSeasonError(err.message || 'Error al crear la temporada');
+            } finally {
+              setCreateSeasonLoading(false);
+            }
+          }}
+          okText="Crear"
+          confirmLoading={createSeasonLoading}
+        >
+          <Form layout="vertical">
+            <Form.Item label="Nombre de la temporada" required>
+              <Input value={autoSeasonName} disabled />
+            </Form.Item>
+            {createSeasonError && <Alert message={createSeasonError} type="error" showIcon style={{ marginBottom: 8 }} />}
+            {createSeasonSuccess && <Alert message={createSeasonSuccess} type="success" showIcon style={{ marginBottom: 8 }} />}
+          </Form>
+        </Modal>
         <div style={{ marginBottom: '20px' }}>
           <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <SettingOutlined />
