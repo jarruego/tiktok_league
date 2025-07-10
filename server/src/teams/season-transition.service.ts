@@ -2300,11 +2300,12 @@ export class SeasonTransitionService {
           }
         }
         
-        // 4. MARCAR DESCENSOS DIRECTOS
+        // 4. MARCAR DESCENSOS DIRECTOS (asegurar orden correcto por posición antes de seleccionar)
         if (Number(division.relegateSlots || 0) > 0 && division.level < 5) {
-          const relegationStartPos = standings.length - Number(division.relegateSlots || 0) + 1;
-          const teamsToRelegate = standings.filter(team => team.position >= relegationStartPos);
-          
+          const relegateSlots = Number(division.relegateSlots || 0);
+          // Ordenar standings por posición antes de seleccionar los descendidos
+          const sortedStandings = [...standings].sort((a, b) => a.position - b.position);
+          const teamsToRelegate = sortedStandings.slice(-relegateSlots);
           for (const team of teamsToRelegate) {
             await this.markTeamForRelegation(team.teamId, seasonId);
             this.logger.log(`⬇️ ${team.teamName} desciende directamente (${team.position}º puesto)`);
