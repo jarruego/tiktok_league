@@ -1,3 +1,4 @@
+
 import { Controller, Post, Body, Param, Get, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { SeasonTransitionService, SeasonTransitionResult, PlayoffMatchup } from './season-transition.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -7,6 +8,24 @@ export class SeasonTransitionController {
   constructor(
     private readonly seasonTransitionService: SeasonTransitionService
   ) {}
+
+  /**
+   * Recalcula standings y actualiza estados de equipos para TODAS las divisiones de la temporada activa
+   * (Botón "Recalcular posiciones")
+   * Solo administradores pueden realizar esta operación
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('recalculate-standings')
+  async recalculateAllStandingsAndUpdateStates(): Promise<{ message: string; processedDivisions: number; errors: string[] }> {
+    // Usamos la lógica centralizada de processSeasonTransition, pero sin crear nueva temporada
+    const activeSeason = await this.seasonTransitionService.getActiveSeason();
+    const result = await this.seasonTransitionService.processSeasonTransition(activeSeason.id);
+    return {
+      message: result.message,
+      processedDivisions: result.processedDivisions,
+      errors: result.errors
+    };
+  }
 
   /**
    * Procesar la transición de una temporada a la siguiente
