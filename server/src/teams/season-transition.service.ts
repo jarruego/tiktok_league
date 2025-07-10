@@ -1158,7 +1158,8 @@ export class SeasonTransitionService {
         let pointsA = 0, pointsB = 0, goalDiffA = 0, goalDiffB = 0, goalsForA = 0, goalsForB = 0;
         directMatches.forEach(m => {
           if (typeof m.homeGoals !== 'number' || typeof m.awayGoals !== 'number') return;
-          if (m.homeTeamId === teamA.teamId) {
+          // Para el equipo A
+          if (m.homeTeamId === teamA.teamId && m.awayTeamId === teamB.teamId) {
             goalsForA += m.homeGoals;
             goalsForB += m.awayGoals;
             goalDiffA += m.homeGoals - m.awayGoals;
@@ -1166,7 +1167,7 @@ export class SeasonTransitionService {
             if (m.homeGoals > m.awayGoals) pointsA += 3;
             else if (m.homeGoals < m.awayGoals) pointsB += 3;
             else { pointsA += 1; pointsB += 1; }
-          } else {
+          } else if (m.homeTeamId === teamB.teamId && m.awayTeamId === teamA.teamId) {
             goalsForB += m.homeGoals;
             goalsForA += m.awayGoals;
             goalDiffB += m.homeGoals - m.awayGoals;

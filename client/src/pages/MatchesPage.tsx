@@ -58,6 +58,7 @@ export default function MatchesPage() {
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [filters, setFilters] = useState<MatchFilters>({});
+  const [teamName, setTeamName] = useState<string>('');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 50,
@@ -112,7 +113,6 @@ export default function MatchesPage() {
 
   const loadMatches = async () => {
     if (!selectedSeason) return;
-    
     try {
       setLoading(true);
       const response = await matchApi.getMatchesBySeason(selectedSeason, {
@@ -120,8 +120,17 @@ export default function MatchesPage() {
         page: pagination.current,
         limit: pagination.pageSize
       });
-      
-      setMatches(response.matches);
+      let filteredMatches = response.matches;
+      if (teamName && teamName.trim() !== '') {
+        const name = teamName.trim().toLowerCase();
+        filteredMatches = filteredMatches.filter(m =>
+          m.homeTeam.name.toLowerCase().includes(name) ||
+          m.homeTeam.shortName?.toLowerCase().includes(name) ||
+          m.awayTeam.name.toLowerCase().includes(name) ||
+          m.awayTeam.shortName?.toLowerCase().includes(name)
+        );
+      }
+      setMatches(filteredMatches);
       setPagination(prev => ({
         ...prev,
         total: response.pagination.total
@@ -156,6 +165,7 @@ export default function MatchesPage() {
 
   const clearFilters = () => {
     setFilters({});
+    setTeamName('');
   };
 
   const handleSeasonChange = (seasonId: number) => {
@@ -367,6 +377,13 @@ export default function MatchesPage() {
           {/* Filtros */}
           <div style={{ marginBottom: '16px' }}>
             <Space wrap>
+              <input
+                type="text"
+                placeholder="Buscar por equipo"
+                value={teamName}
+                onChange={e => setTeamName(e.target.value)}
+                style={{ width: 180, padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9' }}
+              />
               <Select
                 placeholder="Seleccionar temporada"
                 style={{ width: 200 }}
