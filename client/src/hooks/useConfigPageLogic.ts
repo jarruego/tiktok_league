@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { message } from 'antd';
-import { useAuth } from '../context/AuthContext';
 import { usePermissions } from './usePermissions';
 import { leagueApi } from '../api/leagueApi';
 import { matchApi } from '../api/matchApi';
@@ -17,9 +16,9 @@ export function useConfigPageLogic() {
       setActiveSeason(null);
     }
   };
-  const auth = useAuth();
+  // Eliminado: auth ya no se usa
   const permissions = usePermissions();
-  const user = auth.user;
+  // Eliminado: user ya no se usa
   
   // Estados básicos
   const [loading, setLoading] = useState(false);

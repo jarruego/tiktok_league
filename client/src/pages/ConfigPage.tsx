@@ -58,7 +58,7 @@ export default function ConfigPage() {
   const [createSeasonLoading, setCreateSeasonLoading] = React.useState(false);
   const [createSeasonError, setCreateSeasonError] = React.useState<string | null>(null);
   const [createSeasonSuccess, setCreateSeasonSuccess] = React.useState<string | null>(null);
-  const [seasonName, setSeasonName] = React.useState('');
+  // Eliminado: seasonName y setSeasonName ya no se usan
   const [autoSeasonName, setAutoSeasonName] = React.useState('');
   const [form] = Form.useForm();
 
@@ -92,7 +92,6 @@ export default function ConfigPage() {
     if (createSeasonModalVisible) {
       generateNextSeasonName().then(name => {
         setAutoSeasonName(name);
-        setSeasonName(name);
       });
     }
   }, [createSeasonModalVisible]);
@@ -124,7 +123,7 @@ export default function ConfigPage() {
             setCreateSeasonModalVisible(false);
             setCreateSeasonError(null);
             setCreateSeasonSuccess(null);
-            setSeasonName('');
+            // eliminado setSeasonName
             setAutoSeasonName('');
           }}
           onOk={async () => {
@@ -137,7 +136,7 @@ export default function ConfigPage() {
               // @ts-ignore
               const newSeason = await leagueApi.createSeason({ name: autoSeasonName, year, isActive: true });
               setCreateSeasonSuccess('Temporada creada correctamente');
-              setSeasonName('');
+              // eliminado setSeasonName
               setAutoSeasonName('');
               refreshActiveSeason && refreshActiveSeason();
             } catch (err: any) {
