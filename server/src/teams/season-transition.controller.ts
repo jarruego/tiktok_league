@@ -369,4 +369,15 @@ export class SeasonTransitionController {
       };
     }
   }
+
+  /**
+   * Endpoint de debug para ver estados de equipos en una temporada
+   */
+  @Get(':seasonId/debug-team-status')
+  async debugTeamStatus(
+    @Param('seasonId', ParseIntPipe) seasonId: number,
+    @Body() body: { divisionName?: string }
+  ): Promise<any> {
+    return this.seasonTransitionService.debugTeamStatusInSeason(seasonId, body.divisionName);
+  }
 }
