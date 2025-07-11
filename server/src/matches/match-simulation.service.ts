@@ -379,6 +379,9 @@ export class MatchSimulationService {
         
         // Procesar ganadores de playoffs para marcarlos para ascenso
         await this.seasonTransitionService.processPlayoffWinnersForPromotion(seasonId);
+        
+        // Asignar ligas automáticamente para la próxima temporada
+        await this.seasonTransitionService.assignLeaguesForNextSeason(seasonId);
       }
       
       this.logger.log('✅ Playoffs verificados y rondas siguientes creadas');
@@ -617,6 +620,9 @@ export class MatchSimulationService {
     
     // Procesar ganadores de playoffs
     await this.seasonTransitionService.processPlayoffWinnersForPromotion(seasonId);
+    
+    // Asignar ligas automáticamente para la próxima temporada
+    await this.seasonTransitionService.assignLeaguesForNextSeason(seasonId);
   }
 
   /**

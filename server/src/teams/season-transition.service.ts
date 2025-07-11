@@ -1926,4 +1926,635 @@ export class SeasonTransitionService {
       this.logger.error(`❌ Error en debug de estados de equipos:`, error);
     }
   }
+
+  /**
+   * Asigna automáticamente las ligas de destino para la próxima temporada
+   * Maneja ascensos, descensos y distribución entre grupos
+   */
+  async assignLeaguesForNextSeason(seasonId: number): Promise<{
+    message: string;
+    promotions: number;
+    relegations: number;
+    stays: number;
+    errors: string[];
+  }> {
+    const db = this.databaseService.db;
+    const errors: string[] = [];
+    let promotions = 0;
+    let relegations = 0;
+    let stays = 0;
+
+    try {
+      this.logger.log('🎯 Iniciando asignación automática de ligas para próxima temporada...');
+
+      // Procesar divisiones en orden descendente (5 -> 4 -> 3 -> 2 -> 1)
+      for (let divisionLevel = 5; divisionLevel >= 1; divisionLevel--) {
+        try {
+          const result = await this.assignLeaguesForDivision(seasonId, divisionLevel);
+          promotions += result.promotions;
+          relegations += result.relegations;
+          stays += result.stays;
+          
+          if (result.errors.length > 0) {
+            errors.push(...result.errors);
+          }
+        } catch (error) {
+          const errorMsg = `Error procesando División ${divisionLevel}: ${error.message}`;
+          errors.push(errorMsg);
+          this.logger.error(errorMsg);
+        }
+      }
+
+      this.logger.log(`✅ Asignación automática completada: ${promotions} ascensos, ${relegations} descensos, ${stays} permanencias`);
+
+      return {
+        message: 'Asignación automática de ligas completada',
+        promotions,
+        relegations,
+        stays,
+        errors
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error en asignación automática de ligas:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Asigna ligas para una división específica
+   */
+  private async assignLeaguesForDivision(seasonId: number, divisionLevel: number): Promise<{
+    promotions: number;
+    relegations: number;
+    stays: number;
+    errors: string[];
+  }> {
+    const db = this.databaseService.db;
+    const errors: string[] = [];
+    let promotions = 0;
+    let relegations = 0;
+    let stays = 0;
+
+    // Obtener división actual
+    const [currentDivision] = await db
+      .select()
+      .from(divisionTable)
+      .where(eq(divisionTable.level, divisionLevel));
+
+    if (!currentDivision) {
+      throw new Error(`División ${divisionLevel} no encontrada`);
+    }
+
+    // Obtener división superior (para ascensos)
+    const [upperDivision] = await db
+      .select()
+      .from(divisionTable)
+      .where(eq(divisionTable.level, divisionLevel - 1));
+
+    // Obtener división inferior (para descensos)
+    const [lowerDivision] = await db
+      .select()
+      .from(divisionTable)
+      .where(eq(divisionTable.level, divisionLevel + 1));
+
+    // Obtener ligas de la división actual
+    const currentLeagues = await db
+      .select()
+      .from(leagueTable)
+      .where(eq(leagueTable.divisionId, currentDivision.id))
+      .orderBy(asc(leagueTable.groupCode));
+
+    // Obtener ligas de división superior (si existe)
+    const upperLeagues = upperDivision ? await db
+      .select()
+      .from(leagueTable)
+      .where(eq(leagueTable.divisionId, upperDivision.id))
+      .orderBy(asc(leagueTable.groupCode)) : [];
+
+    // Obtener ligas de división inferior (si existe)
+    const lowerLeagues = lowerDivision ? await db
+      .select()
+      .from(leagueTable)
+      .where(eq(leagueTable.divisionId, lowerDivision.id))
+      .orderBy(asc(leagueTable.groupCode)) : [];
+
+    // Procesar según el nivel de división
+    switch (divisionLevel) {
+      case 1:
+        ({ promotions, relegations, stays } = await this.assignDivision1Teams(
+          seasonId, currentLeagues, lowerLeagues
+        ));
+        break;
+      case 2:
+        ({ promotions, relegations, stays } = await this.assignDivision2Teams(
+          seasonId, currentLeagues, upperLeagues, lowerLeagues
+        ));
+        break;
+      case 3:
+        ({ promotions, relegations, stays } = await this.assignDivision3Teams(
+          seasonId, currentLeagues, upperLeagues, lowerLeagues
+        ));
+        break;
+      case 4:
+        ({ promotions, relegations, stays } = await this.assignDivision4Teams(
+          seasonId, currentLeagues, upperLeagues, lowerLeagues
+        ));
+        break;
+      case 5:
+        ({ promotions, relegations, stays } = await this.assignDivision5Teams(
+          seasonId, currentLeagues, upperLeagues
+        ));
+        break;
+      default:
+        throw new Error(`División ${divisionLevel} no soportada`);
+    }
+
+    this.logger.log(`✅ División ${divisionLevel}: ${promotions} ascensos, ${relegations} descensos, ${stays} permanencias`);
+
+    return { promotions, relegations, stays, errors };
+  }
+
+  /**
+   * Asigna equipos de División 1 (solo descensos)
+   */
+  private async assignDivision1Teams(
+    seasonId: number,
+    currentLeagues: any[],
+    lowerLeagues: any[]
+  ): Promise<{ promotions: number; relegations: number; stays: number }> {
+    const db = this.databaseService.db;
+    let promotions = 0;
+    let relegations = 0;
+    let stays = 0;
+
+    // División 1: solo descensos (3 últimos van a División 2)
+    const leagueId = currentLeagues[0].id;
+    
+    // Obtener equipos relegados
+    const relegatedTeams = await db
+      .select({
+        teamId: teamLeagueAssignmentTable.teamId
+      })
+      .from(teamLeagueAssignmentTable)
+      .where(
+        and(
+          eq(teamLeagueAssignmentTable.seasonId, seasonId),
+          eq(teamLeagueAssignmentTable.leagueId, leagueId),
+          eq(teamLeagueAssignmentTable.relegatedNextSeason, true)
+        )
+      );
+
+    // Asignar equipos relegados a División 2 (hay una sola liga)
+    for (const team of relegatedTeams) {
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: lowerLeagues[0].id })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, team.teamId)
+          )
+        );
+      relegations++;
+    }
+
+    // Todos los demás se quedan en División 1
+    const allTeams = await db
+      .select({
+        teamId: teamLeagueAssignmentTable.teamId
+      })
+      .from(teamLeagueAssignmentTable)
+      .where(
+        and(
+          eq(teamLeagueAssignmentTable.seasonId, seasonId),
+          eq(teamLeagueAssignmentTable.leagueId, leagueId),
+          eq(teamLeagueAssignmentTable.relegatedNextSeason, false)
+        )
+      );
+
+    for (const team of allTeams) {
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: leagueId })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, team.teamId)
+          )
+        );
+      stays++;
+    }
+
+    return { promotions, relegations, stays };
+  }
+
+  /**
+   * Asigna equipos de División 2 (ascensos a División 1, descensos a División 3)
+   */
+  private async assignDivision2Teams(
+    seasonId: number,
+    currentLeagues: any[],
+    upperLeagues: any[],
+    lowerLeagues: any[]
+  ): Promise<{ promotions: number; relegations: number; stays: number }> {
+    const db = this.databaseService.db;
+    let promotions = 0;
+    let relegations = 0;
+    let stays = 0;
+
+    const leagueId = currentLeagues[0].id;
+
+    // Ascensos a División 1
+    const promotedTeams = await db
+      .select({
+        teamId: teamLeagueAssignmentTable.teamId
+      })
+      .from(teamLeagueAssignmentTable)
+      .where(
+        and(
+          eq(teamLeagueAssignmentTable.seasonId, seasonId),
+          eq(teamLeagueAssignmentTable.leagueId, leagueId),
+          eq(teamLeagueAssignmentTable.promotedNextSeason, true)
+        )
+      );
+
+    for (const team of promotedTeams) {
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: upperLeagues[0].id })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, team.teamId)
+          )
+        );
+      promotions++;
+    }
+
+    // Descensos a División 3 (distribución aleatoria entre grupos A y B)
+    const relegatedTeams = await db
+      .select({
+        teamId: teamLeagueAssignmentTable.teamId
+      })
+      .from(teamLeagueAssignmentTable)
+      .where(
+        and(
+          eq(teamLeagueAssignmentTable.seasonId, seasonId),
+          eq(teamLeagueAssignmentTable.leagueId, leagueId),
+          eq(teamLeagueAssignmentTable.relegatedNextSeason, true)
+        )
+      );
+
+    // Distribución aleatoria entre grupos de División 3
+    for (let i = 0; i < relegatedTeams.length; i++) {
+      const targetLeague = lowerLeagues[i % lowerLeagues.length];
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: targetLeague.id })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, relegatedTeams[i].teamId)
+          )
+        );
+      relegations++;
+    }
+
+    // Todos los demás se quedan en División 2
+    const stayingTeams = await db
+      .select({
+        teamId: teamLeagueAssignmentTable.teamId
+      })
+      .from(teamLeagueAssignmentTable)
+      .where(
+        and(
+          eq(teamLeagueAssignmentTable.seasonId, seasonId),
+          eq(teamLeagueAssignmentTable.leagueId, leagueId),
+          eq(teamLeagueAssignmentTable.promotedNextSeason, false),
+          eq(teamLeagueAssignmentTable.relegatedNextSeason, false)
+        )
+      );
+
+    for (const team of stayingTeams) {
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: leagueId })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, team.teamId)
+          )
+        );
+      stays++;
+    }
+
+    return { promotions, relegations, stays };
+  }
+
+  /**
+   * Asigna equipos de División 3 (ascensos a División 2, descensos a División 4)
+   */
+  private async assignDivision3Teams(
+    seasonId: number,
+    currentLeagues: any[],
+    upperLeagues: any[],
+    lowerLeagues: any[]
+  ): Promise<{ promotions: number; relegations: number; stays: number }> {
+    const db = this.databaseService.db;
+    let promotions = 0;
+    let relegations = 0;
+    let stays = 0;
+
+    // Ascensos a División 2 (3 equipos total)
+    const allPromotedTeams: { teamId: number }[] = [];
+    for (const league of currentLeagues) {
+      const promotedTeams = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, league.id),
+            eq(teamLeagueAssignmentTable.promotedNextSeason, true)
+          )
+        );
+      allPromotedTeams.push(...promotedTeams);
+    }
+
+    // Todos van a División 2 (hay una sola liga)
+    for (const team of allPromotedTeams) {
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: upperLeagues[0].id })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, team.teamId)
+          )
+        );
+      promotions++;
+    }
+
+    // Descensos a División 4 (distribución entre 4 grupos)
+    const allRelegatedTeams: { teamId: number }[] = [];
+    for (const league of currentLeagues) {
+      const relegatedTeams = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, league.id),
+            eq(teamLeagueAssignmentTable.relegatedNextSeason, true)
+          )
+        );
+      allRelegatedTeams.push(...relegatedTeams);
+    }
+
+    // Distribución aleatoria entre grupos de División 4
+    for (let i = 0; i < allRelegatedTeams.length; i++) {
+      const targetLeague = lowerLeagues[i % lowerLeagues.length];
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: targetLeague.id })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, allRelegatedTeams[i].teamId)
+          )
+        );
+      relegations++;
+    }
+
+    // Todos los demás se quedan en División 3 (mantienen su grupo)
+    for (const league of currentLeagues) {
+      const stayingTeams = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, league.id),
+            eq(teamLeagueAssignmentTable.promotedNextSeason, false),
+            eq(teamLeagueAssignmentTable.relegatedNextSeason, false)
+          )
+        );
+
+      for (const team of stayingTeams) {
+        await db
+          .update(teamLeagueAssignmentTable)
+          .set({ leagueNextSeason: league.id })
+          .where(
+            and(
+              eq(teamLeagueAssignmentTable.seasonId, seasonId),
+              eq(teamLeagueAssignmentTable.teamId, team.teamId)
+            )
+          );
+        stays++;
+      }
+    }
+
+    return { promotions, relegations, stays };
+  }
+
+  /**
+   * Asigna equipos de División 4 (ascensos a División 3, descensos a División 5)
+   * 6 equipos ascienden: distribución 3 a cada grupo de División 3
+   */
+  private async assignDivision4Teams(
+    seasonId: number,
+    currentLeagues: any[],
+    upperLeagues: any[],
+    lowerLeagues: any[]
+  ): Promise<{ promotions: number; relegations: number; stays: number }> {
+    const db = this.databaseService.db;
+    let promotions = 0;
+    let relegations = 0;
+    let stays = 0;
+
+    // Ascensos a División 3 (6 equipos total → 3 a cada grupo)
+    const allPromotedTeams: { teamId: number }[] = [];
+    for (const league of currentLeagues) {
+      const promotedTeams = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, league.id),
+            eq(teamLeagueAssignmentTable.promotedNextSeason, true)
+          )
+        );
+      allPromotedTeams.push(...promotedTeams);
+    }
+
+    // Distribución: 3 equipos a cada grupo de División 3
+    // Algoritmo: alternar entre grupos para balancear
+    for (let i = 0; i < allPromotedTeams.length; i++) {
+      const targetLeague = upperLeagues[Math.floor(i / 3) % upperLeagues.length];
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: targetLeague.id })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, allPromotedTeams[i].teamId)
+          )
+        );
+      promotions++;
+    }
+
+    // Descensos a División 5 (distribución entre 8 grupos)
+    const allRelegatedTeams: { teamId: number }[] = [];
+    for (const league of currentLeagues) {
+      const relegatedTeams = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, league.id),
+            eq(teamLeagueAssignmentTable.relegatedNextSeason, true)
+          )
+        );
+      allRelegatedTeams.push(...relegatedTeams);
+    }
+
+    // Distribución entre grupos de División 5
+    for (let i = 0; i < allRelegatedTeams.length; i++) {
+      const targetLeague = lowerLeagues[i % lowerLeagues.length];
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: targetLeague.id })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, allRelegatedTeams[i].teamId)
+          )
+        );
+      relegations++;
+    }
+
+    // Todos los demás se quedan en División 4 (mantienen su grupo)
+    for (const league of currentLeagues) {
+      const stayingTeams = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, league.id),
+            eq(teamLeagueAssignmentTable.promotedNextSeason, false),
+            eq(teamLeagueAssignmentTable.relegatedNextSeason, false)
+          )
+        );
+
+      for (const team of stayingTeams) {
+        await db
+          .update(teamLeagueAssignmentTable)
+          .set({ leagueNextSeason: league.id })
+          .where(
+            and(
+              eq(teamLeagueAssignmentTable.seasonId, seasonId),
+              eq(teamLeagueAssignmentTable.teamId, team.teamId)
+            )
+          );
+        stays++;
+      }
+    }
+
+    return { promotions, relegations, stays };
+  }
+
+  /**
+   * Asigna equipos de División 5 (solo ascensos a División 4)
+   * 12 equipos ascienden: distribución 3 a cada grupo de División 4
+   */
+  private async assignDivision5Teams(
+    seasonId: number,
+    currentLeagues: any[],
+    upperLeagues: any[]
+  ): Promise<{ promotions: number; relegations: number; stays: number }> {
+    const db = this.databaseService.db;
+    let promotions = 0;
+    let relegations = 0;
+    let stays = 0;
+
+    // Ascensos a División 4 (12 equipos total → 3 a cada grupo)
+    const allPromotedTeams: { teamId: number }[] = [];
+    for (const league of currentLeagues) {
+      const promotedTeams = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, league.id),
+            eq(teamLeagueAssignmentTable.promotedNextSeason, true)
+          )
+        );
+      allPromotedTeams.push(...promotedTeams);
+    }
+
+    // Distribución: 3 equipos a cada grupo de División 4
+    for (let i = 0; i < allPromotedTeams.length; i++) {
+      const targetLeague = upperLeagues[Math.floor(i / 3) % upperLeagues.length];
+      await db
+        .update(teamLeagueAssignmentTable)
+        .set({ leagueNextSeason: targetLeague.id })
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.teamId, allPromotedTeams[i].teamId)
+          )
+        );
+      promotions++;
+    }
+
+    // Todos los demás se quedan en División 5 (mantienen su grupo)
+    for (const league of currentLeagues) {
+      const stayingTeams = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            eq(teamLeagueAssignmentTable.leagueId, league.id),
+            eq(teamLeagueAssignmentTable.promotedNextSeason, false)
+          )
+        );
+
+      for (const team of stayingTeams) {
+        await db
+          .update(teamLeagueAssignmentTable)
+          .set({ leagueNextSeason: league.id })
+          .where(
+            and(
+              eq(teamLeagueAssignmentTable.seasonId, seasonId),
+              eq(teamLeagueAssignmentTable.teamId, team.teamId)
+            )
+          );
+        stays++;
+      }
+    }
+
+    return { promotions, relegations, stays };
+  }
 }

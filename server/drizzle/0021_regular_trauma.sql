@@ -1,0 +1,2 @@
+ALTER TABLE "team_league_assignments" ADD COLUMN "league_next_season" integer;--> statement-breakpoint
+ALTER TABLE "team_league_assignments" ADD CONSTRAINT "team_league_assignments_league_next_season_leagues_id_fk" FOREIGN KEY ("league_next_season") REFERENCES "public"."leagues"("id") ON DELETE no action ON UPDATE no action;

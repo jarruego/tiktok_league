@@ -206,9 +206,9 @@ export class LeagueSystemService {
         description: 'Tercera División',
         totalLeagues: 2,
         teamsPerLeague: 20,
-        promoteSlots: 2, // 1º de cada grupo
-        promotePlayoffSlots: 4, // 2º y 3º de cada grupo
-        relegateSlots: 6, // 3 últimos de cada grupo
+        promoteSlots: 1, // 1º de cada grupo
+        promotePlayoffSlots: 2, // 2º y 3º de cada grupo
+        relegateSlots: 3, // 3 últimos de cada grupo
         tournamentSlots: 0
       },
       {
@@ -217,9 +217,9 @@ export class LeagueSystemService {
         description: 'Cuarta División',
         totalLeagues: 4,
         teamsPerLeague: 20,
-        promoteSlots: 4, // 1º de cada grupo
-        promotePlayoffSlots: 4, // 2ºs juegan playoff por 2 plazas
-        relegateSlots: 12, // 3 últimos de cada grupo
+        promoteSlots: 1, // 1º de cada grupo
+        promotePlayoffSlots: 1, // 2ºs juegan playoff por 2 plazas
+        relegateSlots: 3, // 3 últimos de cada grupo
         tournamentSlots: 0
       },
       {
@@ -228,8 +228,8 @@ export class LeagueSystemService {
         description: 'Quinta División',
         totalLeagues: 8,
         teamsPerLeague: 20,
-        promoteSlots: 8, // 1º de cada grupo
-        promotePlayoffSlots: 8, // 2ºs juegan playoff por 4 plazas
+        promoteSlots: 1, // 1º de cada grupo
+        promotePlayoffSlots: 1, // 2ºs juegan playoff por 4 plazas
         relegateSlots: 0, // No hay descensos (última división)
         tournamentSlots: 0
       }

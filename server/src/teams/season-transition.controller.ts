@@ -340,4 +340,33 @@ export class SeasonTransitionController {
       };
     }
   }
+
+  /**
+   * Asigna automáticamente las ligas de destino para la próxima temporada
+   * Maneja ascensos, descensos y distribución entre grupos
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('assign-leagues-next-season')
+  async assignLeaguesForNextSeason(): Promise<{
+    message: string;
+    promotions: number;
+    relegations: number;
+    stays: number;
+    errors: string[];
+  }> {
+    try {
+      const activeSeason = await this.seasonTransitionService.getActiveSeason();
+      const result = await this.seasonTransitionService.assignLeaguesForNextSeason(activeSeason.id);
+      
+      return result;
+    } catch (error) {
+      return {
+        message: `Error en asignación automática: ${error.message}`,
+        promotions: 0,
+        relegations: 0,
+        stays: 0,
+        errors: [error.message]
+      };
+    }
+  }
 }

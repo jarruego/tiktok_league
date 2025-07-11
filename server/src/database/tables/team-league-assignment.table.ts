@@ -28,6 +28,7 @@ export const teamLeagueAssignmentTable = pgTable('team_league_assignments', {
   relegatedNextSeason: boolean('relegated_next_season').default(false),
   playoffNextSeason: boolean('playoff_next_season').default(false),
   qualifiedForTournament: boolean('qualified_for_tournament').default(false),
+  leagueNextSeason: integer('league_next_season').references(() => leagueTable.id), // Liga asignada para la próxima temporada
   
   // Timestamps
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
