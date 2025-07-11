@@ -692,12 +692,14 @@ export class StandingsService {
    * @param seasonId ID de la temporada
    * @param leagueId ID de la liga
    * @param applyConsequences Si debe aplicar las marcas automáticamente (por defecto true)
+   * @param resetPromotionFlag Si debe resetear el flag de ascenso directo (por defecto true)
    * @returns Clasificaciones con información de consecuencias aplicadas
    */
   async calculateStandingsWithConsequences(
     seasonId: number, 
     leagueId: number,
-    applyConsequences: boolean = true
+    applyConsequences: boolean = true,
+    resetPromotionFlag: boolean = true // Nuevo parámetro
   ): Promise<{
     standings: Array<{ teamId: number; teamName: string; position: number; points: number; goalDifference: number; goalsFor: number; goalsAgainst: number; played: number; won: number; drawn: number; lost: number; followers: number; consequence?: 'PROMOTION' | 'RELEGATION' | 'PLAYOFF' | 'TOURNAMENT' | 'SAFE' }>;
     consequences: {
@@ -784,15 +786,18 @@ export class StandingsService {
     
     if (applyConsequences) {
       // Limpiar flags existentes para esta liga y temporada
+      const resetFields: any = {
+        relegatedNextSeason: false,
+        playoffNextSeason: false,
+        qualifiedForTournament: false,
+        updatedAt: new Date()
+      };
+      if (resetPromotionFlag) {
+        resetFields.promotedNextSeason = false;
+      }
       await db
         .update(teamLeagueAssignmentTable)
-        .set({
-          promotedNextSeason: false,
-          relegatedNextSeason: false,
-          playoffNextSeason: false,
-          qualifiedForTournament: false,
-          updatedAt: new Date()
-        })
+        .set(resetFields)
         .where(
           and(
             eq(teamLeagueAssignmentTable.seasonId, seasonId),

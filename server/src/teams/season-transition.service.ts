@@ -217,7 +217,8 @@ export class SeasonTransitionService {
         const result = await this.standingsService.calculateStandingsWithConsequences(
           currentSeasonId, 
           league.id, 
-          true // Aplicar marcas automáticamente
+          true, // Aplicar consecuencias automáticamente
+          true  // Limpiar promotedNextSeason SOLO tras liga regular
         );
         
         // Verificar si hay clasificación para esta liga
@@ -1666,7 +1667,8 @@ export class SeasonTransitionService {
         const result = await this.standingsService.calculateStandingsWithConsequences(
           seasonId, 
           league.id, 
-          true // Aplicar consecuencias automáticamente
+          true, // Aplicar consecuencias automáticamente
+          true  // Limpiar promotedNextSeason SOLO tras liga regular
         );
 
         if (result.standings.length === 0) {
@@ -1698,9 +1700,9 @@ export class SeasonTransitionService {
    * Actualiza el estado de los equipos después de un partido de playoff
    * 
    * Reglas por división:
-   * - División 4: En la final, ambos finalistas ascienden
-   * - División 5: Los 4 ganadores de cuartos de final ascienden
-   * - Otras divisiones: Solo el ganador de la final asciende
+   * - División 4: Los ganadores de semifinales (finalistas) ascienden. En la final solo se actualiza playoffNextSeason.
+   * - División 5: Los ganadores de cuartos (semifinalistas) ascienden. En semifinal/final solo se actualiza playoffNextSeason.
+   * - Otras divisiones: Solo el ganador de la final asciende.
    * 
    * En todas las demás rondas, solo el perdedor es eliminado (queda seguro)
    */
@@ -1753,104 +1755,88 @@ export class SeasonTransitionService {
       ]);
       const winnerName = winnerId === match.homeTeamId ? homeTeam[0]?.name : awayTeam[0]?.name;
       const loserName = loserId === match.homeTeamId ? homeTeam[0]?.name : awayTeam[0]?.name;
-      // Lógica según la división y ronda del playoff
-      if (match.playoffRound === 'Final') {
-        if (match.divisionName === 'División 4') {
-          // DIVISIÓN 4: Ambos finalistas ascienden (por si alguno no lo estaba)
-          this.logger.log(`🔄 División 4 - Marcando ambos finalistas para ascenso (final)...`);
+
+      // --- Lógica especial para División 4 y 5 ---
+      if (match.divisionName === 'División 4') {
+        if (match.playoffRound === 'Semifinal') {
+          // Ganador de semifinal asciende (finalista)
+          this.logger.log(`🔄 División 4 - Semifinal: Marcando ganador para ascenso...`);
+          await db.update(teamLeagueAssignmentTable)
+            .set({ promotedNextSeason: true, updatedAt: new Date() })
+            .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
+          // El perdedor eliminado de playoff, pero NO tocar promotedNextSeason
+          await db.update(teamLeagueAssignmentTable)
+            .set({ playoffNextSeason: false, updatedAt: new Date() })
+            .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
+          this.logger.log(`   ✅ ${winnerName} → Asciende (finalista)`);
+          this.logger.log(`   ❌ ${loserName} → Eliminado (seguro)`);
+          return;
+        }
+        if (match.playoffRound === 'Final') {
+          // Ambos finalistas ya deberían estar ascendidos, solo actualizar playoffNextSeason
+          this.logger.log(`🔄 División 4 - Final: Solo actualizar playoffNextSeason a false para ambos finalistas...`);
           await Promise.all([
             db.update(teamLeagueAssignmentTable)
-              .set({ promotedNextSeason: true, playoffNextSeason: false, updatedAt: new Date() })
+              .set({ playoffNextSeason: false, updatedAt: new Date() })
               .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId))),
             db.update(teamLeagueAssignmentTable)
-              .set({ promotedNextSeason: true, playoffNextSeason: false, updatedAt: new Date() })
+              .set({ playoffNextSeason: false, updatedAt: new Date() })
               .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)))
           ]);
           this.logger.log(`🏆 Final División 4:`);
           this.logger.log(`   ✅ ${winnerName} → Asciende (ganador)`);
           this.logger.log(`   ✅ ${loserName} → Asciende (finalista)`);
-        } else {
-          // OTRAS DIVISIONES: Solo el ganador asciende
-          this.logger.log(`🔄 ${match.divisionName} - Marcando solo ganador para ascenso...`);
+          return;
+        }
+      }
+      if (match.divisionName === 'División 5') {
+        if (match.playoffRound === 'Cuartos') {
+          // Ganador de cuartos asciende (semifinalista)
+          this.logger.log(`🔄 División 5 - Cuartos: Marcando ganador para ascenso...`);
           await db.update(teamLeagueAssignmentTable)
-            .set({ promotedNextSeason: true, playoffNextSeason: false, updatedAt: new Date() })
+            .set({ promotedNextSeason: true, updatedAt: new Date() })
             .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
+          // El perdedor eliminado de playoff, pero NO tocar promotedNextSeason
           await db.update(teamLeagueAssignmentTable)
             .set({ playoffNextSeason: false, updatedAt: new Date() })
             .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-          this.logger.log(`🏆 Final ${match.divisionName}:`);
-          this.logger.log(`   ✅ ${winnerName} → Asciende`);
-          this.logger.log(`   ❌ ${loserName} → Seguro`);
+          this.logger.log(`   ✅ ${winnerName} → Asciende (semifinalista)`);
+          this.logger.log(`   ❌ ${loserName} → Eliminado`);
+          return;
         }
-      } else if (match.playoffRound === 'Semifinal' && match.divisionName === 'División 4') {
-        // DIVISIÓN 4 - SEMIFINALES: El ganador ya asegura ascenso
-        this.logger.log(`🔄 División 4 - Semifinal: Marcando ganador para ascenso...`);
+        if (match.playoffRound === 'Semifinal' || match.playoffRound === 'Final') {
+          // Ambos semifinalistas ya deberían estar ascendidos, solo actualizar playoffNextSeason
+          this.logger.log(`🔄 División 5 - ${match.playoffRound}: Solo actualizar playoffNextSeason a false para el perdedor...`);
+          await db.update(teamLeagueAssignmentTable)
+            .set({ playoffNextSeason: false, updatedAt: new Date() })
+            .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
+          this.logger.log(`   ✅ ${winnerName} → Sigue en playoff o es campeón`);
+          this.logger.log(`   ❌ ${loserName} → Eliminado (ya ascendió si venía de cuartos)`);
+          return;
+        }
+      }
+      // --- Lógica general para otras divisiones ---
+      if (match.playoffRound === 'Final') {
+        // Solo el ganador asciende
+        this.logger.log(`🔄 ${match.divisionName} - Final: Marcando solo ganador para ascenso...`);
         await db.update(teamLeagueAssignmentTable)
-          .set({ promotedNextSeason: true, updatedAt: new Date() })
+          .set({ promotedNextSeason: true, playoffNextSeason: false, updatedAt: new Date() })
           .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
         await db.update(teamLeagueAssignmentTable)
           .set({ playoffNextSeason: false, updatedAt: new Date() })
           .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-        this.logger.log(`   ✅ ${winnerName} → Asciende (finalista)`);
-        this.logger.log(`   ❌ ${loserName} → Eliminado (seguro)`);
-      } else if (match.playoffRound === 'Semifinal' && match.divisionName === 'División 5') {
-        // DIVISIÓN 5 - SEMIFINALES: Ambos semifinalistas ascienden
-        this.logger.log(`🔄 División 5 - Semifinal: Marcando ambos semifinalistas para ascenso...`);
-
-
-
-        await Promise.all([
-          db.update(teamLeagueAssignmentTable)
-            .set({ promotedNextSeason: true, playoffNextSeason: false, updatedAt: new Date() })
-            .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId))),
-          db.update(teamLeagueAssignmentTable)
-            .set({ promotedNextSeason: true, playoffNextSeason: false, updatedAt: new Date() })
-            .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)))
-        ]);
-        this.logger.log(`⚽ Semifinal División 5:`);
-        this.logger.log(`   ✅ ${winnerName} → Asciende (semifinalista)`);
-        this.logger.log(`   ✅ ${loserName} → Asciende (semifinalista)`);
-      } else if (match.playoffRound === 'Cuartos' && match.divisionName === 'División 5') {
-        // DIVISIÓN 5 - CUARTOS DE FINAL: Solo eliminar perdedor, ganador sigue a semifinal
-        this.logger.log(`🔄 División 5 - Cuartos: Ganador ${winnerId} (${winnerName}) sigue a semifinal...`);
-        // Solo quitar de playoff, NO tocar promotedNextSeason
-        await db.update(teamLeagueAssignmentTable)
-          .set({ playoffNextSeason: false, updatedAt: new Date() })
-          .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-        this.logger.log(`   ✅ ${winnerName} → Sigue a semifinal`);
-        this.logger.log(`   ❌ ${loserName} → Eliminado`);
-      } else {
-        // SEMIFINALES y otras rondas: El perdedor es eliminado (queda seguro)
-        this.logger.log(`🔄 ${match.playoffRound} - Marcando perdedor ${loserId} (${loserName}) como eliminado...`);
-        // Solo quitar de playoff, NO tocar promotedNextSeason
-        await db.update(teamLeagueAssignmentTable)
-          .set({ playoffNextSeason: false, updatedAt: new Date() })
-          .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-        this.logger.log(`   ✅ ${winnerName} → Sigue en playoff`);
-        this.logger.log(`   ❌ ${loserName} → Eliminado (seguro)`);
+        this.logger.log(`🏆 Final ${match.divisionName}:`);
+        this.logger.log(`   ✅ ${winnerName} → Asciende`);
+        this.logger.log(`   ❌ ${loserName} → Seguro`);
+        return;
       }
-      // Verificación final de estados (común para todos los casos)
-      const [finalWinnerState, finalLoserState] = await Promise.all([
-        db.select({
-          teamId: teamLeagueAssignmentTable.teamId,
-          playoffNextSeason: teamLeagueAssignmentTable.playoffNextSeason,
-          promotedNextSeason: teamLeagueAssignmentTable.promotedNextSeason,
-          relegatedNextSeason: teamLeagueAssignmentTable.relegatedNextSeason
-        })
-        .from(teamLeagueAssignmentTable)
-        .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId))),
-        db.select({
-          teamId: teamLeagueAssignmentTable.teamId,
-          playoffNextSeason: teamLeagueAssignmentTable.playoffNextSeason,
-          promotedNextSeason: teamLeagueAssignmentTable.promotedNextSeason,
-          relegatedNextSeason: teamLeagueAssignmentTable.relegatedNextSeason
-        })
-        .from(teamLeagueAssignmentTable)
-        .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)))
-      ]);
-      this.logger.log(`🔍 Estado final verificado:`);
-      this.logger.log(`   Ganador ${winnerId} (${winnerName}):`, finalWinnerState[0]);
-      this.logger.log(`   Perdedor ${loserId} (${loserName}):`, finalLoserState[0]);
+      // Otras rondas: solo eliminar perdedor de playoff, nunca quitar ascenso
+      this.logger.log(`🔄 ${match.playoffRound} - Marcando perdedor ${loserId} (${loserName}) como eliminado...`);
+      await db.update(teamLeagueAssignmentTable)
+        .set({ playoffNextSeason: false, updatedAt: new Date() })
+        .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
+      this.logger.log(`   ✅ ${winnerName} → Sigue en playoff`);
+      this.logger.log(`   ❌ ${loserName} → Eliminado (seguro)`);
     } catch (error) {
       this.logger.error(`❌ Error actualizando estados tras partido de playoff ${matchId}:`, error);
     }
