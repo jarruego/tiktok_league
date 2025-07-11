@@ -322,6 +322,7 @@ const teams = [
     "footballDataId": 675,
     "competitionId": 2003
   },
+
   {
     "name": "Real Madrid",
     "tiktokId": "realmadrid",
@@ -332,6 +333,18 @@ const teams = [
   }
 ];
 
+// Añadir 300 equipos callejeros automáticamente
+for (let i = 1; i <= 300; i++) {
+  const num = i.toString().padStart(2, '0');
+  teams.push({
+    name: `Equipo Callejero ${num}`,
+    tiktokId: `Bot_${num}`,
+    followers: 0,
+    displayName: "",
+    footballDataId: 0, 
+    competitionId: 0 
+  });
+}
 async function seed(existingDb?: any) {
   let db;
   
