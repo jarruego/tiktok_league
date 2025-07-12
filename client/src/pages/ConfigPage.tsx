@@ -57,7 +57,10 @@ export default function ConfigPage() {
     seasonComplete,
     checkingSeasonComplete,
     creatingNewSeason,
-    handleCreateNewSeason
+    handleCreateNewSeason,
+    // Para botón de asignar descendidos tras playoffs
+    assigningRelegated,
+    handleAssignRelegatedTeamsToVacantSlots
   } = useConfigPageLogic();
 
   // Estado para modal de crear nueva temporada desde completada
@@ -353,6 +356,17 @@ export default function ConfigPage() {
                       showIcon
                       style={{ marginBottom: '12px' }}
                     />
+                    {/* Botón para asignar descendidos tras playoffs, solo si no hay playoffs pendientes */}
+                    {seasonComplete.summary.pendingPlayoffs === 0 && (
+                      <Button
+                        type="default"
+                        style={{ width: '100%', marginBottom: 8 }}
+                        loading={assigningRelegated}
+                        onClick={handleAssignRelegatedTeamsToVacantSlots}
+                      >
+                        Asignar descendidos tras playoffs
+                      </Button>
+                    )}
                     <Button
                       type="primary"
                       icon={<CalendarOutlined />}

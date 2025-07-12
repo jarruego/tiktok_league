@@ -1,3 +1,4 @@
+import { assignRelegatedTeamsToVacantSlots } from '../api/seasonTransitionApi';
 import { recalculateAllStandingsAndStates, checkActiveSeasonComplete, createNewSeasonFromCompleted } from '../api/seasonTransitionApi';
 import { useState, useEffect } from 'react';
 import { message } from 'antd';
@@ -6,6 +7,20 @@ import { leagueApi } from '../api/leagueApi';
 import { matchApi } from '../api/matchApi';
 
 export function useConfigPageLogic() {
+  // Asignar manualmente los equipos descendidos a los huecos vacantes tras playoffs
+  const [assigningRelegated, setAssigningRelegated] = useState(false);
+  const handleAssignRelegatedTeamsToVacantSlots = async () => {
+    setAssigningRelegated(true);
+    try {
+      const result = await assignRelegatedTeamsToVacantSlots();
+      message.success(result.message || 'Descensos asignados manualmente tras playoffs');
+    } catch (error: any) {
+      message.error(error.message || 'Error al asignar descendidos');
+    } finally {
+      setAssigningRelegated(false);
+      await refreshAllData();
+    }
+  };
   // Estados para gestión de calendario (deben ir antes de refreshActiveSeason)
   const [activeSeason, setActiveSeason] = useState<any>(null);
   
@@ -328,16 +343,12 @@ export function useConfigPageLogic() {
   };
 
   // Función para actualizar todos los datos de pantalla después de una acción
+  // Refrescar todos los datos de la pantalla (usado tras acciones administrativas)
   const refreshAllData = async () => {
     try {
-      // Actualizar temporada y estadísticas
       await refreshActiveSeason();
-      
-      // Si hay temporada activa, cargar sus estadísticas y verificar estado
-      if (activeSeason) {
-        await loadActiveSeasonAndStats();
-        await checkSeasonCompletionStatus();
-      }
+      await loadActiveSeasonAndStats();
+      await checkSeasonCompletionStatus();
     } catch (error) {
       console.error('Error refreshing data:', error);
     }
@@ -487,6 +498,8 @@ export function useConfigPageLogic() {
 
   // Retornar todas las propiedades y funciones
   return {
+    handleAssignRelegatedTeamsToVacantSlots,
+    assigningRelegated,
     permissions,
     loading,
     caching,

@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Param, Get, UseGuards, ParseIntPipe } from '@nestjs/common';
+// ...existing code (dejar solo un bloque de imports y una clase)...
+import { Controller, Post, Body, Param, Get, UseGuards, ParseIntPipe, Query } from '@nestjs/common';
 import { SeasonTransitionService, SeasonTransitionResult, PlayoffMatchup } from './season-transition.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -373,6 +374,18 @@ export class SeasonTransitionController {
   /**
    * Endpoint de debug para ver estados de equipos en una temporada
    */
+
+  @UseGuards(JwtAuthGuard)
+  @Post('assign-relegated-teams')
+  async assignRelegatedTeamsToVacantSlots(): Promise<{ message: string; assigned: boolean }> {
+    const activeSeason = await this.seasonTransitionService.getActiveSeason();
+    await this.seasonTransitionService.assignRelegatedTeamsToVacantSlots(activeSeason.id);
+    return {
+      message: 'Descendidos asignados a los huecos vacantes tras playoffs',
+      assigned: true
+    };
+  }
+  
   @Get(':seasonId/debug-team-status')
   async debugTeamStatus(
     @Param('seasonId', ParseIntPipe) seasonId: number,

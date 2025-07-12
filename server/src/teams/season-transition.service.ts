@@ -74,6 +74,121 @@ export class SeasonTransitionService {
   ) {}
 
   /**
+   * Asigna a los equipos descendidos a los slots vacantes de las ligas/grupos de la división inferior
+   * Debe ejecutarse tras playoffs, antes de crear la nueva temporada
+   * Para cada equipo que asciende, marca su liga/grupo de origen como vacante
+   * Para cada descendido, asigna leagueNextSeason a ese slot vacante
+   */
+  async assignRelegatedTeamsToVacantSlots(seasonId: number): Promise<void> {
+    const db = this.databaseService.db;
+    this.logger.log('--- [Asignación de descendidos a vacantes] ---');
+    // Obtener todas las divisiones ordenadas de mayor a menor (para procesar descensos)
+    const divisions = await db
+      .select()
+      .from(divisionTable)
+      .orderBy(desc(divisionTable.level));
+
+    for (const division of divisions) {
+      // Saltar la última división (no tiene inferior)
+      const lowerDivisionLevel = Number(division.level) + 1;
+      const [lowerDivision] = await db
+        .select()
+        .from(divisionTable)
+        .where(eq(divisionTable.level, lowerDivisionLevel));
+      if (!lowerDivision) continue;
+
+      // Obtener ligas de la división actual y de la inferior
+      const currentLeagues = await db
+        .select({ id: leagueTable.id, groupCode: leagueTable.groupCode, name: leagueTable.name })
+        .from(leagueTable)
+        .where(eq(leagueTable.divisionId, division.id));
+      const lowerLeagues = await db
+        .select({ id: leagueTable.id, groupCode: leagueTable.groupCode, name: leagueTable.name })
+        .from(leagueTable)
+        .where(eq(leagueTable.divisionId, lowerDivision.id));
+
+      // LOG extra: divisiones y ligas detectadas
+      this.logger.log(`[DEBUG] División actual: ${division.level} (${division.id}) - Ligas: ${currentLeagues.map(l => `${l.name}[${l.groupCode}]`).join(', ')}`);
+      this.logger.log(`[DEBUG] División inferior: ${lowerDivision.level} (${lowerDivision.id}) - Ligas: ${lowerLeagues.map(l => `${l.name}[${l.groupCode}]`).join(', ')}`);
+
+      // 1. Identificar equipos que ascienden desde la división inferior
+      const promoted = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId,
+          leagueId: teamLeagueAssignmentTable.leagueId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            inArray(teamLeagueAssignmentTable.leagueId, lowerLeagues.map(l => l.id)),
+            eq(teamLeagueAssignmentTable.promotedNextSeason, true)
+          )
+        );
+
+      // 2. Marcar slots vacantes en lowerLeagues (por cada equipo que asciende, su liga queda vacante)
+      // Mapeo: leagueId -> vacante
+      const vacantSlots: number[] = promoted.map(p => p.leagueId);
+
+      // 3. Identificar equipos que descienden de la división actual
+      const relegated = await db
+        .select({
+          teamId: teamLeagueAssignmentTable.teamId,
+          leagueId: teamLeagueAssignmentTable.leagueId
+        })
+        .from(teamLeagueAssignmentTable)
+        .where(
+          and(
+            eq(teamLeagueAssignmentTable.seasonId, seasonId),
+            inArray(teamLeagueAssignmentTable.leagueId, currentLeagues.map(l => l.id)),
+            eq(teamLeagueAssignmentTable.relegatedNextSeason, true)
+          )
+        );
+
+      // Obtener nombres de equipos y ligas para logs
+      const promotedTeams = await Promise.all(promoted.map(async p => {
+        const [team] = await db.select({ name: teamTable.name }).from(teamTable).where(eq(teamTable.id, p.teamId));
+        const [league] = lowerLeagues.filter(l => l.id === p.leagueId);
+        return { teamName: team?.name, leagueId: p.leagueId, groupCode: league?.groupCode, leagueName: league?.name };
+      }));
+      const relegatedTeams = await Promise.all(relegated.map(async r => {
+        const [team] = await db.select({ name: teamTable.name }).from(teamTable).where(eq(teamTable.id, r.teamId));
+        const [league] = currentLeagues.filter(l => l.id === r.leagueId);
+        return { teamName: team?.name, leagueId: r.leagueId, groupCode: league?.groupCode, leagueName: league?.name };
+      }));
+
+      // LOG extra: equipos detectados
+      this.logger.log(`[DEBUG] División ${division.level} → ${lowerDivision.level}: Ascendidos detectados (${promotedTeams.length}): ${promotedTeams.map(t => `${t.teamName} [${t.leagueName}/${t.groupCode}]`).join(', ')}`);
+      this.logger.log(`[DEBUG] División ${division.level} → ${lowerDivision.level}: Descendidos detectados (${relegatedTeams.length}): ${relegatedTeams.map(t => `${t.teamName} [${t.leagueName}/${t.groupCode}]`).join(', ')}`);
+      this.logger.log(`[DEBUG] División ${division.level} → ${lowerDivision.level}: Vacantes en grupos de la división inferior: ${vacantSlots.length} (IDs: ${vacantSlots.join(', ')})`);
+
+      this.logger.log(`División ${division.level} → ${lowerDivision.level}`);
+      this.logger.log(`  Ascendidos (${promotedTeams.length}): ${promotedTeams.map(t => `${t.teamName} [${t.groupCode}]`).join(', ')}`);
+      this.logger.log(`  Descendidos (${relegatedTeams.length}): ${relegatedTeams.map(t => `${t.teamName} [${t.groupCode}]`).join(', ')}`);
+      this.logger.log(`  Vacantes en grupos de la división inferior: ${vacantSlots.length}`);
+
+      // 4. Asignar a cada descendido un slot vacante (uno a uno)
+      for (let i = 0; i < relegated.length && i < vacantSlots.length; i++) {
+        const relegatedTeam = relegatedTeams[i];
+        const targetLeague = lowerLeagues.find(l => l.id === vacantSlots[i]);
+        this.logger.log(`    - ${relegatedTeam.teamName} baja de grupo ${relegatedTeam.groupCode} a grupo ${targetLeague?.groupCode}`);
+        await db.update(teamLeagueAssignmentTable)
+          .set({ leagueNextSeason: vacantSlots[i], updatedAt: new Date() })
+          .where(
+            and(
+              eq(teamLeagueAssignmentTable.seasonId, seasonId),
+              eq(teamLeagueAssignmentTable.teamId, relegated[i].teamId)
+            )
+          );
+      }
+      if (relegated.length > vacantSlots.length) {
+        this.logger.warn(`⚠️ Hay más descendidos (${relegated.length}) que vacantes (${vacantSlots.length}) en División ${division.level}. Los equipos sobrantes no se asignan automáticamente.`);
+      }
+    }
+    this.logger.log('--- [Fin asignación de descendidos] ---');
+  }
+
+  /**
    * Procesa el cierre de temporada y prepara la siguiente
    * @param currentSeasonId ID de la temporada que se cierra
    * @param nextSeasonId ID de la nueva temporada (debe estar creada)
@@ -1630,6 +1745,8 @@ export class SeasonTransitionService {
           }
         }
       }
+      // Asignar los slots de descenso tras playoffs
+      await this.assignRelegatedTeamsToVacantSlots(seasonId);
     } catch (error) {
       this.logger.error('Error procesando ganadores de playoffs:', error);
     }
@@ -1801,7 +1918,7 @@ export class SeasonTransitionService {
           } else {
             this.logger.log(`🛑 ${loserName} ${loserIdStr} eliminado de playoff en semifinal de ${match.divisionName}`);
           }
-          return;
+          // Continuar para comprobar si quedan playoffs pendientes
         }
         if (match.playoffRound === 'Final') {
           // Ambos finalistas ya deberían estar ascendidos, solo actualizar playoffNextSeason si corresponde (no reset masivo)
@@ -1839,7 +1956,7 @@ export class SeasonTransitionService {
           if (!loserPromoted) {
             this.logger.warn(`[CONTROL] ⚠️ El perdedor de la final de División 4 (${loserName}, ID: ${loserId}) NO está marcado como promotedNextSeason: true tras la final (debería estarlo, ambos finalistas ascienden).`);
           }
-          return;
+          // Continuar para comprobar si quedan playoffs pendientes
         }
       }
       if (match.divisionName === 'División 5') {
@@ -1862,7 +1979,7 @@ export class SeasonTransitionService {
           } else {
             this.logger.log(`🛑 ${loserName} ${loserIdStr} eliminado de playoff en cuartos de ${match.divisionName}`);
           }
-          return;
+          // Continuar para comprobar si quedan playoffs pendientes
         }
         if (match.playoffRound === 'Semifinal' || match.playoffRound === 'Final') {
           // Ambos semifinalistas ya deberían estar ascendidos, solo actualizar playoffNextSeason
@@ -1874,7 +1991,7 @@ export class SeasonTransitionService {
           } else {
             this.logger.log(`🛑 ${loserName} ${loserIdStr} eliminado de playoff en ${match.playoffRound} de ${match.divisionName}`);
           }
-          return;
+          // Continuar para comprobar si quedan playoffs pendientes
         }
       }
       // --- Lógica general para otras divisiones ---
@@ -1896,7 +2013,7 @@ export class SeasonTransitionService {
         } else {
           this.logger.log(`🎉 ${winnerName} ${winnerIdStr} (ganador) marcado para ascenso y 🛑 ${loserName} ${loserIdStr} (perdedor) eliminado de playoff en final de ${match.divisionName}`);
         }
-        return;
+        // Continuar para comprobar si quedan playoffs pendientes
       }
       // Otras rondas: solo eliminar perdedor de playoff, nunca quitar ascenso
       const result = await db.update(teamLeagueAssignmentTable)
@@ -1907,7 +2024,24 @@ export class SeasonTransitionService {
       } else {
         this.logger.log(`🛑 ${loserName} ${loserIdStr} eliminado de playoff en ${match.playoffRound} de ${match.divisionName}`);
       }
-      
+
+      // --- NUEVO: Si ya no quedan partidos de playoff pendientes en la división, ejecutar processPlayoffWinnersForPromotion ---
+      const playoffsPendientes = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(matchTable)
+        .innerJoin(leagueTable, eq(matchTable.leagueId, leagueTable.id))
+        .where(
+          and(
+            eq(matchTable.seasonId, match.seasonId),
+            eq(leagueTable.divisionId, match.divisionLevel ? match.divisionLevel : 0),
+            eq(matchTable.isPlayoff, true),
+            eq(matchTable.status, MatchStatus.SCHEDULED)
+          )
+        );
+      if (Number(playoffsPendientes[0]?.count) === 0) {
+        this.logger.log(`[AUTO] Playoffs completados en División ${match.divisionName} (ID: ${match.divisionLevel}). Ejecutando processPlayoffWinnersForPromotion...`);
+        await this.processPlayoffWinnersForPromotion(match.seasonId);
+      }
     } catch (error) {
       this.logger.error(`❌ Error actualizando estados tras partido de playoff ${matchId}:`, error);
     }
