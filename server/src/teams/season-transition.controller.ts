@@ -166,13 +166,13 @@ export class SeasonTransitionController {
       errors: number;
     };
   }> {
-    console.log('[DEBUG CONTROLLER] checkActiveSeasonComplete - iniciando');
+    // Log eliminado: debug controller
     
     const activeSeason = await this.seasonTransitionService.getActiveSeason();
-    console.log('[DEBUG CONTROLLER] Temporada activa:', activeSeason.id, activeSeason.name);
+    // Log eliminado: debug controller
     
     const status = await this.seasonTransitionService.isSeasonCompletelyFinished(activeSeason.id);
-    console.log('[DEBUG CONTROLLER] Estado recibido del service:', status);
+    // Log eliminado: debug controller
     
     const result = {
       isComplete: status.isComplete,
@@ -189,7 +189,7 @@ export class SeasonTransitionController {
       }
     };
     
-    console.log('[DEBUG CONTROLLER] Devolviendo resultado:', result);
+    // Log eliminado: debug controller
     return result;
   }
 
@@ -251,7 +251,7 @@ export class SeasonTransitionController {
       teamsTransitioned: number;
     };
   }> {
-    console.log('[DEBUG CONTROLLER] createNewSeasonFromCompleted - iniciando con body:', body);
+    // Log eliminado: debug controller
     
     // Si no se especifica temporada, usar la activa
     let seasonId = body.completedSeasonId;
@@ -259,17 +259,17 @@ export class SeasonTransitionController {
     if (!seasonId) {
       const activeSeason = await this.seasonTransitionService.getActiveSeason();
       seasonId = activeSeason.id;
-      console.log('[DEBUG CONTROLLER] Usando temporada activa:', seasonId);
+      // Log eliminado: debug controller
     }
     
-    console.log('[DEBUG CONTROLLER] Llamando al service con seasonId:', seasonId, 'y newSeasonName:', body.newSeasonName);
+    // Log eliminado: debug controller
     
     const result = await this.seasonTransitionService.createNewSeasonFromCompleted(
       seasonId!,
       body.newSeasonName
     );
     
-    console.log('[DEBUG CONTROLLER] Resultado del service:', result);
+    // Log eliminado: debug controller
     return result;
   }
 

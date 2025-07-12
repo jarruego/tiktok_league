@@ -48,16 +48,15 @@ export class MatchSimulationService {
   ) {}
 
   /**
-   * Job programado para simular partidos automáticamente cada minuto (para pruebas)
-   * NOTA: Cambiar a '0 17 * * *' para producción (diario a las 17:00)
+   * Job programado para simular partidos automáticamente cada día a las 16:50 (hora de Madrid)
    * Incluye recuperación automática de partidos pendientes de días anteriores
    */
-  @Cron('*/1 * * * *', {
+  @Cron('50 16 * * *', {
     name: 'daily-match-simulation',
     timeZone: 'Europe/Madrid',
   })
   async simulateTodaysMatches() {
-    this.logger.log('🎮 Iniciando simulación automática con recuperación...');
+    // Log eliminado: progreso
     
     try {
       // Buscar partidos pendientes hasta 7 días atrás (por si el servidor estuvo caído)
@@ -66,11 +65,7 @@ export class MatchSimulationService {
       
       const results = await this.simulatePendingMatchesInRange(sevenDaysAgo, today);
       
-      if (results.length > 0) {
-        this.logger.log(`⚽ ${results.length} partidos simulados exitosamente (incluyendo recuperación)`);
-      } else {
-        this.logger.log(`📅 No hay partidos pendientes para simular`);
-      }
+      // Logs eliminados: progreso
     } catch (error) {
       this.logger.error('❌ Error en la simulación automática:', error);
     }
@@ -80,6 +75,7 @@ export class MatchSimulationService {
    * Simular todos los partidos de una fecha específica
    */
   async simulateMatchesByDate(date: string): Promise<MatchSimulationResult[]> {
+    const results: MatchSimulationResult[] = [];
     const db = this.databaseService.db;
     
     // Extraer solo la fecha si viene con timestamp completo
@@ -108,14 +104,8 @@ export class MatchSimulationService {
         )
       );
 
-    this.logger.log(`🔍 Partidos encontrados: ${matches.length}`);
+    // Log eliminado: progreso
 
-    if (matches.length === 0) {
-      return [];
-    }
-
-    const results: MatchSimulationResult[] = [];
-    
     for (const match of matches) {
       try {
         const result = await this.simulateSingleMatch(match.id);
@@ -124,31 +114,22 @@ export class MatchSimulationService {
         this.logger.error(`❌ Error simulando partido ${match.id}:`, error);
       }
     }
-
-    // Recalcular clasificaciones solo al FINAL DE LA JORNADA
     if (results.length > 0) {
-      this.logger.log('🏁 FINAL DE JORNADA - Procesando consecuencias...');
-      
-      // Obtener jornadas y temporadas afectadas
+      // Procesar consecuencias de la jornada sin logs de progreso
       const affectedMatchdays = new Map<number, Set<number>>(); // seasonId -> jornadas
-      
       for (const match of matches) {
         if (!affectedMatchdays.has(match.seasonId)) {
           affectedMatchdays.set(match.seasonId, new Set());
         }
-        
         // Obtener la jornada del partido
         const [matchInfo] = await this.databaseService.db
           .select({ matchday: matchTable.matchday })
           .from(matchTable)
           .where(eq(matchTable.id, match.id));
-          
         if (matchInfo) {
           affectedMatchdays.get(match.seasonId)!.add(matchInfo.matchday);
         }
       }
-
-      // Procesar cada jornada completada
       for (const [seasonId, matchdays] of affectedMatchdays) {
         for (const matchday of matchdays) {
           const isCompleted = await this.isMatchdayCompleted(seasonId, matchday);
@@ -157,8 +138,6 @@ export class MatchSimulationService {
           }
         }
       }
-
-      this.logger.log('✅ Jornada completada - Clasificaciones actualizadas y playoffs verificados');
     }
 
     return results;
@@ -222,9 +201,7 @@ export class MatchSimulationService {
       })
       .where(eq(matchTable.id, matchId));
 
-    this.logger.log(
-      `⚽ ${homeTeam.name} ${simulationResult.homeGoals}-${simulationResult.awayGoals} ${awayTeam.name}`
-    );
+    // Log eliminado: resultado partido
 
     // Si es un partido de playoff, actualizar estados de equipos
     if (match.isPlayoff) {
@@ -325,9 +302,7 @@ export class MatchSimulationService {
    */
   async simulateAllPendingMatches(): Promise<MatchSimulationResult[]> {
     const db = this.databaseService.db;
-    
-    this.logger.log('🔍 [DEBUG] Iniciando simulación de todos los partidos pendientes...');
-    
+
     const pendingMatches = await db
       .select({ 
         id: matchTable.id,
@@ -336,18 +311,14 @@ export class MatchSimulationService {
       .from(matchTable)
       .where(eq(matchTable.status, MatchStatus.SCHEDULED));
 
-    this.logger.log(`🎮 Simulando ${pendingMatches.length} partidos pendientes...`);
-    
     if (pendingMatches.length === 0) {
-      this.logger.log('ℹ️ No hay partidos pendientes para simular');
       return [];
     }
-    
+
     const results: MatchSimulationResult[] = [];
-    
+
     for (const match of pendingMatches) {
       try {
-        this.logger.log(`🔍 [DEBUG] Simulando partido ID: ${match.id} (tipo: ${typeof match.id})`);
         const result = await this.simulateSingleMatch(match.id);
         results.push(result);
       } catch (error) {
@@ -358,8 +329,6 @@ export class MatchSimulationService {
 
     // Recalcular clasificaciones si se simularon partidos
     if (results.length > 0) {
-      this.logger.log('🔄 Recalculando clasificaciones...');
-      
       // Obtener temporadas afectadas
       const affectedSeasons = new Set(pendingMatches.map(m => m.seasonId));
 
@@ -368,25 +337,18 @@ export class MatchSimulationService {
         await this.standingsService.recalculateStandingsForSeason(seasonId);
       }
 
-      this.logger.log('✅ Clasificaciones actualizadas');
-      
       // Verificar y generar playoffs automáticamente para divisiones completadas
       for (const seasonId of affectedSeasons) {
         await this.checkAndGeneratePlayoffs(seasonId);
-        
         // Crear finales automáticamente si las semifinales están completadas
         await this.seasonTransitionService.createPlayoffFinalsIfNeeded(seasonId);
-        
         // Procesar ganadores de playoffs para marcarlos para ascenso
         await this.seasonTransitionService.processPlayoffWinnersForPromotion(seasonId);
-        
         // Asignar ligas automáticamente para la próxima temporada
         await this.seasonTransitionService.assignLeaguesForNextSeason(seasonId);
       }
-      
-      this.logger.log('✅ Playoffs verificados y rondas siguientes creadas');
     }
-    
+
     return results;
   }
 
@@ -442,19 +404,12 @@ export class MatchSimulationService {
           const existingPlayoffs = await this.hasExistingPlayoffs(division.id, seasonId);
           
           if (!existingPlayoffs && division.promotePlayoffSlots && division.promotePlayoffSlots > 0) {
-            this.logger.log(`� Generando playoffs para División ${division.name}...`);
-            
             // Generar partidos de playoff
             const playoffMatches = await this.seasonTransitionService.organizePlayoffs(
               division.id, 
               seasonId
             );
-            
-            if (playoffMatches.length > 0) {
-              this.logger.log(
-                `✅ Generados ${playoffMatches.length} partidos de playoff para División ${division.name}`
-              );
-            }
+            // No logs de progreso
           }
         }
       }
@@ -569,15 +524,11 @@ export class MatchSimulationService {
           );
 
         if (Number(existingMarks.count) === 0) {
-          this.logger.log(`🏁 Liga regular completada en ${leagueInfo.divisionName}. Marcando equipos automáticamente...`);
-          
           // Marcar equipos según posición final
           await this.seasonTransitionService.markTeamsBasedOnRegularSeasonPosition(
             leagueInfo.divisionId,
             seasonId
           );
-
-          this.logger.log(`✅ Equipos marcados automáticamente en ${leagueInfo.divisionName}`);
         }
       }
     } catch (error) {
@@ -611,17 +562,17 @@ export class MatchSimulationService {
   private async processMatchdayCompletion(seasonId: number, matchday: number): Promise<void> {
     // Recalcular clasificaciones
     await this.standingsService.recalculateStandingsForSeason(seasonId);
-    
-    // Verificar divisiones completadas y generar playoffs
+
+    // Verificar divisiones completadas y generar playoffs (sin logs de progreso)
     await this.checkAndGeneratePlayoffs(seasonId);
-    
-    // Verificar finales automáticas
+
+    // Verificar finales automáticas (sin logs de progreso)
     await this.seasonTransitionService.createPlayoffFinalsIfNeeded(seasonId);
-    
-    // Procesar ganadores de playoffs
+
+    // Procesar ganadores de playoffs para ascenso (sin logs de progreso)
     await this.seasonTransitionService.processPlayoffWinnersForPromotion(seasonId);
-    
-    // Asignar ligas automáticamente para la próxima temporada
+
+    // Asignar ligas automáticamente para la próxima temporada (sin logs de progreso)
     await this.seasonTransitionService.assignLeaguesForNextSeason(seasonId);
   }
 

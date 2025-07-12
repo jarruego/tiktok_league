@@ -14,6 +14,7 @@ import {
 } from '../database/schema';
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 import { DATABASE_PROVIDER } from '../database/database.module';
+import { PlayoffStatusService } from '../services/playoff-status.service';
 
 export interface PlayoffMatchup {
   round: string;
@@ -69,6 +70,7 @@ export class SeasonTransitionService {
     private readonly databaseService: DatabaseService,
     private readonly assignmentService: SeasonTransitionAssignmentService,
     private readonly standingsService: StandingsService,
+    private readonly playoffStatusService: PlayoffStatusService,
   ) {}
 
   /**
@@ -79,7 +81,7 @@ export class SeasonTransitionService {
   async processSeasonTransition(currentSeasonId: number, nextSeasonId?: number): Promise<SeasonTransitionResult> {
     const db = this.databaseService.db;
     
-    this.logger.log(`Iniciando transición de temporada ${currentSeasonId}${nextSeasonId ? ` a ${nextSeasonId}` : ''}`);
+    // Log eliminado
     
     // Verificar que la temporada actual existe
     const [currentSeason] = await db
@@ -125,7 +127,7 @@ export class SeasonTransitionService {
     // Procesar cada división
     for (const division of divisions) {
       try {
-        this.logger.log(`Procesando División ${division.level}: ${division.name}`);
+        // Log eliminado
         
         // Procesar clasificación final, ascensos y descensos
         const divisionResult = await this.processDivision(division.id, currentSeasonId, nextSeasonId);
@@ -214,11 +216,14 @@ export class SeasonTransitionService {
     let tournamentQualifiers = 0;      // Procesar cada liga de la división
       for (const league of leagues) {
         // Usar la nueva función unificada que calcula clasificación y aplica consecuencias
+        // Solo limpiar promotedNextSeason si NO hay playoffs en la división
+        const hasActivePlayoffs = await this.playoffStatusService.isPlayoffActiveForDivision(currentSeasonId, division.id);
+        const resetPromotionFlag = !hasActivePlayoffs;
         const result = await this.standingsService.calculateStandingsWithConsequences(
           currentSeasonId, 
           league.id, 
           true, // Aplicar consecuencias automáticamente
-          true  // Limpiar promotedNextSeason SOLO tras liga regular
+          resetPromotionFlag // Limpiar promotedNextSeason solo si no hay playoffs
         );
         
         // Verificar si hay clasificación para esta liga
@@ -233,7 +238,7 @@ export class SeasonTransitionService {
         playoffTeams += result.consequences.playoffTeams;
         tournamentQualifiers += result.consequences.tournamentQualifiers;
         
-        this.logger.log(`✅ Liga ${league.name} procesada: ${result.consequences.directPromotions} ascensos, ${result.consequences.directRelegations} descensos, ${result.consequences.playoffTeams} playoffs, ${result.consequences.tournamentQualifiers} torneos`);
+        // Log eliminado
       }
     
     return {
@@ -264,7 +269,7 @@ export class SeasonTransitionService {
     }
     
     if (!division.promotePlayoffSlots || division.promotePlayoffSlots <= 0) {
-      this.logger.log(`División ${division.name} no tiene playoffs configurados`);
+      // Log eliminado
       return [];
     }
     
@@ -330,7 +335,7 @@ export class SeasonTransitionService {
       team.position >= startPos && team.position <= endPos
     );
     
-    this.logger.log(`Equipos de playoff para división ${division.name}: posiciones ${startPos}-${endPos}, encontrados: ${playoffTeams.length}`);
+    // Log eliminado
     
     // Verificar que hay suficientes equipos
     if (playoffTeams.length < Number(division.promotePlayoffSlots || 0)) {
@@ -373,10 +378,7 @@ export class SeasonTransitionService {
         isPlayoff: true
       });
       
-      this.logger.log(`✅ Creadas semifinales de playoff para ${division.name}:`);
-      this.logger.log(`   🏟️ Semifinal 1: ${playoffTeams[0].teamName} (3º) vs ${playoffTeams[3].teamName} (6º)`);
-      this.logger.log(`   🏟️ Semifinal 2: ${playoffTeams[1].teamName} (4º) vs ${playoffTeams[2].teamName} (5º)`);
-      this.logger.log(`   📅 Fecha programada: ${startDate.toLocaleDateString()}`);
+      // Logs eliminados
       
       // NOTA: La final se creará automáticamente cuando se simulen las semifinales
     }
@@ -658,7 +660,7 @@ export class SeasonTransitionService {
           totalPlayoffMatches += playoffMatches.length;
           processedDivisions.push(division.name);
           
-          this.logger.log(`Generados ${playoffMatches.length} partidos de playoff para ${division.name}`);
+          // Log eliminado
         } catch (error) {
           this.logger.warn(`No se pudieron generar playoffs para ${division.name}: ${error.message}`);
         }
@@ -718,7 +720,7 @@ export class SeasonTransitionService {
   async areDivisionPlayoffsComplete(divisionId: number, seasonId: number): Promise<boolean> {
     const db = this.databaseService.db;
     
-    this.logger.log(`[DEBUG] Verificando playoffs completos para división ${divisionId}, temporada ${seasonId}`);
+    // Log eliminado: debug playoffs
     
     // Obtener ligas de la división
     const leagues = await db
@@ -727,12 +729,12 @@ export class SeasonTransitionService {
       .where(eq(leagueTable.divisionId, divisionId));
       
     if (leagues.length === 0) {
-      this.logger.log(`[DEBUG] No hay ligas en división ${divisionId}, devolviendo true`);
+      // Log eliminado: debug playoffs
       return true; // Si no hay ligas, no hay playoffs pendientes
     }
 
     const leagueIds = leagues.map(l => l.id);
-    this.logger.log(`[DEBUG] Ligas encontradas: ${leagueIds.join(', ')}`);
+    // Log eliminado: debug playoffs
     
     // Verificar si hay partidos de playoff pendientes
     const [pendingPlayoffs] = await db
@@ -748,7 +750,7 @@ export class SeasonTransitionService {
       );
       
     const pendingCount = Number(pendingPlayoffs.count);
-    this.logger.log(`[DEBUG] Partidos de playoff pendientes en división ${divisionId}: ${pendingCount}`);
+    // Log eliminado: debug playoffs
     
     return pendingCount === 0;
   }
@@ -769,7 +771,7 @@ export class SeasonTransitionService {
   }> {
     const db = this.databaseService.db;
     
-    this.logger.log(`Iniciando transición completa de temporada ${currentSeasonId}`);
+    // Log eliminado
     
     // 1. Verificar que la temporada está completamente terminada
     const seasonStatus = await this.isSeasonCompletelyFinished(currentSeasonId);
@@ -839,7 +841,7 @@ export class SeasonTransitionService {
       })
       .where(eq(seasonTable.id, nextSeason.id));
     
-    this.logger.log(`Transición completada: ${currentSeason.name} → ${nextSeason.name}`);
+    // Log eliminado
     
     return {
       currentSeasonClosed: true,
@@ -862,7 +864,7 @@ export class SeasonTransitionService {
     pendingIssues: string[];
   }> {
     const db = this.databaseService.db;
-    this.logger.log(`[DEBUG] Verificando si temporada ${seasonId} está completamente terminada`);
+    // Log eliminado: progreso/debug
     
     const pendingIssues: string[] = [];
     
@@ -980,8 +982,7 @@ export class SeasonTransitionService {
     const isComplete = pendingIssues.length === 0;
     const readyForNewSeason = isComplete;
     
-    this.logger.log(`[DEBUG] Temporada ${seasonId} - Completa: ${isComplete}, Lista para nueva: ${readyForNewSeason}, Problemas: ${pendingIssues.length}`);
-    this.logger.log(`[DEBUG] Ascensos: ${promotions.length}, Descensos: ${relegations.length}, Torneos: ${tournamentQualifiers.length}`);
+    // Logs eliminados: progreso/debug
     
     return {
       isComplete,
@@ -1013,12 +1014,12 @@ export class SeasonTransitionService {
   }> {
     const db = this.databaseService.db;
     
-    this.logger.log(`[DEBUG] Creando nueva temporada desde temporada completada ${completedSeasonId}`);
+    // Log eliminado: progreso/debug
     
     // 1. Verificar que la temporada está completamente terminada
     const seasonStatus = await this.isSeasonCompletelyFinished(completedSeasonId);
     
-    this.logger.log(`[DEBUG] Estado de temporada: Completa=${seasonStatus.isComplete}, Lista=${seasonStatus.readyForNewSeason}, Problemas=${seasonStatus.pendingIssues.length}`);
+    // Log eliminado: progreso/debug
     
     if (!seasonStatus.readyForNewSeason) {
       const errorMsg = `La temporada no está lista para crear una nueva. Problemas pendientes: ${seasonStatus.pendingIssues.join(', ')}`;
@@ -1037,16 +1038,16 @@ export class SeasonTransitionService {
       throw new NotFoundException(`Temporada ${completedSeasonId} no encontrada`);
     }
     
-    this.logger.log(`[DEBUG] Temporada actual encontrada: ${currentSeason.name} (ID: ${currentSeason.id})`);
+    // Log eliminado: progreso/debug
     
     // 3. Ejecutar la transición completa
-    this.logger.log(`[DEBUG] Ejecutando transición completa...`);
+    // Log eliminado: progreso/debug
     const transitionResult = await this.executeCompleteSeasonTransition(
       completedSeasonId,
       newSeasonName
     );
     
-    this.logger.log(`[DEBUG] Transición ejecutada. Nueva temporada ID: ${transitionResult.nextSeasonId}`);
+    // Log eliminado: progreso/debug
     
     // 4. Preparar resumen de la transición
     const transitionSummary = {
@@ -1056,7 +1057,7 @@ export class SeasonTransitionService {
       teamsTransitioned: transitionResult.assignmentResults.success
     };
     
-    this.logger.log(`[DEBUG] Nueva temporada creada exitosamente: ${transitionResult.nextSeasonId}`);
+    // Log eliminado: progreso/debug
     
     return {
       success: true,
@@ -1074,7 +1075,7 @@ export class SeasonTransitionService {
   async getActiveSeason() {
     const db = this.databaseService.db;
     
-    this.logger.log('[DEBUG SERVICE] getActiveSeason - iniciando búsqueda');
+    // Log eliminado: progreso/debug
     
     const [season] = await db
       .select()
@@ -1087,7 +1088,7 @@ export class SeasonTransitionService {
       throw new NotFoundException('No hay temporada activa');
     }
     
-    this.logger.log(`[DEBUG SERVICE] Temporada activa encontrada: ID=${season.id}, nombre=${season.name}`);
+    // Log eliminado: progreso/debug
     return season;
   }
 
@@ -1223,8 +1224,7 @@ export class SeasonTransitionService {
               updatedAt: new Date()
             });
 
-            this.logger.log(`🏆 Semifinales creadas automáticamente para ${divisionData.divisionName} tras completar cuartos`);
-            this.logger.log(`   📅 Fecha: ${semifinalDate.toLocaleDateString()}`);
+            // Logs eliminados
           }
         }
       }
@@ -1328,8 +1328,7 @@ export class SeasonTransitionService {
               updatedAt: new Date()
             });
 
-            this.logger.log(`🏆 Final creada automáticamente para ${divisionData.divisionName}`);
-            this.logger.log(`   📅 Fecha: ${finalDate.toLocaleDateString()}`);
+            // Logs eliminados
           }
         }
       }
@@ -1375,10 +1374,7 @@ export class SeasonTransitionService {
         isPlayoff: true
       });
       
-      this.logger.log(`✅ Creadas semifinales de playoff para División 3 (cruces entre grupos):`);
-      this.logger.log(`   🏟️ Semifinal 1: ${leaguePlayoffTeams[0].teams[0].teamName} (2ºA) vs ${leaguePlayoffTeams[1].teams[1].teamName} (3ºB)`);
-      this.logger.log(`   🏟️ Semifinal 2: ${leaguePlayoffTeams[1].teams[0].teamName} (2ºB) vs ${leaguePlayoffTeams[0].teams[1].teamName} (3ºA)`);
-      this.logger.log(`   📅 Fecha programada: ${startDate.toLocaleDateString()}`);
+      // Logs eliminados
       
       // NOTA: La final se creará automáticamente cuando se simulen las semifinales
     }
@@ -1436,11 +1432,7 @@ export class SeasonTransitionService {
           isPlayoff: true
         });
 
-        this.logger.log(`✅ Creadas semifinales de playoff para División 4:`);
-        this.logger.log(`   🏟️ Semifinal 1: ${grupoA.teamName} (2º A) vs ${grupoD.teamName} (2º D)`);
-        this.logger.log(`   🏟️ Semifinal 2: ${grupoB.teamName} (2º B) vs ${grupoC.teamName} (2º C)`);
-        this.logger.log(`   📅 Fecha programada: ${startDate.toLocaleDateString()}`);
-        this.logger.log(`   🎯 IMPORTANTE: Los 2 finalistas (ganador + subcampeón) ascenderán a División 3`);
+        // Logs eliminados
       } else {
         this.logger.warn('No se encontraron todos los grupos necesarios para División 4');
       }
@@ -1495,16 +1487,7 @@ export class SeasonTransitionService {
         }
       }
 
-      this.logger.log(`✅ Creados cuartos de final de playoff para División 5:`);
-      emparejamientos.forEach((emp, i) => {
-        const equipoHome = allTeams.find(t => t.groupCode === emp.home);
-        const equipoAway = allTeams.find(t => t.groupCode === emp.away);
-        if (equipoHome && equipoAway) {
-          this.logger.log(`   🏟️ Cuarto ${i + 1}: ${equipoHome.teamName} (2º ${emp.home}) vs ${equipoAway.teamName} (2º ${emp.away})`);
-        }
-      });
-      this.logger.log(`   📅 Fecha programada: ${startDate.toLocaleDateString()}`);
-      this.logger.log(`   🎯 IMPORTANTE: Los 4 ganadores de cuartos (semifinalistas) ascenderán a División 4`);
+      // Logs eliminados
     } else {
       this.logger.warn(`División 5 requiere 8 grupos con 1 equipo cada uno. Encontrado: ${leaguePlayoffTeams.length} grupos`);
     }
@@ -1515,45 +1498,37 @@ export class SeasonTransitionService {
    */
   async processPlayoffWinnersForPromotion(seasonId: number): Promise<void> {
     const db = this.databaseService.db;
-    
     try {
-      this.logger.log(`🏆 Procesando ganadores de playoffs para ascenso en temporada ${seasonId}...`);
-      
       // Obtener todas las divisiones que tienen playoffs
       const divisions = await db
         .select()
         .from(divisionTable)
         .where(sql`${divisionTable.promotePlayoffSlots} > 0`)
         .orderBy(asc(divisionTable.level));
-      
+
       for (const division of divisions) {
         // Verificar si los playoffs de esta división están completos
         const playoffsComplete = await this.areDivisionPlayoffsComplete(division.id, seasonId);
-        
-        if (playoffsComplete) {
-          // Buscar finales completadas de esta división
-          const leagues = await db
-            .select({ id: leagueTable.id })
-            .from(leagueTable)
-            .where(eq(leagueTable.divisionId, division.id));
-            
-          if (leagues.length === 0) continue;
-          
-          const leagueIds = leagues.map(l => l.id);
-          
-          // Obtener finales completadas
-          const completedFinals = await db
+        if (!playoffsComplete) continue;
+
+        const leagues = await db
+          .select({ id: leagueTable.id })
+          .from(leagueTable)
+          .where(eq(leagueTable.divisionId, division.id));
+        if (leagues.length === 0) continue;
+        const leagueIds = leagues.map(l => l.id);
+
+        // División 4: marcar promotedNextSeason=true a los dos finalistas
+        if (Number(division.level) === 4) {
+          // Buscar partidos de final terminados
+          const finals = await db
             .select({
               homeTeamId: matchTable.homeTeamId,
               awayTeamId: matchTable.awayTeamId,
               homeGoals: matchTable.homeGoals,
-              awayGoals: matchTable.awayGoals,
-              homeTeamName: sql<string>`home_team.name`,
-              awayTeamName: sql<string>`away_team.name`
+              awayGoals: matchTable.awayGoals
             })
             .from(matchTable)
-            .innerJoin(sql`${teamTable} as home_team`, eq(matchTable.homeTeamId, sql`home_team.id`))
-            .innerJoin(sql`${teamTable} as away_team`, eq(matchTable.awayTeamId, sql`away_team.id`))
             .where(
               and(
                 eq(matchTable.seasonId, seasonId),
@@ -1563,61 +1538,94 @@ export class SeasonTransitionService {
                 eq(matchTable.status, MatchStatus.FINISHED)
               )
             );
-          
-          // Procesar cada final completada
-          for (const final of completedFinals) {
-            // Verificar que los goles no sean null
-            if (final.homeGoals === null || final.awayGoals === null) {
-              this.logger.warn(`Final sin resultado válido en ${division.name}: ${final.homeTeamName} vs ${final.awayTeamName}`);
-              continue;
-            }
-            
-            let winnerId: number;
-            let winnerName: string;
-            
-            // Determinar el ganador
-            if (final.homeGoals > final.awayGoals) {
-              winnerId = final.homeTeamId;
-              winnerName = final.homeTeamName;
-            } else if (final.awayGoals > final.homeGoals) {
-              winnerId = final.awayTeamId;
-              winnerName = final.awayTeamName;
-            } else {
-              this.logger.warn(`Final empatada en ${division.name}: ${final.homeTeamName} vs ${final.awayTeamName}`);
-              continue; // Saltar empates (no deberían ocurrir)
-            }
-            
-            // Verificar si el equipo ya está marcado para ascenso
-            const [existingPromotion] = await db
-              .select()
-              .from(teamLeagueAssignmentTable)
+          for (const final of finals) {
+            // Marcar promotedNextSeason=true a ambos finalistas
+            await db.update(teamLeagueAssignmentTable)
+              .set({ promotedNextSeason: true, updatedAt: new Date() })
               .where(
                 and(
-                  eq(teamLeagueAssignmentTable.teamId, winnerId),
                   eq(teamLeagueAssignmentTable.seasonId, seasonId),
-                  eq(teamLeagueAssignmentTable.promotedNextSeason, true)
+                  inArray(teamLeagueAssignmentTable.teamId, [final.homeTeamId, final.awayTeamId]),
+                  inArray(teamLeagueAssignmentTable.leagueId, leagueIds)
                 )
               );
-            
-            if (!existingPromotion) {
-              // Marcar al ganador para ascenso
-              await db
-                .update(teamLeagueAssignmentTable)
-                .set({
-                  promotedNextSeason: true,
-                  playoffNextSeason: false, // Ya no está en playoff, ha ganado
-                  updatedAt: new Date()
-                })
+          }
+        }
+        // División 5: marcar promotedNextSeason=true a los 4 semifinalistas
+        else if (Number(division.level) === 5) {
+          // Buscar partidos de semifinal terminados
+          const semis = await db
+            .select({
+              homeTeamId: matchTable.homeTeamId,
+              awayTeamId: matchTable.awayTeamId,
+              homeGoals: matchTable.homeGoals,
+              awayGoals: matchTable.awayGoals
+            })
+            .from(matchTable)
+            .where(
+              and(
+                eq(matchTable.seasonId, seasonId),
+                inArray(matchTable.leagueId, leagueIds),
+                eq(matchTable.isPlayoff, true),
+                eq(matchTable.playoffRound, 'Semifinal'),
+                eq(matchTable.status, MatchStatus.FINISHED)
+              )
+            );
+          // Ganadores de cada semifinal
+          const semifinalistas: number[] = [];
+          for (const semi of semis) {
+            if (semi.homeGoals !== null && semi.awayGoals !== null) {
+              const homeWon = semi.homeGoals > semi.awayGoals;
+              semifinalistas.push(homeWon ? semi.homeTeamId : semi.awayTeamId);
+              // También el perdedor es semifinalista (en división 5 ascienden los 4)
+              semifinalistas.push(homeWon ? semi.awayTeamId : semi.homeTeamId);
+            }
+          }
+          // Marcar promotedNextSeason=true a los 4 equipos
+          if (semifinalistas.length === 4) {
+            await db.update(teamLeagueAssignmentTable)
+              .set({ promotedNextSeason: true, updatedAt: new Date() })
+              .where(
+                and(
+                  eq(teamLeagueAssignmentTable.seasonId, seasonId),
+                  inArray(teamLeagueAssignmentTable.teamId, semifinalistas),
+                  inArray(teamLeagueAssignmentTable.leagueId, leagueIds)
+                )
+              );
+          }
+        }
+        // Otras divisiones: solo el ganador de la final asciende
+        else {
+          const finals = await db
+            .select({
+              homeTeamId: matchTable.homeTeamId,
+              awayTeamId: matchTable.awayTeamId,
+              homeGoals: matchTable.homeGoals,
+              awayGoals: matchTable.awayGoals
+            })
+            .from(matchTable)
+            .where(
+              and(
+                eq(matchTable.seasonId, seasonId),
+                inArray(matchTable.leagueId, leagueIds),
+                eq(matchTable.isPlayoff, true),
+                eq(matchTable.playoffRound, 'Final'),
+                eq(matchTable.status, MatchStatus.FINISHED)
+              )
+            );
+          for (const final of finals) {
+            if (final.homeGoals !== null && final.awayGoals !== null) {
+              const homeWon = final.homeGoals > final.awayGoals;
+              const winnerId = homeWon ? final.homeTeamId : final.awayTeamId;
+              await db.update(teamLeagueAssignmentTable)
+                .set({ promotedNextSeason: true, updatedAt: new Date() })
                 .where(
                   and(
+                    eq(teamLeagueAssignmentTable.seasonId, seasonId),
                     eq(teamLeagueAssignmentTable.teamId, winnerId),
-                    eq(teamLeagueAssignmentTable.seasonId, seasonId)
+                    inArray(teamLeagueAssignmentTable.leagueId, leagueIds)
                   )
                 );
-              
-              this.logger.log(`🎉 ${winnerName} marcado para ascenso tras ganar final de ${division.name}`);
-            } else {
-              this.logger.log(`✅ ${winnerName} ya estaba marcado para ascenso en ${division.name}`);
             }
           }
         }
@@ -1626,7 +1634,6 @@ export class SeasonTransitionService {
       this.logger.error('Error procesando ganadores de playoffs:', error);
     }
   }
-
   /**
    * Marca automáticamente a los equipos según su posición final en liga regular
    * Se ejecuta cuando se completa la temporada regular, antes de playoffs
@@ -1636,8 +1643,6 @@ export class SeasonTransitionService {
     const db = this.databaseService.db;
 
     try {
-      this.logger.log(`📊 Marcando equipos por posición final en liga regular - División ${divisionId}, Temporada ${seasonId}`);
-
       // Obtener información de la división
       const [division] = await db
         .select()
@@ -1647,6 +1652,32 @@ export class SeasonTransitionService {
       if (!division) {
         this.logger.warn(`División ${divisionId} no encontrada`);
         return;
+      }
+
+      // Si la división tiene playoffs configurados, comprobar si hay partidos de playoff jugados o pendientes
+      if (division.promotePlayoffSlots && division.promotePlayoffSlots > 0) {
+        // Buscar si existen partidos de playoff para esta división y temporada
+        const leagues = await db
+          .select({ id: leagueTable.id })
+          .from(leagueTable)
+          .where(eq(leagueTable.divisionId, divisionId));
+        const leagueIds = leagues.map(l => l.id);
+        if (leagueIds.length > 0) {
+          const [playoffCount] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(matchTable)
+            .where(
+              and(
+                eq(matchTable.seasonId, seasonId),
+                inArray(matchTable.leagueId, leagueIds),
+                eq(matchTable.isPlayoff, true)
+              )
+            );
+          if (Number(playoffCount.count) > 0) {
+            this.logger.warn(`[PROTECCIÓN] No se ejecuta markTeamsBasedOnRegularSeasonPosition en División ${divisionId} porque ya existen partidos de playoff en la temporada actual.`);
+            return;
+          }
+        }
       }
 
       // Obtener todas las ligas de esta división
@@ -1676,21 +1707,12 @@ export class SeasonTransitionService {
           continue;
         }
 
-        this.logger.log(`🏆 Procesando clasificación final de ${league.name} (${result.standings.length} equipos)`);
-
         // Sumar estadísticas globales
         totalConsequences.directPromotions += result.consequences.directPromotions;
         totalConsequences.directRelegations += result.consequences.directRelegations;
         totalConsequences.playoffTeams += result.consequences.playoffTeams;
         totalConsequences.tournamentQualifiers += result.consequences.tournamentQualifiers;
       }
-
-      this.logger.log(`✅ Marcado completado para División ${division.name}:`);
-      this.logger.log(`   ⬆️ Ascensos directos: ${totalConsequences.directPromotions}`);
-      this.logger.log(`   ⬇️ Descensos directos: ${totalConsequences.directRelegations}`);
-      this.logger.log(`   🎯 Equipos a playoff: ${totalConsequences.playoffTeams}`);
-      this.logger.log(`   🏆 Clasificados a torneo: ${totalConsequences.tournamentQualifiers}`);
-
     } catch (error) {
       this.logger.error(`❌ Error marcando equipos por posición final en División ${divisionId}:`, error);
     }
@@ -1709,7 +1731,7 @@ export class SeasonTransitionService {
   async updateTeamStatusAfterPlayoffMatch(matchId: number): Promise<void> {
     const db = this.databaseService.db;
     try {
-      this.logger.log(`🔄 Actualizando estados de equipos tras partido de playoff ${matchId}...`);
+      // Log eliminado
       // Obtener información del partido completado
       const [match] = await db
         .select({
@@ -1732,7 +1754,7 @@ export class SeasonTransitionService {
         .where(eq(matchTable.id, matchId));
 
       if (!match || !match.isPlayoff || match.status !== MatchStatus.FINISHED) {
-        this.logger.debug(`⚠️ Partido ${matchId} no es un playoff completado (isPlayoff: ${match?.isPlayoff}, status: ${match?.status})`);
+        // Log eliminado
         return; // No es un partido de playoff completado
       }
       if (match.homeGoals === null || match.awayGoals === null) {
@@ -1755,27 +1777,35 @@ export class SeasonTransitionService {
       ]);
       const winnerName = winnerId === match.homeTeamId ? homeTeam[0]?.name : awayTeam[0]?.name;
       const loserName = loserId === match.homeTeamId ? homeTeam[0]?.name : awayTeam[0]?.name;
+      const winnerIdStr = winnerId != null ? `(#${winnerId})` : '';
+      const loserIdStr = loserId != null ? `(#${loserId})` : '';
 
       // --- Lógica especial para División 4 y 5 ---
       if (match.divisionName === 'División 4') {
         if (match.playoffRound === 'Semifinal') {
           // Ganador de semifinal asciende (finalista)
-          this.logger.log(`🔄 División 4 - Semifinal: Marcando ganador para ascenso...`);
-          await db.update(teamLeagueAssignmentTable)
+          const result1 = await db.update(teamLeagueAssignmentTable)
             .set({ promotedNextSeason: true, updatedAt: new Date() })
             .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-          // El perdedor eliminado de playoff, pero NO tocar promotedNextSeason
-          await db.update(teamLeagueAssignmentTable)
+          if (result1.rowCount === 0) {
+            this.logger.warn(`⚠️ [DB] promotedNextSeason: true NO actualizado para equipo ${winnerName} (ID: ${winnerId}) tras ganar semifinal de ${match.divisionName}`);
+          } else {
+            this.logger.log(`🎉 promotedNextSeason: true para equipo ${winnerName} (ID: ${winnerId}) tras ganar semifinal de ${match.divisionName}`);
+          }
+          // El perdedor eliminado de playoff, pero NO tocar promotedNextSeason ni playoffNextSeason salvo eliminación
+          const result2 = await db.update(teamLeagueAssignmentTable)
             .set({ playoffNextSeason: false, updatedAt: new Date() })
             .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-          this.logger.log(`   ✅ ${winnerName} → Asciende (finalista)`);
-          this.logger.log(`   ❌ ${loserName} → Eliminado (seguro)`);
+          if (result2.rowCount === 0) {
+            this.logger.warn(`⚠️ [DB] playoffNextSeason: false NO actualizado para equipo ${loserName} (ID: ${loserId}) en semifinal de ${match.divisionName}`);
+          } else {
+            this.logger.log(`🛑 ${loserName} ${loserIdStr} eliminado de playoff en semifinal de ${match.divisionName}`);
+          }
           return;
         }
         if (match.playoffRound === 'Final') {
-          // Ambos finalistas ya deberían estar ascendidos, solo actualizar playoffNextSeason
-          this.logger.log(`🔄 División 4 - Final: Solo actualizar playoffNextSeason a false para ambos finalistas...`);
-          await Promise.all([
+          // Ambos finalistas ya deberían estar ascendidos, solo actualizar playoffNextSeason si corresponde (no reset masivo)
+          const [result1, result2] = await Promise.all([
             db.update(teamLeagueAssignmentTable)
               .set({ playoffNextSeason: false, updatedAt: new Date() })
               .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId))),
@@ -1783,60 +1813,101 @@ export class SeasonTransitionService {
               .set({ playoffNextSeason: false, updatedAt: new Date() })
               .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)))
           ]);
-          this.logger.log(`🏆 Final División 4:`);
-          this.logger.log(`   ✅ ${winnerName} → Asciende (ganador)`);
-          this.logger.log(`   ✅ ${loserName} → Asciende (finalista)`);
+          if (result1.rowCount === 0 || result2.rowCount === 0) {
+            this.logger.warn(`⚠️ [DB] playoffNextSeason: false NO actualizado para uno o ambos equipos en final de ${match.divisionName}`);
+          } else {
+            this.logger.log(`🛑 ${winnerName} ${winnerIdStr} (ganador) y ${loserName} ${loserIdStr} (perdedor) finalizan playoff en final de ${match.divisionName}`);
+          }
+
+          // LOG DE CONTROL: comprobar flags finales de ambos equipos
+          const [winnerStatus, loserStatus] = await Promise.all([
+            db.select({ promotedNextSeason: teamLeagueAssignmentTable.promotedNextSeason, playoffNextSeason: teamLeagueAssignmentTable.playoffNextSeason })
+              .from(teamLeagueAssignmentTable)
+              .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId))),
+            db.select({ promotedNextSeason: teamLeagueAssignmentTable.promotedNextSeason, playoffNextSeason: teamLeagueAssignmentTable.playoffNextSeason })
+              .from(teamLeagueAssignmentTable)
+              .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)))
+          ]);
+          const winnerPromoted = winnerStatus[0]?.promotedNextSeason;
+          const winnerPlayoff = winnerStatus[0]?.playoffNextSeason;
+          const loserPromoted = loserStatus[0]?.promotedNextSeason;
+          const loserPlayoff = loserStatus[0]?.playoffNextSeason;
+          this.logger.log(`[CONTROL] Estado final tras final División 4: ${winnerName} (ID: ${winnerId}) => promotedNextSeason: ${winnerPromoted}, playoffNextSeason: ${winnerPlayoff} | ${loserName} (ID: ${loserId}) => promotedNextSeason: ${loserPromoted}, playoffNextSeason: ${loserPlayoff}`);
+          if (!winnerPromoted) {
+            this.logger.warn(`[CONTROL] ⚠️ El ganador de la final de División 4 (${winnerName}, ID: ${winnerId}) NO está marcado como promotedNextSeason: true tras la final.`);
+          }
+          if (!loserPromoted) {
+            this.logger.warn(`[CONTROL] ⚠️ El perdedor de la final de División 4 (${loserName}, ID: ${loserId}) NO está marcado como promotedNextSeason: true tras la final (debería estarlo, ambos finalistas ascienden).`);
+          }
           return;
         }
       }
       if (match.divisionName === 'División 5') {
         if (match.playoffRound === 'Cuartos') {
           // Ganador de cuartos asciende (semifinalista)
-          this.logger.log(`🔄 División 5 - Cuartos: Marcando ganador para ascenso...`);
-          await db.update(teamLeagueAssignmentTable)
+          const result1 = await db.update(teamLeagueAssignmentTable)
             .set({ promotedNextSeason: true, updatedAt: new Date() })
             .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
+          if (result1.rowCount === 0) {
+            this.logger.warn(`⚠️ [DB] promotedNextSeason: true NO actualizado para equipo ${winnerName} (ID: ${winnerId}) tras ganar cuartos de ${match.divisionName}`);
+          } else {
+            this.logger.log(`🎉 promotedNextSeason: true para equipo ${winnerName} (ID: ${winnerId}) tras ganar cuartos de ${match.divisionName}`);
+          }
           // El perdedor eliminado de playoff, pero NO tocar promotedNextSeason
-          await db.update(teamLeagueAssignmentTable)
+          const result2 = await db.update(teamLeagueAssignmentTable)
             .set({ playoffNextSeason: false, updatedAt: new Date() })
             .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-          this.logger.log(`   ✅ ${winnerName} → Asciende (semifinalista)`);
-          this.logger.log(`   ❌ ${loserName} → Eliminado`);
+          if (result2.rowCount === 0) {
+            this.logger.warn(`⚠️ [DB] playoffNextSeason: false NO actualizado para equipo ${loserName} (ID: ${loserId}) en cuartos de ${match.divisionName}`);
+          } else {
+            this.logger.log(`🛑 ${loserName} ${loserIdStr} eliminado de playoff en cuartos de ${match.divisionName}`);
+          }
           return;
         }
         if (match.playoffRound === 'Semifinal' || match.playoffRound === 'Final') {
           // Ambos semifinalistas ya deberían estar ascendidos, solo actualizar playoffNextSeason
-          this.logger.log(`🔄 División 5 - ${match.playoffRound}: Solo actualizar playoffNextSeason a false para el perdedor...`);
-          await db.update(teamLeagueAssignmentTable)
+          const result = await db.update(teamLeagueAssignmentTable)
             .set({ playoffNextSeason: false, updatedAt: new Date() })
             .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-          this.logger.log(`   ✅ ${winnerName} → Sigue en playoff o es campeón`);
-          this.logger.log(`   ❌ ${loserName} → Eliminado (ya ascendió si venía de cuartos)`);
+          if (result.rowCount === 0) {
+            this.logger.warn(`⚠️ [DB] playoffNextSeason: false NO actualizado para equipo ${loserName} (ID: ${loserId}) en ${match.playoffRound} de ${match.divisionName}`);
+          } else {
+            this.logger.log(`🛑 ${loserName} ${loserIdStr} eliminado de playoff en ${match.playoffRound} de ${match.divisionName}`);
+          }
           return;
         }
       }
       // --- Lógica general para otras divisiones ---
       if (match.playoffRound === 'Final') {
         // Solo el ganador asciende
-        this.logger.log(`🔄 ${match.divisionName} - Final: Marcando solo ganador para ascenso...`);
-        await db.update(teamLeagueAssignmentTable)
+        const result1 = await db.update(teamLeagueAssignmentTable)
           .set({ promotedNextSeason: true, playoffNextSeason: false, updatedAt: new Date() })
           .where(and(eq(teamLeagueAssignmentTable.teamId, winnerId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-        await db.update(teamLeagueAssignmentTable)
+        if (result1.rowCount === 0) {
+          this.logger.warn(`⚠️ [DB] promotedNextSeason: true NO actualizado para equipo ${winnerName} (ID: ${winnerId}) tras ganar final de ${match.divisionName}`);
+        } else {
+          this.logger.log(`🎉 promotedNextSeason: true para equipo ${winnerName} (ID: ${winnerId}) tras ganar final de ${match.divisionName}`);
+        }
+        const result2 = await db.update(teamLeagueAssignmentTable)
           .set({ playoffNextSeason: false, updatedAt: new Date() })
           .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-        this.logger.log(`🏆 Final ${match.divisionName}:`);
-        this.logger.log(`   ✅ ${winnerName} → Asciende`);
-        this.logger.log(`   ❌ ${loserName} → Seguro`);
+        if (result2.rowCount === 0) {
+          this.logger.warn(`⚠️ [DB] playoffNextSeason: false NO actualizado para equipo ${loserName} (ID: ${loserId}) en final de ${match.divisionName}`);
+        } else {
+          this.logger.log(`🎉 ${winnerName} ${winnerIdStr} (ganador) marcado para ascenso y 🛑 ${loserName} ${loserIdStr} (perdedor) eliminado de playoff en final de ${match.divisionName}`);
+        }
         return;
       }
       // Otras rondas: solo eliminar perdedor de playoff, nunca quitar ascenso
-      this.logger.log(`🔄 ${match.playoffRound} - Marcando perdedor ${loserId} (${loserName}) como eliminado...`);
-      await db.update(teamLeagueAssignmentTable)
+      const result = await db.update(teamLeagueAssignmentTable)
         .set({ playoffNextSeason: false, updatedAt: new Date() })
         .where(and(eq(teamLeagueAssignmentTable.teamId, loserId), eq(teamLeagueAssignmentTable.seasonId, match.seasonId)));
-      this.logger.log(`   ✅ ${winnerName} → Sigue en playoff`);
-      this.logger.log(`   ❌ ${loserName} → Eliminado (seguro)`);
+      if (result.rowCount === 0) {
+        this.logger.warn(`⚠️ [DB] playoffNextSeason: false NO actualizado para equipo ${loserName} (ID: ${loserId}) en ${match.playoffRound} de ${match.divisionName}`);
+      } else {
+        this.logger.log(`🛑 ${loserName} ${loserIdStr} eliminado de playoff en ${match.playoffRound} de ${match.divisionName}`);
+      }
+      
     } catch (error) {
       this.logger.error(`❌ Error actualizando estados tras partido de playoff ${matchId}:`, error);
     }
@@ -1849,14 +1920,11 @@ export class SeasonTransitionService {
     const db = this.databaseService.db;
     
     try {
-      this.logger.log(`🔍 DEBUG: Verificando estados de equipos en temporada ${seasonId}${divisionName ? ` - División ${divisionName}` : ''}...`);
-      
+      // Logs eliminados
       let whereConditions = [eq(teamLeagueAssignmentTable.seasonId, seasonId)];
-      
       if (divisionName) {
         whereConditions.push(eq(divisionTable.name, divisionName));
       }
-
       const teamStatuses = await db
         .select({
           teamName: teamTable.name,
@@ -1871,19 +1939,7 @@ export class SeasonTransitionService {
         .innerJoin(leagueTable, eq(teamLeagueAssignmentTable.leagueId, leagueTable.id))
         .innerJoin(divisionTable, eq(leagueTable.divisionId, divisionTable.id))
         .where(and(...whereConditions));
-
-      this.logger.log(`📊 Estados de equipos encontrados (${teamStatuses.length} equipos):`);
-      teamStatuses.forEach(team => {
-        const status: string[] = [];
-        if (team.playoffNextSeason) status.push('PLAYOFF');
-        if (team.promotedNextSeason) status.push('ASCENSO');
-        if (team.relegatedNextSeason) status.push('DESCENSO');
-        if (team.qualifiedForTournament) status.push('TORNEO');
-        if (status.length === 0) status.push('SEGURO');
-
-        this.logger.log(`   ${team.teamName} (${team.divisionName}): ${status.join(', ')}`);
-      });
-
+      // Logs eliminados
     } catch (error) {
       this.logger.error(`❌ Error en debug de estados de equipos:`, error);
     }
@@ -1907,7 +1963,7 @@ export class SeasonTransitionService {
     let stays = 0;
 
     try {
-      this.logger.log('🎯 Iniciando asignación automática de ligas para próxima temporada...');
+      // ...existing code...
 
       // Procesar divisiones en orden descendente (5 -> 4 -> 3 -> 2 -> 1)
       for (let divisionLevel = 5; divisionLevel >= 1; divisionLevel--) {
@@ -1927,7 +1983,7 @@ export class SeasonTransitionService {
         }
       }
 
-      this.logger.log(`✅ Asignación automática completada: ${promotions} ascensos, ${relegations} descensos, ${stays} permanencias`);
+      // ...existing code...
 
       return {
         message: 'Asignación automática de ligas completada',
@@ -2032,7 +2088,7 @@ export class SeasonTransitionService {
         throw new Error(`División ${divisionLevel} no soportada`);
     }
 
-    this.logger.log(`✅ División ${divisionLevel}: ${promotions} ascensos, ${relegations} descensos, ${stays} permanencias`);
+    // Log eliminado: resumen división
 
     return { promotions, relegations, stays, errors };
   }

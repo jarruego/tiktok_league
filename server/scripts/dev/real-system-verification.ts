@@ -71,13 +71,14 @@ async function realSystemVerification() {
     
     try {
       const { SeasonTransitionService } = await import("../../src/teams/season-transition.service");
+      const { PlayoffStatusService } = await import("../../src/services/playoff-status.service");
       const { DatabaseService } = await import("../../src/database/database.service");
-      
       // Crear instancia mockup para verificar métodos
       const mockDbService = { db: db, databaseConfig: null } as any;
       const mockAssignmentService = {} as any;
       const mockStandingsService = {} as any;
-      const seasonService = new SeasonTransitionService(mockDbService, mockAssignmentService, mockStandingsService);
+      const playoffStatusService = new PlayoffStatusService(mockDbService);
+      const seasonService = new SeasonTransitionService(mockDbService, mockAssignmentService, mockStandingsService, playoffStatusService);
       
       // Verificar que el método organizePlayoffs existe
       if (typeof seasonService.organizePlayoffs === 'function') {

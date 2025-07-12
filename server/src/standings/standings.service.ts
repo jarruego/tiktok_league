@@ -82,7 +82,7 @@ export class StandingsService {
   async recalculateStandingsForSeason(seasonId: number): Promise<void> {
     const db = this.databaseService.db;
     
-    this.logger.log(`🔄 Recalculando clasificaciones para temporada ${seasonId}...`);
+    // Log eliminado: progreso
     
     // Obtener todas las ligas de la temporada
     const leagues = await db
@@ -99,7 +99,7 @@ export class StandingsService {
       await this.recalculateStandingsForLeague(seasonId, league.leagueId);
     }
 
-    this.logger.log(`✅ Clasificaciones recalculadas para ${leagues.length} ligas`);
+    // Log eliminado: progreso
   }
 
   /**
@@ -145,7 +145,7 @@ export class StandingsService {
       await db.insert(standingsTable).values(standingsData);
     }
 
-    this.logger.log(`✅ Clasificación actualizada para liga ${leagueId}: ${sortedTeamStats.length} equipos`);
+    // Log eliminado: progreso
   }
 
   /**
@@ -260,7 +260,7 @@ export class StandingsService {
   async getLeagueStandings(seasonId: number, leagueId: number): Promise<LeagueStandings | null> {
     const db = this.databaseService.db;
     
-    this.logger.log(`🔍 getLeagueStandings llamado para season ${seasonId}, league ${leagueId}`);
+    // Log eliminado: progreso
     
     // Obtener información de la liga
     const [leagueInfo] = await db
@@ -283,7 +283,7 @@ export class StandingsService {
     // Usar la función unificada para calcular clasificaciones en tiempo real
     const sortedTeamStats = await this.calculateStandings(seasonId, leagueId);
     
-    this.logger.log(`📊 Aplicando lógica unificada de desempate para ${sortedTeamStats.length} equipos`);
+    // Log eliminado: progreso
 
     // Obtener información adicional de los equipos (crest, estado, etc.)
     const teamDetails = await db
@@ -493,7 +493,7 @@ export class StandingsService {
       team.position = index + 1;
     });
 
-    this.logger.log(`Clasificación calculada para liga ${leagueId}: ${standings.length} equipos`);
+    // Log eliminado: progreso
     return standings;
   }
 
@@ -696,7 +696,7 @@ export class StandingsService {
    * @returns Clasificaciones con información de consecuencias aplicadas
    */
   async calculateStandingsWithConsequences(
-    seasonId: number, 
+    seasonId: number,
     leagueId: number,
     applyConsequences: boolean = true,
     resetPromotionFlag: boolean = true // Nuevo parámetro
@@ -710,11 +710,28 @@ export class StandingsService {
       applied: boolean;
     };
   }> {
+    this.logger.log(`[DEBUG] calculateStandingsWithConsequences llamada para seasonId=${seasonId}, leagueId=${leagueId}, applyConsequences=${applyConsequences}, resetPromotionFlag=${resetPromotionFlag}`);
     const db = this.databaseService.db;
-    
+
+    // 0. Comprobar si hay partidos de playoff en esta liga/temporada
+    let hasPlayoffMatches = false;
+    const playoffMatches = await db
+      .select({ id: matchTable.id })
+      .from(matchTable)
+      .where(
+        and(
+          eq(matchTable.leagueId, leagueId),
+          eq(matchTable.seasonId, seasonId),
+          eq(matchTable.isPlayoff, true)
+        )
+      );
+    if (playoffMatches && playoffMatches.length > 0) {
+      hasPlayoffMatches = true;
+    }
+
     // 1. Calcular clasificaciones usando la lógica unificada
     const standings = await this.calculateStandings(seasonId, leagueId);
-    
+
     // 2. Obtener información de la división
     const [leagueInfo] = await db
       .select({
@@ -729,7 +746,7 @@ export class StandingsService {
       .from(leagueTable)
       .innerJoin(divisionTable, eq(leagueTable.divisionId, divisionTable.id))
       .where(eq(leagueTable.id, leagueId));
-    
+
     if (!leagueInfo) {
       throw new Error(`No se encontró información de la liga ${leagueId}`);
     }
@@ -792,8 +809,13 @@ export class StandingsService {
         qualifiedForTournament: false,
         updatedAt: new Date()
       };
+      // Si hay partidos de playoff, nunca reseteamos promotedNextSeason aunque se pida
       if (resetPromotionFlag) {
-        resetFields.promotedNextSeason = false;
+        if (hasPlayoffMatches) {
+          this.logger.warn(`[PROTECCIÓN ASCENSO] Se ha solicitado resetPromotionFlag=true pero existen partidos de playoff en la liga ${leagueId} (temporada ${seasonId}). NO se resetea promotedNextSeason.`);
+        } else {
+          resetFields.promotedNextSeason = false;
+        }
       }
       await db
         .update(teamLeagueAssignmentTable)
@@ -804,35 +826,31 @@ export class StandingsService {
             eq(teamLeagueAssignmentTable.leagueId, leagueId)
           )
         );
-      
+
       // Aplicar nuevas marcas
       for (const team of standingsWithConsequences) {
         if (team.consequence !== 'SAFE') {
           const updateData: any = { updatedAt: new Date() };
-          
+          let logMsg = '';
           switch (team.consequence) {
             case 'PROMOTION':
               updateData.promotedNextSeason = true;
               consequences.directPromotions++;
-              this.logger.log(`⬆️ ${team.teamName} marcado para ascenso directo (${team.position}º puesto)`);
+              logMsg = `🎉 promotedNextSeason: true para equipo ${team.teamName} (ID: ${team.teamId}) en liga ${leagueId}`;
               break;
             case 'RELEGATION':
               updateData.relegatedNextSeason = true;
               consequences.directRelegations++;
-              this.logger.log(`⬇️ ${team.teamName} marcado para descenso directo (${team.position}º puesto)`);
               break;
             case 'PLAYOFF':
               updateData.playoffNextSeason = true;
               consequences.playoffTeams++;
-              this.logger.log(`🎯 ${team.teamName} marcado para playoff de ascenso (${team.position}º puesto)`);
               break;
             case 'TOURNAMENT':
               updateData.qualifiedForTournament = true;
               consequences.tournamentQualifiers++;
-              this.logger.log(`🏆 ${team.teamName} marcado para torneo (${team.position}º puesto)`);
               break;
           }
-          
           await db
             .update(teamLeagueAssignmentTable)
             .set(updateData)
@@ -843,11 +861,14 @@ export class StandingsService {
                 eq(teamLeagueAssignmentTable.leagueId, leagueId)
               )
             );
+          if (logMsg) {
+            this.logger.log(logMsg);
+          }
         }
       }
-      
+
       consequences.applied = true;
-      this.logger.log(`✅ Consecuencias aplicadas para liga ${leagueId} (División ${leagueInfo.divisionName})`);
+      // Log eliminado: progreso
     }
     
     return {

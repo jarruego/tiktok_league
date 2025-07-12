@@ -10,11 +10,12 @@ import { DatabaseModule } from '../database/database.module';
 import { CoachModule } from '../coaches/coach.module';
 import { StandingsModule } from '../standings/standings.module';
 import { MatchModule } from '../matches/match.module';
+import { PlayoffStatusService } from '../services/playoff-status.service';
 
 @Module({
   imports: [DatabaseModule, CoachModule, StandingsModule, forwardRef(() => MatchModule)],
   controllers: [TeamController, LeagueSystemController, SeasonTransitionController],
-  providers: [TeamService, LeagueSystemService, SeasonTransitionService, SeasonTransitionAssignmentService],
+  providers: [TeamService, LeagueSystemService, SeasonTransitionService, SeasonTransitionAssignmentService,PlayoffStatusService],
   exports: [TeamService, LeagueSystemService, SeasonTransitionService, SeasonTransitionAssignmentService],
 })
 export class TeamModule {}

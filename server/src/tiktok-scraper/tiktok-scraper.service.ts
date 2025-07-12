@@ -75,11 +75,7 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     
     // Lanzar una instancia de navegador con configuración optimizada para producción
     const puppeteerConfig = getPuppeteerConfig();
-    console.log(`🚀 Lanzando navegador con configuración:`, { 
-      headless: puppeteerConfig.headless, 
-      argsCount: puppeteerConfig.args.length 
-    });
-      browser = await puppeteer.launch(puppeteerConfig);
+    browser = await puppeteer.launch(puppeteerConfig);
     const page = await browser.newPage();
 
     // Configuración anti-detección
@@ -126,24 +122,17 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     });
 
     // Navegar con configuración más robusta y manejo de errores específicos
-    console.log(`🔍 Iniciando navegación a: ${url}`);
-    
     try {
       const response = await page.goto(url, { 
         waitUntil: 'domcontentloaded', // Cambiar de networkidle2 a domcontentloaded
         timeout: 45000 
       });
-      
       if (!response) {
         throw new Error('No response received from TikTok');
       }
-      
       if (!response.ok()) {
         throw new Error(`HTTP ${response.status()}: ${response.statusText()}`);
       }
-      
-      console.log(`✅ Página cargada exitosamente: ${response.status()}`);
-      
     } catch (navigationError) {
       console.error(`❌ Error en navegación: ${navigationError.message}`);
       throw new Error(`Failed to navigate to TikTok: ${navigationError.message}`);
@@ -163,8 +152,6 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     if (isBlocked) {
       throw new Error('TikTok está requiriendo verificación - perfil temporalmente inaccesible');
     }
-
-    console.log(`🔍 Iniciando scraping de: ${url}`);
 
     // Esperar a que aparezca el elemento que contiene el número de seguidores
     // --- NUEVO: Scroll, delay y dump de HTML antes de buscar selectores ---
@@ -186,26 +173,20 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
       // Buscar iframes
       const iframeCount = await page.evaluate(() => document.querySelectorAll('iframe').length);
       if (iframeCount > 0) {
-        console.log(`🔎 Se encontraron ${iframeCount} iframes en la página.`);
-        const iframeSrcs = await page.evaluate(() => Array.from(document.querySelectorAll('iframe')).map(f => f.src));
-        console.log('🔎 SRCs de iframes:', iframeSrcs);
+        // Eliminado log de srcs de iframes
       } else {
-        console.log('🔎 No se encontraron iframes en la página.');
+        // Eliminado log de no iframes
       }
     } catch (err) {
-      console.log('⚠️ Error buscando iframes:', err);
+      // Eliminado log de error buscando iframes
     }
 
     // Intentar obtener cookies de sesión si existen (debug)
     try {
       const cookies = await page.cookies();
-      if (cookies && cookies.length > 0) {
-        console.log('🔑 Cookies actuales de la sesión:', cookies.map(c => c.name));
-      } else {
-        console.log('🔑 No hay cookies de sesión activas.');
-      }
+      // Eliminado log de cookies
     } catch (err) {
-      console.log('⚠️ Error obteniendo cookies de sesión:', err);
+      // Eliminado log de error obteniendo cookies
     }
 
     let selectorFound = false;
@@ -220,7 +201,6 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     for (const selector of allSelectors) {
       try {
         await page.waitForSelector(selector, { timeout: 12000 }); // Aumenta timeout
-        console.log(`✅ Selector encontrado: ${selector}`);
         selectorFound = true;
         lastSelector = selector;
         break;
@@ -228,7 +208,6 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
         continue;
       }
     }
-
     if (!selectorFound) {
       console.error(`❌ Ningún selector funcionó para ${tiktokId}`);
       if (browser && browser.close) await browser.close();
@@ -239,13 +218,10 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     let followersText = '';
     try {
       followersText = await page.$eval(lastSelector || 'strong[data-e2e="followers-count"]', el => el.textContent || '0');
-      console.log(`✅ Seguidores obtenidos con selector: ${lastSelector} -> ${followersText}`);
     } catch (err) {
       console.error('❌ Error extrayendo el número de seguidores:', err);
       followersText = '0';
     }
-    
-    console.log(`📊 Texto de seguidores capturado: "${followersText}"`);
     const followers = parseTikTokFollowers(followersText);
 
     // Obtener número de cuentas que sigue (siguiendo)
@@ -263,7 +239,6 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
     let likesText = '';
     try {
       likesText = await page.$eval('strong[data-e2e="likes-count"]', el => el.textContent || '0');
-      console.log(`❤️ Texto de likes capturado: "${likesText}"`);
       likes = parseTikTokFollowers(likesText);
     } catch (error) {
       console.warn(`⚠️ No se encontró el selector principal de likes para ${tiktokId}, intentando alternativas...`);
@@ -279,14 +254,12 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
       for (const selector of alternativeSelectors) {
         try {
           likesText = await page.$eval(selector, el => el.textContent || '0');
-          console.log(`✅ Likes obtenidos con selector alternativo: ${selector} -> "${likesText}"`);
           likes = parseTikTokFollowers(likesText);
           break;
         } catch {
           continue;
         }
       }
-      
       if (likes === 0) {
         console.error(`❌ No se pudieron obtener los likes para ${tiktokId}`);
       }
@@ -321,14 +294,6 @@ async function scrapeTikTokProfile(tiktokId: string): Promise<{
 
     // Cerrar el navegador para liberar recursos
     await browser.close();
-
-    console.log(`✅ Scraping completado para ${tiktokId}:`, {
-      followers,
-      following, 
-      likes,
-      displayName,
-      description: description.substring(0, 50) + '...'
-    });
 
     // Retornar todos los datos extraídos
     return { 
@@ -405,7 +370,6 @@ function parseTikTokFollowers(text: string): number {
   // Si no coincide con el patrón, extraer solo números
   if (!match) {
     const numberOnly = parseInt(cleanText.replace(/\D/g, ''), 10) || 0;
-    console.log(`Parsed number without suffix: ${cleanText} -> ${numberOnly}`);
     return numberOnly;
   }
   
@@ -419,7 +383,6 @@ function parseTikTokFollowers(text: string): number {
   if (suffix === 'K' || suffix === 'k') n *= 1_000;     // Miles
   
   const result = Math.round(n);
-  console.log(`Parsed TikTok number: ${cleanText} -> ${result}`);
   return result; // Redondear a número entero
 }
 
@@ -592,24 +555,24 @@ export class TiktokScraperService {
   async updateFollowers() {
     const db = this.databaseService.db;
     
-    // PASO 1: Obtener equipos que nunca han sido scrapeados Y no tienen demasiados fallos
+    // PASO 1: Obtener equipos que nunca han sido scrapeados Y no tienen demasiados fallos y cuyo tiktokId no empieza por 'Bot_'
     const unscrapedTeams = await db
       .select()
       .from(teamTable)
       .where(
-        sql`${teamTable.lastScrapedAt} IS NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL)`
+        sql`${teamTable.lastScrapedAt} IS NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL) AND ${teamTable.tiktokId} NOT LIKE 'Bot\_%'`
       )
       .limit(1);
     
     let batch = unscrapedTeams;
     
-    // PASO 2: Si no hay equipos sin scrapear, obtener el más antiguo que no haya fallado mucho
+    // PASO 2: Si no hay equipos sin scrapear, obtener el más antiguo que no haya fallado mucho y cuyo tiktokId no empieza por 'Bot_'
     if (batch.length < 1) {
       const oldestScrapedTeams = await db
         .select()
         .from(teamTable)
         .where(
-          sql`${teamTable.lastScrapedAt} IS NOT NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL)`
+          sql`${teamTable.lastScrapedAt} IS NOT NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL) AND ${teamTable.tiktokId} NOT LIKE 'Bot\_%'`
         )
         .orderBy(asc(teamTable.lastScrapedAt))
         .limit(1);
@@ -619,7 +582,7 @@ export class TiktokScraperService {
     
     // PASO 3: Si aún no hay equipos, verificar si REALMENTE todos han fallado mucho
     if (batch.length < 1) {
-      // Contar el total de equipos y los problemáticos
+      // Contar el total de equipos y los problemáticos (sin filtrar Bot_ aquí, para estadísticas globales)
       const totalTeamsCount = await db
         .select({ count: sql<number>`count(*)` })
         .from(teamTable);
@@ -651,11 +614,11 @@ export class TiktokScraperService {
         
         this.logger.log(`🔄 Reseteados contadores de equipos que fallaron hace más de 24 horas`);
         
-        // Intentar obtener equipos de nuevo después del reset
+        // Intentar obtener equipos de nuevo después del reset, excluyendo los Bot_
         const resetTeams = await db
           .select()
           .from(teamTable)
-          .where(sql`${teamTable.failedScrapingAttempts} < 3`)
+          .where(sql`${teamTable.failedScrapingAttempts} < 3 AND ${teamTable.tiktokId} NOT LIKE 'Bot\_%'`)
           .orderBy(asc(teamTable.lastScrapedAt))
           .limit(1);
           

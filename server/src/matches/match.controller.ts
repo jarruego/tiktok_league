@@ -158,7 +158,7 @@ export class MatchController {
   @UseGuards(JwtAuthGuard)
   @Get('simulate/all')
   async simulateAllPendingMatches(): Promise<MatchSimulationResult[]> {
-    console.log('🔍 [DEBUG] Endpoint simulateAllPendingMatches llamado');
+    // Log eliminado
     return this.matchSimulationService.simulateAllPendingMatches();
   }
 

@@ -21,6 +21,7 @@ async function generatePlayoffsDirectly() {
     // Importar módulos necesarios
     const { DatabaseService } = await import("../../src/database/database.service");
     const { SeasonTransitionService } = await import("../../src/teams/season-transition.service");
+    const { PlayoffStatusService } = await import("../../src/services/playoff-status.service");
     const { seasonTable } = await import("../../src/database/schema");
     
     // Crear mock del databaseService
@@ -39,7 +40,8 @@ async function generatePlayoffsDirectly() {
       // Métodos mínimos requeridos para el testing
     } as any;
     
-    const seasonTransitionService = new SeasonTransitionService(databaseService, assignmentService, standingsService);
+    const playoffStatusService = new PlayoffStatusService(databaseService);
+    const seasonTransitionService = new SeasonTransitionService(databaseService, assignmentService, standingsService, playoffStatusService);
     
     // Obtener la temporada activa
     const [activeSeason] = await db
