@@ -337,6 +337,7 @@ export default function ConfigPage() {
                   </div>
                 </div>
 
+                {/* Mostrar problemas pendientes */}
                 {seasonComplete.pendingIssues.length > 0 && (
                   <Alert
                     message="Problemas pendientes"
@@ -345,6 +346,20 @@ export default function ConfigPage() {
                     showIcon
                     style={{ marginBottom: '12px', fontSize: '12px' }}
                   />
+                )}
+
+                {/* Mostrar resumen de ligas: correctas en verde, incorrectas en rojo */}
+                {seasonComplete.leagueAssignmentSummary && (
+                  <div style={{ marginBottom: 12 }}>
+                    <Text strong>Estado de equipos por liga:</Text>
+                    <ul style={{ margin: '8px 0', paddingLeft: 20, fontSize: 12 }}>
+                      {seasonComplete.leagueAssignmentSummary.map((liga: any) => (
+                        <li key={liga.id} style={{ color: liga.count === 20 ? '#389e0d' : '#cf1322', fontWeight: liga.count === 20 ? 'bold' : 'bold' }}>
+                          {liga.name} (ID: {liga.id}): {liga.count} equipos
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
 
                 {seasonComplete.readyForNewSeason ? (
@@ -356,7 +371,7 @@ export default function ConfigPage() {
                       showIcon
                       style={{ marginBottom: '12px' }}
                     />
-                    {/* Botón para asignar descendidos tras playoffs, solo si no hay playoffs pendientes */}
+                    {/* Botón para asignar descendidos tras playoffs: SIEMPRE visible si no hay playoffs pendientes */}
                     {seasonComplete.summary.pendingPlayoffs === 0 && (
                       <Button
                         type="default"

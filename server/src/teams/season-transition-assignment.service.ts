@@ -66,27 +66,38 @@ export class SeasonTransitionAssignmentService {
     // Procesar cada equipo según su estado
     for (const assignment of currentAssignments) {
       let targetDivisionLevel = assignment.divisionLevel;
-      let targetLeagueId = assignment.currentLeagueId;
+      let targetLeagueId = assignment.leagueNextSeason || assignment.currentLeagueId;
       let reason: TeamAssignmentPlan['reason'] = 'stays';
       let reasonDetails = 'Permanece en la misma división y liga';
 
-      // Determinar movimiento basado en flags
-      if (assignment.promotedNextSeason) {
+      // Si leagueNextSeason está definido, usarlo SIEMPRE como destino y ajustar división objetivo
+      if (assignment.leagueNextSeason) {
+        // Buscar la división de la liga destino
+        const [targetLeague] = await this.databaseService.db
+          .select({ divisionId: leagueTable.divisionId })
+          .from(leagueTable)
+          .where(eq(leagueTable.id, assignment.leagueNextSeason));
+        if (targetLeague) {
+          // Buscar nivel de la división destino
+          const [targetDivision] = await this.databaseService.db
+            .select({ level: divisionTable.level })
+            .from(divisionTable)
+            .where(eq(divisionTable.id, targetLeague.divisionId));
+          if (targetDivision) {
+            targetDivisionLevel = targetDivision.level;
+          }
+        }
+        reasonDetails = 'Asignación directa a liga destino (leagueNextSeason)';
+      } else if (assignment.promotedNextSeason) {
         targetDivisionLevel = Math.max(1, assignment.divisionLevel - 1);
         reason = 'promotion';
         reasonDetails = `Asciende por méritos deportivos desde División ${assignment.divisionLevel}`;
-        // Si hay liga destino definida, usarla
-        if (assignment.leagueNextSeason) {
-          targetLeagueId = assignment.leagueNextSeason;
-          reasonDetails += ` a liga específica`;
-        } else {
-          // Si no, buscar hueco en la división superior
-          targetLeagueId = await this.findBestLeagueForTeam(
-            assignment.teamId,
-            targetDivisionLevel,
-            nextSeasonId
-          );
-        }
+        // Buscar hueco en la división superior
+        targetLeagueId = await this.findBestLeagueForTeam(
+          assignment.teamId,
+          targetDivisionLevel,
+          nextSeasonId
+        );
       } else if (assignment.relegatedNextSeason) {
         targetDivisionLevel = Math.min(5, assignment.divisionLevel + 1);
         reason = 'relegation';
@@ -104,17 +115,12 @@ export class SeasonTransitionAssignmentService {
           targetDivisionLevel = Math.max(1, assignment.divisionLevel - 1);
           reason = 'playoff_promotion';
           reasonDetails = `Asciende por ganar playoff desde División ${assignment.divisionLevel}`;
-          // Si hay liga destino definida, usarla
-          if (assignment.leagueNextSeason) {
-            targetLeagueId = assignment.leagueNextSeason;
-            reasonDetails += ` a liga específica`;
-          } else {
-            targetLeagueId = await this.findBestLeagueForTeam(
-              assignment.teamId,
-              targetDivisionLevel,
-              nextSeasonId
-            );
-          }
+          // Buscar hueco en la división superior
+          targetLeagueId = await this.findBestLeagueForTeam(
+            assignment.teamId,
+            targetDivisionLevel,
+            nextSeasonId
+          );
         } else {
           reasonDetails = `Permanece tras perder/no completar playoff en División ${assignment.divisionLevel}`;
         }
@@ -221,29 +227,45 @@ export class SeasonTransitionAssignmentService {
       for (const league of lowerDivisionLeagues) {
         leagueTeamCount[league.leagueId] = leagueTeamCount[league.leagueId] || 0;
       }
-      // 4. Repartir descendidos en los huecos
+      // 4. Repartir descendidos en los huecos, respetando leagueNextSeason si está asignado
       const relegatedTeams = relegations.filter(a => a.divisionLevel === level);
       let leagueIndex = 0;
       for (const team of relegatedTeams) {
-        // Buscar siguiente liga con hueco
         let assigned = false;
-        for (let i = 0; i < lowerDivisionLeagues.length; i++) {
-          const idx = (leagueIndex + i) % lowerDivisionLeagues.length;
-          const league = lowerDivisionLeagues[idx];
-          if (leagueTeamCount[league.leagueId] < league.maxTeams) {
-            assignmentPlan.push({
-              teamId: team.teamId,
-              teamName: team.teamName,
-              currentDivisionLevel: team.divisionLevel,
-              targetDivisionLevel: nextLevel,
-              targetLeagueId: league.leagueId,
-              reason: 'relegation',
-              reasonDetails: `Desciende por méritos deportivos desde División ${team.divisionLevel}`
-            });
-            leagueTeamCount[league.leagueId]++;
-            assigned = true;
-            leagueIndex = idx + 1;
-            break;
+        let targetLeagueId = team.leagueNextSeason || null;
+        if (targetLeagueId) {
+          // Si ya tiene slot asignado, usarlo y aumentar el contador
+          assignmentPlan.push({
+            teamId: team.teamId,
+            teamName: team.teamName,
+            currentDivisionLevel: team.divisionLevel,
+            targetDivisionLevel: nextLevel,
+            targetLeagueId,
+            reason: 'relegation',
+            reasonDetails: `Desciende por méritos deportivos desde División ${team.divisionLevel} (slot asignado manualmente)`
+          });
+          leagueTeamCount[targetLeagueId] = (leagueTeamCount[targetLeagueId] || 0) + 1;
+          assigned = true;
+        } else {
+          // Buscar siguiente liga con hueco
+          for (let i = 0; i < lowerDivisionLeagues.length; i++) {
+            const idx = (leagueIndex + i) % lowerDivisionLeagues.length;
+            const league = lowerDivisionLeagues[idx];
+            if (leagueTeamCount[league.leagueId] < league.maxTeams) {
+              assignmentPlan.push({
+                teamId: team.teamId,
+                teamName: team.teamName,
+                currentDivisionLevel: team.divisionLevel,
+                targetDivisionLevel: nextLevel,
+                targetLeagueId: league.leagueId,
+                reason: 'relegation',
+                reasonDetails: `Desciende por méritos deportivos desde División ${team.divisionLevel}`
+              });
+              leagueTeamCount[league.leagueId]++;
+              assigned = true;
+              leagueIndex = idx + 1;
+              break;
+            }
           }
         }
         if (!assigned) {

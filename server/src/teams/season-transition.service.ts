@@ -977,6 +977,7 @@ export class SeasonTransitionService {
     report: SeasonClosureReport;
     readyForNewSeason: boolean;
     pendingIssues: string[];
+    leagueAssignmentSummary: { id: number; name: string; count: number }[];
   }> {
     const db = this.databaseService.db;
     // Log eliminado: progreso/debug
@@ -1034,7 +1035,7 @@ export class SeasonTransitionService {
           eq(teamLeagueAssignmentTable.promotedNextSeason, true)
         )
       );
-    
+
     const relegations = await db
       .select({
         teamId: teamTable.id,
@@ -1051,7 +1052,7 @@ export class SeasonTransitionService {
           eq(teamLeagueAssignmentTable.relegatedNextSeason, true)
         )
       );
-    
+
     const tournamentQualifiers = await db
       .select({
         teamId: teamTable.id,
@@ -1068,8 +1069,33 @@ export class SeasonTransitionService {
           eq(teamLeagueAssignmentTable.qualifiedForTournament, true)
         )
       );
-    
-    // 4. Construir reporte simplificado con datos ya calculados
+
+    // 4. Validar que leagueNextSeason de todos los equipos da 20 equipos por liga
+    const leagueAssignments = await db
+      .select({ teamId: teamLeagueAssignmentTable.teamId, leagueNextSeason: teamLeagueAssignmentTable.leagueNextSeason })
+      .from(teamLeagueAssignmentTable)
+      .where(eq(teamLeagueAssignmentTable.seasonId, seasonId));
+
+
+    // Contar equipos por cada leagueNextSeason (ignorando nulls)
+    const leagueCounts: Record<number, number> = {};
+    for (const row of leagueAssignments) {
+      if (row.leagueNextSeason) {
+        leagueCounts[row.leagueNextSeason] = (leagueCounts[row.leagueNextSeason] || 0) + 1;
+      }
+    }
+
+    // Leer todas las ligas y construir resumen
+    const allLeagues = await db.select({ id: leagueTable.id, name: leagueTable.name }).from(leagueTable);
+    const leagueAssignmentSummary = allLeagues.map(league => {
+      const count = leagueCounts[league.id] || 0;
+      if (count !== 20) {
+        pendingIssues.push(`La liga "${league.name}" (ID: ${league.id}) tendría ${count} equipos según leagueNextSeason. Debe tener exactamente 20.`);
+      }
+      return { id: league.id, name: league.name, count };
+    });
+
+    // 5. Construir reporte simplificado con datos ya calculados
     const report: SeasonClosureReport = {
       currentSeasonId: seasonId,
       promotions: promotions.map(p => ({
@@ -1093,17 +1119,18 @@ export class SeasonTransitionService {
       pendingPlayoffs: [], // Ya verificado arriba
       errors: []
     };
-    
+
     const isComplete = pendingIssues.length === 0;
     const readyForNewSeason = isComplete;
-    
+
     // Logs eliminados: progreso/debug
-    
+
     return {
       isComplete,
       report,
       readyForNewSeason,
-      pendingIssues
+      pendingIssues,
+      leagueAssignmentSummary
     };
   }
 

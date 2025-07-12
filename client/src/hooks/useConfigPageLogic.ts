@@ -6,6 +6,26 @@ import { usePermissions } from './usePermissions';
 import { leagueApi } from '../api/leagueApi';
 import { matchApi } from '../api/matchApi';
 
+export interface LeagueAssignmentSummary {
+  id: number;
+  name: string;
+  count: number;
+}
+
+export interface SeasonCompleteState {
+  isComplete: boolean;
+  readyForNewSeason: boolean;
+  pendingIssues: string[];
+  summary: {
+    promotions: number;
+    relegations: number;
+    tournamentQualifiers: number;
+    pendingPlayoffs: number;
+    errors: number;
+  };
+  leagueAssignmentSummary?: LeagueAssignmentSummary[];
+}
+
 export function useConfigPageLogic() {
   // Asignar manualmente los equipos descendidos a los huecos vacantes tras playoffs
   const [assigningRelegated, setAssigningRelegated] = useState(false);
@@ -25,18 +45,7 @@ export function useConfigPageLogic() {
   const [activeSeason, setActiveSeason] = useState<any>(null);
   
   // Estados para nueva temporada
-  const [seasonComplete, setSeasonComplete] = useState<{
-    isComplete: boolean;
-    readyForNewSeason: boolean;
-    pendingIssues: string[];
-    summary: {
-      promotions: number;
-      relegations: number;
-      tournamentQualifiers: number;
-      pendingPlayoffs: number;
-      errors: number;
-    };
-  } | null>(null);
+  const [seasonComplete, setSeasonComplete] = useState<SeasonCompleteState | null>(null);
   const [checkingSeasonComplete, setCheckingSeasonComplete] = useState(false);
   const [creatingNewSeason, setCreatingNewSeason] = useState(false);
   
