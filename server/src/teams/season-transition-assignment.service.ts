@@ -93,9 +93,23 @@ export class SeasonTransitionAssignmentService {
     }
 
     // 3. Asignar promociones y descensos a los huecos de destino
-    // a) Ascendidos: ocuparán huecos en la división superior
+
+    // a) Ascendidos: ocuparán huecos en la división superior (pero no si ya están en la división 1)
     for (const assignment of promotions) {
-      const targetDivisionLevel = Math.max(1, assignment.divisionLevel - 1);
+      if (assignment.divisionLevel === 1) {
+        // No se puede ascender desde la división 1, permanece
+        assignmentPlan.push({
+          teamId: assignment.teamId,
+          teamName: assignment.teamName,
+          currentDivisionLevel: assignment.divisionLevel,
+          targetDivisionLevel: assignment.divisionLevel,
+          targetLeagueId: assignment.currentLeagueId,
+          reason: 'stays',
+          reasonDetails: 'Permanece en la máxima división (no puede ascender más)'
+        });
+        continue;
+      }
+      const targetDivisionLevel = assignment.divisionLevel - 1;
       const targetLeagues = leagueVacancies[targetDivisionLevel] || [];
       if (targetLeagues.length === 0) throw new Error(`No hay ligas disponibles en división ${targetDivisionLevel}`);
       const targetLeagueId = targetLeagues.shift();
@@ -111,9 +125,22 @@ export class SeasonTransitionAssignmentService {
       });
     }
 
-    // b) Playoff-promotions: igual que ascensos
+    // b) Playoff-promotions: igual que ascensos (pero no si ya están en la división 1)
     for (const assignment of playoffPromotions) {
-      const targetDivisionLevel = Math.max(1, assignment.divisionLevel - 1);
+      if (assignment.divisionLevel === 1) {
+        // No se puede ascender desde la división 1, permanece
+        assignmentPlan.push({
+          teamId: assignment.teamId,
+          teamName: assignment.teamName,
+          currentDivisionLevel: assignment.divisionLevel,
+          targetDivisionLevel: assignment.divisionLevel,
+          targetLeagueId: assignment.currentLeagueId,
+          reason: 'stays',
+          reasonDetails: 'Permanece en la máxima división (no puede ascender más)'
+        });
+        continue;
+      }
+      const targetDivisionLevel = assignment.divisionLevel - 1;
       const targetLeagues = leagueVacancies[targetDivisionLevel] || [];
       if (targetLeagues.length === 0) throw new Error(`No hay ligas disponibles en división ${targetDivisionLevel}`);
       const targetLeagueId = targetLeagues.shift();
@@ -129,9 +156,23 @@ export class SeasonTransitionAssignmentService {
       });
     }
 
-    // c) Descendidos: ocuparán huecos en la división inferior
+    // c) Descendidos: ocuparán huecos en la división inferior (pero no si ya están en la última división)
+    const maxDivisionLevel = Math.max(...divisionLevels);
     for (const assignment of relegations) {
-      const targetDivisionLevel = Math.min(5, assignment.divisionLevel + 1);
+      if (assignment.divisionLevel === maxDivisionLevel) {
+        // No se puede descender más, permanece
+        assignmentPlan.push({
+          teamId: assignment.teamId,
+          teamName: assignment.teamName,
+          currentDivisionLevel: assignment.divisionLevel,
+          targetDivisionLevel: assignment.divisionLevel,
+          targetLeagueId: assignment.currentLeagueId,
+          reason: 'stays',
+          reasonDetails: 'Permanece en la división más baja (no puede descender más)'
+        });
+        continue;
+      }
+      const targetDivisionLevel = assignment.divisionLevel + 1;
       const targetLeagues = leagueVacancies[targetDivisionLevel] || [];
       if (targetLeagues.length === 0) throw new Error(`No hay ligas disponibles en división ${targetDivisionLevel}`);
       const targetLeagueId = targetLeagues.shift();
