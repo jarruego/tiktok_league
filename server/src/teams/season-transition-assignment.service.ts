@@ -42,9 +42,7 @@ export class SeasonTransitionAssignmentService {
     nextSeasonId: number
   ): Promise<TeamAssignmentPlan[]> {
     const db = this.databaseService.db;
-    const assignmentPlan: TeamAssignmentPlan[] = [];
-
-    // Obtener todas las asignaciones actuales
+    // 1. Leer todos los equipos y su asignación actual
     const currentAssignments = await db
       .select({
         teamId: teamTable.id,
@@ -54,162 +52,105 @@ export class SeasonTransitionAssignmentService {
         divisionLevel: divisionTable.level,
         divisionName: divisionTable.name,
         promotedNextSeason: teamLeagueAssignmentTable.promotedNextSeason,
-        relegatedNextSeason: teamLeagueAssignmentTable.relegatedNextSeason,
-        playoffNextSeason: teamLeagueAssignmentTable.playoffNextSeason,
-        qualifiedForTournament: teamLeagueAssignmentTable.qualifiedForTournament
+        relegatedNextSeason: teamLeagueAssignmentTable.relegatedNextSeason
       })
       .from(teamLeagueAssignmentTable)
       .innerJoin(teamTable, eq(teamLeagueAssignmentTable.teamId, teamTable.id))
       .innerJoin(leagueTable, eq(teamLeagueAssignmentTable.leagueId, leagueTable.id))
       .innerJoin(divisionTable, eq(leagueTable.divisionId, divisionTable.id))
-      .where(eq(teamLeagueAssignmentTable.seasonId, currentSeasonId))
-      .orderBy(asc(divisionTable.level), desc(teamTable.followers));
+      .where(eq(teamLeagueAssignmentTable.seasonId, currentSeasonId));
 
-    // 1. Agrupar equipos por división y tipo de movimiento
-    const stays: any[] = [];
-    const promotions: any[] = [];
-    const playoffPromotions: any[] = [];
-    const relegations: any[] = [];
+    // 2. Agrupar equipos por tipo de movimiento
+    const promotions = currentAssignments.filter(a => a.promotedNextSeason);
+    const relegations = currentAssignments.filter(a => a.relegatedNextSeason);
+    const stays = currentAssignments.filter(a => !a.promotedNextSeason && !a.relegatedNextSeason);
 
-    for (const assignment of currentAssignments) {
-      if (assignment.promotedNextSeason) {
-        promotions.push(assignment);
-      } else if (assignment.relegatedNextSeason) {
-        relegations.push(assignment);
-      } else if (assignment.playoffNextSeason) {
-        stays.push(assignment);
-      } else {
-        stays.push(assignment);
-      }
-    }
-
-    // 2. Calcular huecos disponibles en cada liga de cada división
-    // Para cada división, los huecos son los equipos que ascienden o descienden (dejan vacante)
-    const divisionLevels = [...new Set(currentAssignments.map(a => a.divisionLevel))];
-    const leagueVacancies: Record<number, number[]> = {};
+    // 3. Construir modelo de ligas objetivo
+    // Map: divisionLevel -> array de ligas con { id, divisionLevel, currentTeams: [], maxTeams }
+    const divisionLevels = [...new Set(currentAssignments.map(a => a.divisionLevel))].sort((a, b) => a - b);
+    const leagueModel: Record<number, Array<{ id: number; divisionLevel: number; currentTeams: any[]; maxTeams: number }>> = {};
     for (const level of divisionLevels) {
-      const leagues = await this.getLeaguesByDivisionLevel(level);
-      leagueVacancies[level] = leagues.map(l => l.id);
+      const leagues = await db
+        .select({ id: leagueTable.id, maxTeams: leagueTable.maxTeams })
+        .from(leagueTable)
+        .innerJoin(divisionTable, eq(leagueTable.divisionId, divisionTable.id))
+        .where(eq(divisionTable.level, level));
+      leagueModel[level] = leagues.map(l => ({ id: l.id, divisionLevel: level, currentTeams: [], maxTeams: l.maxTeams }));
     }
 
-    // 3. Asignar promociones y descensos a los huecos de destino
+    // 4. Asignar equipos a ligas destino
+    // a) Ascendidos: van a la división superior
+    for (const team of promotions) {
+      const targetLevel = team.divisionLevel - 1;
+      const targetLeagues = leagueModel[targetLevel];
+      if (!targetLeagues) throw new Error(`No hay ligas en división ${targetLevel} para ascender a ${team.teamName}`);
+      // Buscar liga con menos equipos
+      const sorted = targetLeagues.sort((a, b) => a.currentTeams.length - b.currentTeams.length);
+      const liga = sorted.find(l => l.currentTeams.length < l.maxTeams);
+      if (!liga) throw new Error(`No hay huecos en división ${targetLevel} para ascender a ${team.teamName}`);
+      liga.currentTeams.push({ ...team, reason: 'promotion', reasonDetails: `Asciende desde división ${team.divisionLevel}` });
+    }
 
-    // a) Ascendidos: ocuparán huecos en la división superior (pero no si ya están en la división 1)
-    for (const assignment of promotions) {
-      if (assignment.divisionLevel === 1) {
-        // No se puede ascender desde la división 1, permanece
-        assignmentPlan.push({
-          teamId: assignment.teamId,
-          teamName: assignment.teamName,
-          currentDivisionLevel: assignment.divisionLevel,
-          targetDivisionLevel: assignment.divisionLevel,
-          targetLeagueId: assignment.currentLeagueId,
-          reason: 'stays',
-          reasonDetails: 'Permanece en la máxima división (no puede ascender más)'
-        });
-        continue;
+    // b) Descendidos: van a la división inferior
+    for (const team of relegations) {
+      const targetLevel = team.divisionLevel + 1;
+      const targetLeagues = leagueModel[targetLevel];
+      if (!targetLeagues) throw new Error(`No hay ligas en división ${targetLevel} para descender a ${team.teamName}`);
+      const sorted = targetLeagues.sort((a, b) => a.currentTeams.length - b.currentTeams.length);
+      const liga = sorted.find(l => l.currentTeams.length < l.maxTeams);
+      if (!liga) throw new Error(`No hay huecos en división ${targetLevel} para descender a ${team.teamName}`);
+      liga.currentTeams.push({ ...team, reason: 'relegation', reasonDetails: `Desciende desde división ${team.divisionLevel}` });
+    }
+
+    // c) Permanecen: se quedan en su división
+    for (const team of stays) {
+      const targetLevel = team.divisionLevel;
+      const targetLeagues = leagueModel[targetLevel];
+      if (!targetLeagues) throw new Error(`No hay ligas en división ${targetLevel} para permanecer ${team.teamName}`);
+      // Buscar liga con menos equipos
+      const sorted = targetLeagues.sort((a, b) => a.currentTeams.length - b.currentTeams.length);
+      const liga = sorted.find(l => l.currentTeams.length < l.maxTeams);
+      if (!liga) throw new Error(`No hay huecos en división ${targetLevel} para permanecer ${team.teamName}`);
+      liga.currentTeams.push({ ...team, reason: 'stays', reasonDetails: 'Permanece en la misma división' });
+    }
+
+    // 5. Validaciones finales
+    // a) Todas las ligas deben tener exactamente maxTeams
+    for (const level of divisionLevels) {
+      for (const liga of leagueModel[level]) {
+        if (liga.currentTeams.length !== liga.maxTeams) {
+          throw new Error(`La liga ${liga.id} de división ${level} tiene ${liga.currentTeams.length} equipos (esperado: ${liga.maxTeams})`);
+        }
       }
-      const targetDivisionLevel = assignment.divisionLevel - 1;
-      const targetLeagues = leagueVacancies[targetDivisionLevel] || [];
-      if (targetLeagues.length === 0) throw new Error(`No hay ligas disponibles en división ${targetDivisionLevel}`);
-      const targetLeagueId = targetLeagues.shift();
-      if (typeof targetLeagueId !== 'number') throw new Error(`No se pudo asignar liga para ascenso en división ${targetDivisionLevel}`);
-      assignmentPlan.push({
-        teamId: assignment.teamId,
-        teamName: assignment.teamName,
-        currentDivisionLevel: assignment.divisionLevel,
-        targetDivisionLevel,
-        targetLeagueId,
-        reason: 'promotion',
-        reasonDetails: `Asciende por méritos deportivos desde División ${assignment.divisionLevel}`
-      });
+    }
+    // b) No equipos duplicados
+    const allAssignedIds = Object.values(leagueModel).flat().flatMap(l => l.currentTeams.map(t => t.teamId));
+    const uniqueIds = new Set(allAssignedIds);
+    if (allAssignedIds.length !== uniqueIds.size) {
+      throw new Error('Hay equipos asignados a más de una liga');
+    }
+    // c) No equipos sin asignar
+    if (allAssignedIds.length !== currentAssignments.length) {
+      throw new Error('Hay equipos sin asignar a ninguna liga');
     }
 
-    // b) Playoff-promotions: igual que ascensos (pero no si ya están en la división 1)
-    for (const assignment of playoffPromotions) {
-      if (assignment.divisionLevel === 1) {
-        // No se puede ascender desde la división 1, permanece
-        assignmentPlan.push({
-          teamId: assignment.teamId,
-          teamName: assignment.teamName,
-          currentDivisionLevel: assignment.divisionLevel,
-          targetDivisionLevel: assignment.divisionLevel,
-          targetLeagueId: assignment.currentLeagueId,
-          reason: 'stays',
-          reasonDetails: 'Permanece en la máxima división (no puede ascender más)'
-        });
-        continue;
+    // 6. Construir assignmentPlan final
+    const assignmentPlan: TeamAssignmentPlan[] = [];
+    for (const level of divisionLevels) {
+      for (const liga of leagueModel[level]) {
+        for (const team of liga.currentTeams) {
+          assignmentPlan.push({
+            teamId: team.teamId,
+            teamName: team.teamName,
+            currentDivisionLevel: team.divisionLevel,
+            targetDivisionLevel: level,
+            targetLeagueId: liga.id,
+            reason: team.reason,
+            reasonDetails: team.reasonDetails
+          });
+        }
       }
-      const targetDivisionLevel = assignment.divisionLevel - 1;
-      const targetLeagues = leagueVacancies[targetDivisionLevel] || [];
-      if (targetLeagues.length === 0) throw new Error(`No hay ligas disponibles en división ${targetDivisionLevel}`);
-      const targetLeagueId = targetLeagues.shift();
-      if (typeof targetLeagueId !== 'number') throw new Error(`No se pudo asignar liga para ascenso por playoff en división ${targetDivisionLevel}`);
-      assignmentPlan.push({
-        teamId: assignment.teamId,
-        teamName: assignment.teamName,
-        currentDivisionLevel: assignment.divisionLevel,
-        targetDivisionLevel,
-        targetLeagueId,
-        reason: 'playoff_promotion',
-        reasonDetails: `Asciende por ganar playoff desde División ${assignment.divisionLevel}`
-      });
     }
-
-    // c) Descendidos: ocuparán huecos en la división inferior (pero no si ya están en la última división)
-    const maxDivisionLevel = Math.max(...divisionLevels);
-    for (const assignment of relegations) {
-      if (assignment.divisionLevel === maxDivisionLevel) {
-        // No se puede descender más, permanece
-        assignmentPlan.push({
-          teamId: assignment.teamId,
-          teamName: assignment.teamName,
-          currentDivisionLevel: assignment.divisionLevel,
-          targetDivisionLevel: assignment.divisionLevel,
-          targetLeagueId: assignment.currentLeagueId,
-          reason: 'stays',
-          reasonDetails: 'Permanece en la división más baja (no puede descender más)'
-        });
-        continue;
-      }
-      const targetDivisionLevel = assignment.divisionLevel + 1;
-      const targetLeagues = leagueVacancies[targetDivisionLevel] || [];
-      if (targetLeagues.length === 0) throw new Error(`No hay ligas disponibles en división ${targetDivisionLevel}`);
-      const targetLeagueId = targetLeagues.shift();
-      if (typeof targetLeagueId !== 'number') throw new Error(`No se pudo asignar liga para descenso en división ${targetDivisionLevel}`);
-      assignmentPlan.push({
-        teamId: assignment.teamId,
-        teamName: assignment.teamName,
-        currentDivisionLevel: assignment.divisionLevel,
-        targetDivisionLevel,
-        targetLeagueId,
-        reason: 'relegation',
-        reasonDetails: `Desciende por méritos deportivos desde División ${assignment.divisionLevel}`
-      });
-    }
-
-    // d) Stays: permanecen en su liga
-    for (const assignment of stays) {
-      assignmentPlan.push({
-        teamId: assignment.teamId,
-        teamName: assignment.teamName,
-        currentDivisionLevel: assignment.divisionLevel,
-        targetDivisionLevel: assignment.divisionLevel,
-        targetLeagueId: assignment.currentLeagueId,
-        reason: 'stays',
-        reasonDetails: 'Permanece en la misma división y liga'
-      });
-    }
-
-    // Ordenar por prioridad: ascensos primero, luego playoff, luego stays, luego descensos
-    assignmentPlan.sort((a, b) => {
-      const priorityOrder = { 'promotion': 1, 'playoff_promotion': 2, 'stays': 3, 'relegation': 4 };
-      const aPriority = priorityOrder[a.reason];
-      const bPriority = priorityOrder[b.reason];
-      if (aPriority !== bPriority) return aPriority - bPriority;
-      return a.targetDivisionLevel - b.targetDivisionLevel;
-    });
-
     return assignmentPlan;
   }
 
@@ -236,56 +177,22 @@ export class SeasonTransitionAssignmentService {
 
     for (const assignment of assignmentPlan) {
       try {
-        // Obtener información del equipo
-        const [team] = await db
-          .select()
-          .from(teamTable)
-          .where(eq(teamTable.id, assignment.teamId));
-
-        if (!team) {
-          errors.push(`Equipo no encontrado: ${assignment.teamId}`);
-          continue;
-        }
-
-        // Verificar que no existe ya una asignación
-        const [existingAssignment] = await db
-          .select()
-          .from(teamLeagueAssignmentTable)
-          .where(
-            and(
-              eq(teamLeagueAssignmentTable.teamId, assignment.teamId),
-              eq(teamLeagueAssignmentTable.seasonId, nextSeasonId)
-            )
-          );
-
-        if (existingAssignment) {
-          this.logger.warn(`Asignación ya existe para equipo ${team.name} en temporada ${nextSeasonId}`);
-          continue;
-        }
-
-        // Crear nueva asignación
-        const assignmentReason = this.getAssignmentReason(assignment.reason);
-        
-        await db
-          .insert(teamLeagueAssignmentTable)
-          .values({
-            teamId: assignment.teamId,
-            leagueId: assignment.targetLeagueId,
-            seasonId: nextSeasonId,
-            tiktokFollowersAtAssignment: team.followers,
-            assignmentReason
-          });
-
+        // Insertar la asignación directamente
+        await db.insert(teamLeagueAssignmentTable).values({
+          teamId: assignment.teamId,
+          leagueId: assignment.targetLeagueId,
+          seasonId: nextSeasonId,
+          assignmentReason: this.getAssignmentReason(assignment.reason),
+          tiktokFollowersAtAssignment: undefined // Si necesitas followers, deberás obtenerlos antes
+        });
         successCount++;
-        this.logger.log(`✅ ${team.name}: ${assignment.reasonDetails}`);
-
+        this.logger.log(`✅ ${assignment.teamName}: ${assignment.reasonDetails}`);
       } catch (error) {
         const errorMsg = `Error asignando equipo ${assignment.teamId}: ${error.message}`;
         errors.push(errorMsg);
         this.logger.error(errorMsg);
       }
     }
-
     return { success: successCount, errors };
   }
 
