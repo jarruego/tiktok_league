@@ -1,4 +1,3 @@
-import { assignRelegatedTeamsToVacantSlots } from '../api/seasonTransitionApi';
 import { recalculateAllStandingsAndStates, checkActiveSeasonComplete, createNewSeasonFromCompleted } from '../api/seasonTransitionApi';
 import { useState, useEffect } from 'react';
 import { message } from 'antd';
@@ -27,20 +26,6 @@ export interface SeasonCompleteState {
 }
 
 export function useConfigPageLogic() {
-  // Asignar manualmente los equipos descendidos a los huecos vacantes tras playoffs
-  const [assigningRelegated, setAssigningRelegated] = useState(false);
-  const handleAssignRelegatedTeamsToVacantSlots = async () => {
-    setAssigningRelegated(true);
-    try {
-      const result = await assignRelegatedTeamsToVacantSlots();
-      message.success(result.message || 'Descensos asignados manualmente tras playoffs');
-    } catch (error: any) {
-      message.error(error.message || 'Error al asignar descendidos');
-    } finally {
-      setAssigningRelegated(false);
-      await refreshAllData();
-    }
-  };
   // Estados para gestión de calendario (deben ir antes de refreshActiveSeason)
   const [activeSeason, setActiveSeason] = useState<any>(null);
   
@@ -507,8 +492,6 @@ export function useConfigPageLogic() {
 
   // Retornar todas las propiedades y funciones
   return {
-    handleAssignRelegatedTeamsToVacantSlots,
-    assigningRelegated,
     permissions,
     loading,
     caching,

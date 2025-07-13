@@ -375,16 +375,6 @@ export class SeasonTransitionController {
    * Endpoint de debug para ver estados de equipos en una temporada
    */
 
-  @UseGuards(JwtAuthGuard)
-  @Post('assign-relegated-teams')
-  async assignRelegatedTeamsToVacantSlots(): Promise<{ message: string; assigned: boolean }> {
-    const activeSeason = await this.seasonTransitionService.getActiveSeason();
-    await this.seasonTransitionService.assignRelegatedTeamsToVacantSlots(activeSeason.id);
-    return {
-      message: 'Descendidos asignados a los huecos vacantes tras playoffs',
-      assigned: true
-    };
-  }
   
   @Get(':seasonId/debug-team-status')
   async debugTeamStatus(

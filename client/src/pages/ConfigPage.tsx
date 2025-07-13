@@ -59,8 +59,6 @@ export default function ConfigPage() {
     creatingNewSeason,
     handleCreateNewSeason,
     // Para botón de asignar descendidos tras playoffs
-    assigningRelegated,
-    handleAssignRelegatedTeamsToVacantSlots
   } = useConfigPageLogic();
 
   // Estado para modal de crear nueva temporada desde completada
@@ -376,8 +374,6 @@ export default function ConfigPage() {
                       <Button
                         type="default"
                         style={{ width: '100%', marginBottom: 8 }}
-                        loading={assigningRelegated}
-                        onClick={handleAssignRelegatedTeamsToVacantSlots}
                       >
                         Asignar descendidos tras playoffs
                       </Button>
