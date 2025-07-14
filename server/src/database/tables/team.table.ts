@@ -5,7 +5,7 @@ import { coachTable } from './coach.table';
 export const teamTable = pgTable('teams', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
-  
+  isBot: integer('is_bot').notNull().default(0), // 0 = no bot, 1 = bot
   // Campos existentes para TikTok
   tiktokId: varchar('tiktok_id', { length: 100 }).notNull(),
   displayName: varchar('display_name', { length: 100 }), // Nombre mostrado en TikTok

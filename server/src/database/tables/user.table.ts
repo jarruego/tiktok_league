@@ -1,5 +1,7 @@
-import { pgTable, serial, varchar } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, integer } from 'drizzle-orm/pg-core';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+
+import { teamTable } from './team.table';
 
 export const userTable = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -9,6 +11,7 @@ export const userTable = pgTable('users', {
   displayName: varchar('display_name', { length: 100 }),
   avatar: varchar('avatar', { length: 255 }),
   provider: varchar('provider', { length: 50 }),
+  teamId: integer('team_id').references(() => teamTable.id),
 });
 
 export type UserSelectModel = InferSelectModel<typeof userTable>;

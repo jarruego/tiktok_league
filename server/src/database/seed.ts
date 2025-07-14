@@ -9,7 +9,17 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // Equipos extraídos de la base de datos con todos sus datos completos
-const teams = [
+type TeamSeed = {
+  name: string;
+  tiktokId: string;
+  followers: number;
+  displayName: string;
+  footballDataId: number;
+  competitionId: number;
+  isBot?: boolean;
+};
+
+const teams: TeamSeed[] = [
   {
     "name": "Manchester City",
     "tiktokId": "mancity",
@@ -333,16 +343,17 @@ const teams = [
   }
 ];
 
-// Añadir 300 equipos callejeros automáticamente
-for (let i = 1; i <= 300; i++) {
+// Añadir 280 bots equipos callejeros automáticamente
+for (let i = 1; i <= 280; i++) {
   const num = i.toString().padStart(2, '0');
   teams.push({
     name: `Equipo Callejero ${num}`,
-    tiktokId: `Bot_${num}`,
+    tiktokId: `Bot_${num}_TikTok_League`,
     followers: 0,
     displayName: "",
     footballDataId: 0, 
-    competitionId: 0 
+    competitionId: 0,
+    isBot: true
   });
 }
 async function seed(existingDb?: any) {
@@ -422,7 +433,12 @@ async function seed(existingDb?: any) {
     // Verifica si el equipo ya existe por tiktokId
     const exists = await db.select().from(teamTable).where(eq(teamTable.tiktokId, team.tiktokId));
     if (exists.length === 0) {
-      await db.insert(teamTable).values(team);
+      // Convertir isBot a entero y solo incluir si está definido
+      const { isBot, ...rest } = team;
+      const teamToInsert = isBot !== undefined
+        ? { ...rest, isBot: isBot ? 1 : 0 }
+        : rest;
+      await db.insert(teamTable).values(teamToInsert);
       console.log(`Equipo insertado: ${team.name}`);
     } else {
       console.log(`Ya existe: ${team.name}`);
