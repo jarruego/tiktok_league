@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Alert, Card, Divider, Layout } from 'antd';
+import { GoogleLoginButton } from './GoogleLoginButton';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 
@@ -140,6 +141,9 @@ export const LoginScreen: React.FC = () => {
               <span style={{ fontSize: '16px' }}>🎵</span>
               Continuar con TikTok
             </Button>
+          </div>
+          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <GoogleLoginButton />
           </div>
         </Card>
       </Content>

@@ -18,4 +18,10 @@ export class AuthController {
   async tiktokLogin(@Body() body: { code: string }) {
     return this.authService.loginWithTikTok(body.code);
   }
+
+  // Endpoint para login con Google OAuth
+  @Post('google')
+  async googleLogin(@Body() body: { token: string }) {
+    return this.authService.loginWithGoogle(body.token);
+  }
 }

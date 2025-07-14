@@ -31,4 +31,18 @@ export class UsersService {
     }).returning();
     return user;
   }
+
+  // Crea un usuario a partir de los datos de Google
+  async createFromGoogle({ username, displayName, avatar }: { username: string; displayName?: string; avatar?: string }) {
+    const db = this.databaseService.db;
+    const [user] = await db.insert(userTable).values({
+      username,
+      displayName: displayName || null,
+      avatar: avatar || null,
+      provider: 'google',
+      role: 'user',
+      password: '',
+    }).returning();
+    return user;
+  }
 }

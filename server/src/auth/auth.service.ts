@@ -4,6 +4,7 @@ import { UsersService } from './users.service';
 import * as bcrypt from 'bcryptjs';
 import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
+import { GoogleAuthService } from './google.strategy';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +12,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly googleAuthService: GoogleAuthService, // inyectar
   ) {}
 
   // Valida usuario y contraseña
@@ -119,5 +121,21 @@ export class AuthService {
       console.error('Error en loginWithTikTok:', err?.response?.data || err);
       throw new UnauthorizedException('Error en login con TikTok');
     }
+  }
+
+  async loginWithGoogle(token: string) {
+    const payload = await this.googleAuthService.verify(token);
+    // Buscar usuario por email
+    const email = payload.email || '';
+    let user = await this.usersService.findByUsername(email);
+    if (!user) {
+      // Crear usuario nuevo
+      user = await this.usersService.createFromGoogle({
+        username: email,
+        displayName: payload.name || undefined,
+        avatar: payload.picture || undefined,
+      });
+    }
+    return this.login(user);
   }
 }
