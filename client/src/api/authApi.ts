@@ -1,3 +1,4 @@
+// ...existing code...
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 
@@ -20,6 +21,17 @@ export interface AuthState {
 }
 
 class AuthService {
+  // Login social: guarda token y usuario directamente
+  public loginWithSocial(token: string, user: UserWithTeam) {
+    this.state = {
+      isAuthenticated: true,
+      token,
+      user
+    };
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('auth_user', JSON.stringify(user));
+    this.notifyListeners();
+  }
   private static instance: AuthService;
   private state: AuthState = {
     isAuthenticated: false,
