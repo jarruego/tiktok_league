@@ -40,6 +40,19 @@ export class AuthService {
     };
   }
 
+  // Registro clásico
+  async register({ username, password, email }: { username: string; password: string; email?: string }) {
+    if (!username || !password) throw new Error('Usuario y contraseña requeridos');
+    // Comprobar si ya existe el usuario
+    const existing = await this.usersService.findByUsername(username);
+    if (existing) throw new Error('El usuario ya existe');
+    // Hashear contraseña
+    const hashed = await bcrypt.hash(password, 10);
+    // Crear usuario
+    const user = await this.usersService.createFromRegister({ username, password: hashed, email });
+    return this.login(user);
+  }
+
   async loginWithTikTok(code: string) {
     const client_key = this.configService.get<string>('TIKTOK_CLIENT_KEY');
     const client_secret = this.configService.get<string>('TIKTOK_CLIENT_SECRET');

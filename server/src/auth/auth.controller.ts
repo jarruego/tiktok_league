@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Post, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -23,5 +23,11 @@ export class AuthController {
   @Post('google')
   async googleLogin(@Body() body: { token: string }) {
     return this.authService.loginWithGoogle(body.token);
+  }
+
+  // Endpoint de registro clásico
+  @Post('register')
+  async register(@Body() body: { username: string; password: string; email?: string }) {
+    return this.authService.register(body);
   }
 }

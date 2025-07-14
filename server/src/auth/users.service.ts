@@ -45,4 +45,17 @@ export class UsersService {
     }).returning();
     return user;
   }
+
+  // Crea un usuario a partir del registro clásico
+  async createFromRegister({ username, password, email }: { username: string; password: string; email?: string }) {
+    const db = this.databaseService.db;
+    const [user] = await db.insert(userTable).values({
+      username,
+      password,
+      email: email || null,
+      provider: 'local',
+      role: 'user',
+    }).returning();
+    return user;
+  }
 }
