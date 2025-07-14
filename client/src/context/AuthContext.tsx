@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { AuthState } from '../api/authApi';
+import type { AuthState, UserWithTeam } from '../api/authApi';
 import { authService } from '../api/authApi';
 
 interface AuthContextType extends AuthState {
+  user: UserWithTeam | null;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshAuthState: () => void;

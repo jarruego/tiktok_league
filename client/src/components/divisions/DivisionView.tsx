@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
 import { matchApi } from '../../api/matchApi';
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import type { Division, Season, ExtendedTeamInLeague } from '../../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
 import { formatNumber } from '../../utils/formatters';
@@ -192,6 +193,7 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
 
 export default function DivisionView() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [selectedDivision, setSelectedDivision] = useState<Division | null>(null);
   const [selectedLeague, setSelectedLeague] = useState<number | null>(null);
@@ -205,7 +207,7 @@ export default function DivisionView() {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      
+
       // Intentar obtener la temporada activa
       let activeSeason: Season | null = null;
       try {
@@ -220,14 +222,39 @@ export default function DivisionView() {
       try {
         divisionStructure = await leagueApi.getDivisionStructure();
         setDivisions(divisionStructure);
-        
+
         if (divisionStructure.length > 0) {
-          // Seleccionar División 1 por defecto
-          const division1 = divisionStructure.find(d => d.level === 1) || divisionStructure[0];
-          setSelectedDivision(division1);
-          
-          if (division1.leagues.length > 0) {
-            setSelectedLeague(division1.leagues[0].id);
+          let foundDivision = null;
+          let foundLeague = null;
+
+          // Si el usuario tiene equipo, buscar en qué liga está asignado en la temporada activa
+          if (user?.teamId && activeSeason) {
+            outer: for (const division of divisionStructure) {
+              for (const league of division.leagues) {
+                // Buscar si el equipo está en esta liga
+                try {
+                  // Obtener equipos de la liga para la temporada activa
+                  // eslint-disable-next-line no-await-in-loop
+                  const teamsInLeague = await leagueApi.getTeamsInLeague(league.id, activeSeason.id);
+                  if (teamsInLeague.some(t => t.teamId === user.teamId)) {
+                    foundDivision = division;
+                    foundLeague = league;
+                    break outer;
+                  }
+                } catch (e) {
+                  // Si falla, ignorar y seguir buscando
+                }
+              }
+            }
+          }
+
+          // Si se encontró la liga del usuario, seleccionarla; si no, División 1 por defecto
+          const divisionToSelect = foundDivision || divisionStructure.find(d => d.level === 1) || divisionStructure[0];
+          setSelectedDivision(divisionToSelect);
+          if (foundLeague) {
+            setSelectedLeague(foundLeague.id);
+          } else if (divisionToSelect.leagues.length > 0) {
+            setSelectedLeague(divisionToSelect.leagues[0].id);
           }
           setSystemInitialized(true);
         }

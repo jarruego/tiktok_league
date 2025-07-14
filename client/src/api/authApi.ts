@@ -1,18 +1,22 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
+
+export interface UserWithTeam {
+  id: number;
+  username: string;
+  role: string;
+  teamId?: number | null;
+}
+
 export interface LoginResponse {
   access_token: string;
-  user: {
-    id: number;
-    username: string;
-    role: string;
-  };
+  user: UserWithTeam;
 }
 
 export interface AuthState {
   isAuthenticated: boolean;
   token: string | null;
-  user: { id: number; username: string; role: string } | null;
+  user: UserWithTeam | null;
 }
 
 class AuthService {
@@ -138,7 +142,7 @@ class AuthService {
     return this.state.token;
   }
 
-  getUser(): { id: number; username: string; role: string } | null {
+  getUser(): UserWithTeam | null {
     return this.state.user;
   }
 }
