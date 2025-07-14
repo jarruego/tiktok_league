@@ -3,6 +3,7 @@ import { Form, Input, Button, Alert, Card, Divider, Layout } from 'antd';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const { Content } = Layout;
 
@@ -11,6 +12,7 @@ export const LoginScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const auth = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (values: { username: string; password: string }) => {
     setIsLoading(true);
@@ -122,7 +124,9 @@ export const LoginScreen: React.FC = () => {
           </Form>
 
           <Divider>o</Divider>
-
+          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <GoogleLoginButton />
+          </div>
           <div style={{ textAlign: 'center', marginBottom: '16px' }}>
             <Button 
               size="large"
@@ -142,8 +146,8 @@ export const LoginScreen: React.FC = () => {
               Continuar con TikTok
             </Button>
           </div>
-          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-            <GoogleLoginButton />
+          <div style={{ textAlign: 'center' }}>
+            <Button type="link" onClick={() => navigate('/register')}>¿No tienes cuenta? Regístrate</Button>
           </div>
         </Card>
       </Content>

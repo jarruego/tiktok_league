@@ -13,6 +13,8 @@ import MatchesPage from './pages/MatchesPage';
 import MainHeader from './components/MainHeader';
 import WelcomePage from './pages/WelcomePage';
 import HomePage from './pages/HomePage';
+import { LoginScreen } from './components/LoginScreen';
+import { RegisterScreen } from './components/RegisterScreen';
 
 export default function App() {
   return (
@@ -39,6 +41,8 @@ export default function App() {
             <Route path="/account" element={<AuthGuard><AccountPage /></AuthGuard>} />
             <Route path="/config" element={<AdminGuard><ConfigPage /></AdminGuard>} />
             <Route path="/leagues" element={<AdminGuard><LeaguesPage /></AdminGuard>} />
+            <Route path="/login" element={<LoginScreen />} />
+            <Route path="/register" element={<RegisterScreen />} />
           </Routes>
         </main>
       </div>
