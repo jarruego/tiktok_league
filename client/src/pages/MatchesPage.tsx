@@ -158,11 +158,6 @@ export default function MatchesPage() {
     setTeamName('');
   };
 
-  const handleSeasonChange = (seasonId: number) => {
-    setSelectedSeason(seasonId);
-    // Limpiar filtros al cambiar temporada
-    setFilters({});
-  };
 
   const columns: ColumnsType<Match> = [
     {
