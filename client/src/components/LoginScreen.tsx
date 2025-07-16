@@ -17,14 +17,10 @@ export const LoginScreen: React.FC = () => {
 
   // Redirigir tras login exitoso (usuario/pass, Google, TikTok)
   React.useEffect(() => {
-    if (auth.isAuthenticated && auth.user) {
-      if (auth.user.teamId) {
-        navigate('/mi-equipo', { replace: true });
-      } else {
-        navigate('/', { replace: true });
-      }
+    if (auth.isAuthenticated && auth.user && typeof auth.user.teamId === 'number') {
+      navigate('/mi-equipo', { replace: true });
     }
-  }, [auth.isAuthenticated, auth.user, navigate]);
+  }, [auth.isAuthenticated, auth.user?.teamId, navigate]);
 
   const handleSubmit = async (values: { username: string; password: string }) => {
     setIsLoading(true);

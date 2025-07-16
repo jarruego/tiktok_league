@@ -16,6 +16,7 @@ export const teamTable = pgTable('teams', {
   profileUrl: varchar('profile_url', { length: 500 }), // URL del perfil
   avatarUrl: text('avatar_url'), // URL de la imagen de perfil
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
+  lastAutoImportedAt: timestamp('last_auto_imported_at', { withTimezone: true }),
   failedScrapingAttempts: integer('failed_scraping_attempts').default(0), // Contador de intentos fallidos
   lastFailedAt: timestamp('last_failed_at', { withTimezone: true }), // Última vez que falló
   

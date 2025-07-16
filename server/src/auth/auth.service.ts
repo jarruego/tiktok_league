@@ -28,14 +28,16 @@ export class AuthService {
 
   // Genera el JWT para el usuario
   async login(user: any) {
-    const payload = { username: user.username, sub: user.id, role: user.role, teamId: user.teamId };
+    // Mapear team_id a teamId si viene en snake_case
+    const teamId = user.teamId ?? user.team_id ?? null;
+    const payload = { username: user.username, sub: user.id, role: user.role, teamId };
     return {
       access_token: this.jwtService.sign(payload),
       user: {
         id: user.id,
         username: user.username,
         role: user.role,
-        teamId: user.teamId ?? null
+        teamId
       }
     };
   }

@@ -492,54 +492,60 @@ export class TiktokScraperService {
    * Importa datos de Football-Data desde cache para equipos configurados
    * Se ejecuta independientemente del scraping de TikTok
    */
-  @Cron('*/5 * * * *') // Cada 5 minutos
-  async autoImportFromFootballData() {
-    const db = this.databaseService.db;
-    try {
-      this.logger.log('🔄 Iniciando auto-import independiente de Football-Data...');
-      // Solo equipos humanos (isBot = 0) con Football-Data configurado
-      const teamsForImport = await db
-        .select()
-        .from(teamTable)
-        .where(
-          sql`${teamTable.footballDataId} IS NOT NULL AND ${teamTable.competitionId} IS NOT NULL AND ${teamTable.isBot} = 0`
-        )
-        .limit(3); // Procesar hasta 3 equipos por ciclo
-      if (teamsForImport.length === 0) {
-        this.logger.debug('📊 Auto-import independiente: No hay equipos con Football-Data configurado');
-        return { imported: 0, message: 'No hay equipos configurados para auto-import' };
-      }
-      this.logger.log(`📊 Auto-import independiente: Procesando ${teamsForImport.length} equipos configurados`);
-      let importedCount = 0;
-      let errorCount = 0;
-      for (const team of teamsForImport) {
-        try {
-          const importResult = await this.autoImportFromCache(team);
-          if (importResult.imported) {
-            importedCount++;
-            this.logger.log(`⚽ Auto-import independiente exitoso para ${team.name}: ${importResult.message}`);
-          } else {
-            this.logger.debug(`⏭️ Auto-import independiente sin cambios para ${team.name}: ${importResult.message}`);
-          }
-        } catch (error) {
-          errorCount++;
-          this.logger.warn(`⚠️ Error en auto-import independiente para ${team.name}: ${error.message}`);
-        }
-        // Pequeño delay entre equipos
-        await delay(2000);
-      }
-      this.logger.log(`✅ Auto-import independiente completado: ${importedCount}/${teamsForImport.length} equipos actualizados, ${errorCount} errores`);
-      return { 
-        imported: importedCount, 
-        total: teamsForImport.length,
-        errors: errorCount,
-        timestamp: new Date()
-      };
-    } catch (error) {
-      this.logger.error(`❌ Error crítico en auto-import independiente: ${error.message}`);
-      return { imported: 0, error: error.message, timestamp: new Date() };
+@Cron('*/5 * * * *') // Cada 5 minutos
+async autoImportFromFootballData() {
+  const db = this.databaseService.db;
+  try {
+    this.logger.log('🔄 Iniciando auto-import independiente de Football-Data...');
+    // Solo equipos humanos (isBot = 0) con Football-Data configurado y no importados en las últimas 24h
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24h atrás
+    const teamsForImport = await db
+      .select()
+      .from(teamTable)
+      .where(
+        sql`${teamTable.footballDataId} IS NOT NULL AND ${teamTable.competitionId} IS NOT NULL AND ${teamTable.isBot} = 0 AND ( ${teamTable.lastAutoImportedAt} IS NULL OR ${teamTable.lastAutoImportedAt} < ${cutoff.toISOString()} )`
+      )
+      .limit(3); // Procesar hasta 3 equipos por ciclo
+    if (teamsForImport.length === 0) {
+      this.logger.debug('📊 Auto-import independiente: No hay equipos pendientes de auto-import (<24h)');
+      return { imported: 0, message: 'No hay equipos pendientes de auto-import (<24h)' };
     }
+    this.logger.log(`📊 Auto-import independiente: Procesando ${teamsForImport.length} equipos configurados`);
+    let importedCount = 0;
+    let errorCount = 0;
+    for (const team of teamsForImport) {
+      try {
+        const importResult = await this.autoImportFromCache(team);
+        if (importResult.imported) {
+          importedCount++;
+          this.logger.log(`⚽ Auto-import independiente exitoso para ${team.name}: ${importResult.message}`);
+        } else {
+          this.logger.debug(`⏭️ Auto-import independiente sin cambios para ${team.name}: ${importResult.message}`);
+        }
+      } catch (error) {
+        errorCount++;
+        this.logger.warn(`⚠️ Error en auto-import independiente para ${team.name}: ${error.message}`);
+      }
+      // Actualizar lastAutoImportedAt tras cada intento
+      await db.update(teamTable)
+        .set({ lastAutoImportedAt: new Date() })
+        .where(eq(teamTable.id, team.id));
+      // Pequeño delay entre equipos
+      await delay(2000);
+    }
+    this.logger.log(`✅ Auto-import independiente completado: ${importedCount}/${teamsForImport.length} equipos actualizados, ${errorCount} errores`);
+    return { 
+      imported: importedCount, 
+      total: teamsForImport.length,
+      errors: errorCount,
+      timestamp: new Date()
+    };
+  } catch (error) {
+    this.logger.error(`❌ Error crítico en auto-import independiente: ${error.message}`);
+    return { imported: 0, error: error.message, timestamp: new Date() };
   }
+}
 
   /**
    * Tarea programada que se ejecuta cada 2 minutos

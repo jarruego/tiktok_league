@@ -24,11 +24,13 @@ interface Match {
   awayCrest?: string;
 }
 
+
 const MyTeamPage: React.FC = () => {
   const { user } = useAuth();
   const [team, setTeam] = useState<Team | null>(null);
   const [league, setLeague] = useState<League | null>(null);
-  const [nextMatch, setNextMatch] = useState<Match | null>(null);
+  const [divisionName, setDivisionName] = useState<string | null>(null);
+  const [nextMatches, setNextMatches] = useState<Match[]>([]);
   const [lastMatch, setLastMatch] = useState<Match | null>(null);
 
   useEffect(() => {
@@ -51,6 +53,7 @@ const MyTeamPage: React.FC = () => {
             foundTeam = team;
             foundLeague = league;
             foundLeagueId = league.id;
+            setDivisionName(division.name);
             break;
           }
         }
@@ -103,15 +106,25 @@ const MyTeamPage: React.FC = () => {
       // DEBUG: mostrar todos los partidos devueltos
       // eslint-disable-next-line no-console
       console.log('Todos los partidos:', matches);
-      // Próximo partido: status 'scheduled', fecha futura más próxima
+      // Próximos partidos: status 'scheduled', fechas futuras más próximas (sin límite)
       const now = new Date();
-      const next = matches
+      const nextArr = matches
         .filter((m: any) => {
           const status = m.status;
           const date = new Date(m.scheduledDate);
           return status === 'scheduled' && date > now;
         })
-        .sort((a: any, b: any) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())[0];
+        .sort((a: any, b: any) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+        .map((next: any) => ({
+          id: next.id,
+          homeTeam: next.homeTeam?.name ?? next.homeTeam ?? '',
+          awayTeam: next.awayTeam?.name ?? next.awayTeam ?? '',
+          homeCrest: next.homeTeam?.crest ?? '',
+          awayCrest: next.awayTeam?.crest ?? '',
+          homeGoals: next.homeGoals,
+          awayGoals: next.awayGoals,
+          date: next.scheduledDate
+        }));
       // Último partido: status 'finished', el más reciente por fecha
       const last = matches
         .filter((m: any) => m.status === 'finished')
@@ -121,16 +134,7 @@ const MyTeamPage: React.FC = () => {
       // eslint-disable-next-line no-console
       console.log('Último partido:', last);
 
-      setNextMatch(next ? {
-        id: next.id,
-        homeTeam: next.homeTeam?.name ?? next.homeTeam ?? '',
-        awayTeam: next.awayTeam?.name ?? next.awayTeam ?? '',
-        homeCrest: next.homeTeam?.crest ?? '',
-        awayCrest: next.awayTeam?.crest ?? '',
-        homeGoals: next.homeGoals,
-        awayGoals: next.awayGoals,
-        date: next.scheduledDate
-      } : null);
+      setNextMatches(nextArr);
       setLastMatch(last ? {
         id: last.id,
         homeTeam: last.homeTeam?.name ?? last.homeTeam ?? '',
@@ -149,71 +153,152 @@ const MyTeamPage: React.FC = () => {
   }
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: 16 }}>
+    <div style={{ width: '100vw', minHeight: '100vh', boxSizing: 'border-box', background: '#fafbfc', padding: 0, margin: 0 }}>
       {/* Cabecera: escudo y nombre del equipo */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, padding: '12px 4px 0 4px' }}>
         {team?.logoUrl && (
-          <img src={team.logoUrl} alt="Escudo" style={{ width: 64, height: 64, marginRight: 16 }} />
+          <img src={team.logoUrl} alt="Escudo" style={{ width: 48, height: 48, marginRight: 8 }} />
         )}
-        <h2>{team?.name || 'Mi Equipo'}</h2>
+        <h2 style={{ fontSize: 20, margin: 0 }}>{team?.name || 'Mi Equipo'}</h2>
       </div>
       {/* Card: Liga y posición */}
-      <div className="card" style={{ marginBottom: 16, padding: 16, border: '1px solid #eee', borderRadius: 8 }}>
-        <h3>Liga</h3>
+      <div className="card" style={{ marginBottom: 6, padding: '8px 4px', border: '1px solid #eee', borderRadius: 8, background: '#fff', marginLeft: 0, marginRight: 0 }}>
+        {league && divisionName ? (
+          <h3 style={{ margin: 0, fontSize: 16, color: '#1e90ff', fontWeight: 700 }}>
+            {divisionName} - {league.name}
+          </h3>
+        ) : (
+          <h3 style={{ margin: 0, fontSize: 16 }}>Liga</h3>
+        )}
         <div>{league?.name || 'Sin liga'}</div>
         <div>Posición: {league?.position ?? '-'}</div>
       </div>
-      {/* Card: Próximo partido */}
-      <div className="card" style={{ marginBottom: 16, padding: 16, border: '1px solid #eee', borderRadius: 8 }}>
-        <h3>Próximo partido</h3>
-        {nextMatch ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
-              {nextMatch.homeCrest && <img src={nextMatch.homeCrest} alt="Escudo local" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
-              <span style={{ fontWeight: 600 }}>{nextMatch.homeTeam}</span>
-            </div>
-            <span style={{ fontWeight: 700, fontSize: 18 }}>vs</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-start' }}>
-              <span style={{ fontWeight: 600 }}>{nextMatch.awayTeam}</span>
-              {nextMatch.awayCrest && <img src={nextMatch.awayCrest} alt="Escudo visitante" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
-            </div>
-          </div>
-        ) : (
-          <div>No hay próximo partido programado.</div>
-        )}
-        {nextMatch && (
-          <div style={{ textAlign: 'center', marginTop: 8, color: '#888' }}>
-            {new Date(nextMatch.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
-          </div>
-        )}
-      </div>
-      {/* Card: Último partido */}
-      <div className="card" style={{ marginBottom: 16, padding: 16, border: '1px solid #eee', borderRadius: 8 }}>
-        <h3>Último partido</h3>
+            {/* Card: Último partido */}
+      <div className="card" style={{
+        marginBottom: 16,
+        padding: '18px 8px',
+        border: '2px solid #1e90ff',
+        borderRadius: 16,
+        background: 'linear-gradient(90deg, #e3f0ff 0%, #fafdff 100%)',
+        marginLeft: 0,
+        marginRight: 0,
+        boxShadow: '0 4px 16px 0 rgba(30,144,255,0.10)',
+        width: '100%',
+        alignSelf: 'stretch',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+      }}>
+        <h3 style={{ margin: 0, fontSize: 22, color: '#1e90ff', fontWeight: 800, letterSpacing: 0.5 }}>Último partido</h3>
         {lastMatch ? (
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
-                {lastMatch.homeCrest && <img src={lastMatch.homeCrest} alt="Escudo local" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
-                <span style={{ fontWeight: 600 }}>{lastMatch.homeTeam}</span>
+          <div style={{ width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, minHeight: 60, margin: '18px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
+                {lastMatch.homeCrest && <img src={lastMatch.homeCrest} alt="Escudo local" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff', borderRadius: 6, border: '2px solid #1e90ff' }} />}
+                <span style={{ fontWeight: 700, fontSize: 20, marginLeft: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#222' }}>{lastMatch.homeTeam}</span>
               </div>
-              <span style={{ fontWeight: 700, fontSize: 18 }}>
+              <span style={{ fontWeight: 900, fontSize: 28, margin: '0 16px', minWidth: 48, textAlign: 'center', color: '#1e90ff' }}>
                 {typeof lastMatch.homeGoals === 'number' && typeof lastMatch.awayGoals === 'number'
                   ? `${lastMatch.homeGoals} - ${lastMatch.awayGoals}`
                   : 'vs'}
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-start' }}>
-                <span style={{ fontWeight: 600 }}>{lastMatch.awayTeam}</span>
-                {lastMatch.awayCrest && <img src={lastMatch.awayCrest} alt="Escudo visitante" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
+                <span style={{ fontWeight: 700, fontSize: 20, marginRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#222' }}>{lastMatch.awayTeam}</span>
+                {lastMatch.awayCrest && <img src={lastMatch.awayCrest} alt="Escudo visitante" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff', borderRadius: 6, border: '2px solid #1e90ff' }} />}
               </div>
             </div>
-            <div style={{ textAlign: 'center', marginTop: 8, color: '#888' }}>
+            <div style={{ textAlign: 'center', marginTop: 8, color: '#1e90ff', fontSize: 15, fontWeight: 600, letterSpacing: 0.2 }}>
               {new Date(lastMatch.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
             </div>
           </div>
         ) : (
           <div>No hay partidos jugados aún.</div>
         )}
+      </div>
+      {/* Card: Próximos partidos */}
+      <div style={{ width: '100%', overflowX: 'hidden' }}>
+        <h3 style={{ margin: 0, fontSize: 16, marginBottom: 6 }}>Próximos partidos</h3>
+        {nextMatches.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 10,
+              justifyContent: 'flex-start',
+              width: '100%',
+              boxSizing: 'border-box',
+              marginLeft: 0,
+              marginRight: 0,
+            }}
+          >
+            {nextMatches.map((match) => (
+              <div
+                key={match.id}
+                className="card"
+                style={{
+                  minWidth: 'min(100%, 280px)',
+                  width: '100%',
+                  maxWidth: 'calc(33% - 10px)', // 3 por fila en escritorio
+                  flex: '1 1 320px',
+                  padding: '8px 4px',
+                  border: '1px solid #eee',
+                  borderRadius: 8,
+                  background: '#fff',
+                  marginBottom: 6,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
+                    {match.homeCrest && <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                    <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.homeTeam}</span>
+                  </div>
+                  <span style={{ fontWeight: 700, fontSize: 16, margin: '0 8px', minWidth: 28, textAlign: 'center' }}>vs</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
+                    <span style={{ fontWeight: 600, fontSize: 15, marginRight: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.awayTeam}</span>
+                    {match.awayCrest && <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
+                  {new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div>No hay próximos partidos programados.</div>
+        )}
+        <style>{`
+          @media (max-width: 600px) {
+            .card {
+              min-width: 100% !important;
+              max-width: 100% !important;
+              width: 100% !important;
+              flex-basis: 100% !important;
+            }
+          }
+          @media (min-width: 601px) and (max-width: 900px) {
+            .card {
+              max-width: calc(50% - 10px) !important;
+              flex-basis: 48% !important;
+            }
+          }
+          @media (min-width: 901px) and (max-width: 1200px) {
+            .card {
+              max-width: calc(33% - 10px) !important;
+              flex-basis: 32% !important;
+            }
+          }
+          @media (min-width: 1201px) {
+            .card {
+              max-width: calc(20% - 10px) !important;
+              flex-basis: 19% !important;
+            }
+          }
+        `}</style>
       </div>
     </div>
   );
