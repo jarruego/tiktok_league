@@ -381,7 +381,8 @@ async function seed(existingDb?: any) {
       await db.insert(userTable).values({
         username: 'admin',
         password: hashedPassword,
-        role: 'admin'
+        role: 'admin',
+        teamId: 40
       });
       console.log('Usuario admin creado con credenciales: admin/admin123');
     } else {
@@ -399,7 +400,8 @@ async function seed(existingDb?: any) {
       await db.insert(userTable).values({
         username: 'moderador',
         password: hashedPassword,
-        role: 'moderator'
+        role: 'moderator',
+        teamId: 36
       });
       console.log('Usuario moderador creado con credenciales: moderador/mod123');
     } else {
@@ -417,7 +419,8 @@ async function seed(existingDb?: any) {
       await db.insert(userTable).values({
         username: 'usuario',
         password: hashedPassword,
-        role: 'user'
+        role: 'user',
+        teamId: 25
       });
       console.log('Usuario normal creado con credenciales: usuario/user123');
     } else {
