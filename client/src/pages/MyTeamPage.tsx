@@ -155,19 +155,19 @@ const MyTeamPage: React.FC = () => {
   return (
     <div style={{ width: '100vw', minHeight: '100vh', boxSizing: 'border-box', background: '#fafbfc', padding: 0, margin: 0 }}>
       {/* Cabecera destacada: escudo y nombre del equipo + card liga */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0}}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
         <div style={{
           width: '100%',
           border: '1px solid #eee',
           borderRadius: 12,
-          background: '#fff', 
-          padding: '18px 0 10px 0', 
-          display: 'flex', 
-          alignItems: 'center', 
+          background: '#fff',
+          padding: '18px 0 10px 0',
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center'
         }}>
           {team?.logoUrl && (
-            <img src={team.logoUrl} alt="Escudo" style={{ width: 56, height: 56, marginRight: 16, borderRadius: 12, border: '2px solid #1e90ff', background: '#fff' }} />
+            <img src={team.logoUrl} alt="Escudo" style={{ width: 56, height: 56, marginRight: 16, background: '#fff' }} />
           )}
           <h2 style={{ fontSize: 26, margin: 0, fontWeight: 800, color: '#1e90ff', letterSpacing: 0.5 }}>{team?.name || 'Mi Equipo'}</h2>
         </div>
@@ -246,7 +246,15 @@ const MyTeamPage: React.FC = () => {
         )}
       </div>
       {/* Card: Próximos partidos */}
-      <div style={{ width: '100%', overflowX: 'hidden' }}>
+      <div style={{
+        padding: '10px',
+        width: '95%',
+        margin: '10px auto', 
+        overflowX: 'hidden',
+        border: '1px solid #eee',
+        borderRadius: 8,
+        background: '#fff',
+      }}>
         <h3 style={{ margin: 0, fontSize: 24, marginBottom: 6, textAlign: 'center' }}>Próximos partidos</h3>
         {nextMatches.length > 0 ? (
           <div
@@ -300,7 +308,7 @@ const MyTeamPage: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div>No hay próximos partidos programados.</div>
+          <div style={{ textAlign: 'center', color: 'red', fontSize: 18 }}>No quedan partidos por jugar.</div>
         )}
         <style>{`
           @media (max-width: 600px) {

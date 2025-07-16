@@ -147,32 +147,32 @@ export class MatchService {
   ) {
     const matches: any[] = [];
     const teamCount = teams.length;
-    
     if (teamCount < 2) {
-      return matches; // No se pueden generar partidos con menos de 2 equipos
+      return matches;
     }
 
     console.log(`Generando partidos para ${teamCount} equipos en liga ${leagueId}`);
 
+    // Generar emparejamientos ida y vuelta
+    const firstRoundMatches = this.generateStandardRoundRobin(teams); // Array de jornadas, cada una con partidos
+    const numRounds = firstRoundMatches.length;
+
+    // Alternar local/visitante en la primera vuelta para evitar rachas largas
+    // Si el número de jornada es par, invertir local/visitante en esa jornada
     let matchday = 1;
     let currentDate = new Date(startDate);
-
-    // Generar PRIMERA VUELTA usando algoritmo Round Robin estándar
-    const firstRoundMatches = this.generateStandardRoundRobin(teams);
-    
-    console.log(`Primera vuelta: ${firstRoundMatches.length} jornadas generadas`);
-    
-    for (const roundMatches of firstRoundMatches) {
+    for (let i = 0; i < numRounds; i++) {
+      const roundMatches = firstRoundMatches[i];
       for (const match of roundMatches) {
-        // Crear fecha con hora específica (17:00)
         const matchDateTime = new Date(currentDate);
-        matchDateTime.setHours(17, 0, 0, 0); // 17:00:00
-        
+        matchDateTime.setHours(17, 0, 0, 0);
+        // Alternar local/visitante en jornadas pares
+        const isEven = i % 2 === 1;
         matches.push({
           seasonId,
           leagueId,
-          homeTeamId: match.homeTeamId,
-          awayTeamId: match.awayTeamId,
+          homeTeamId: isEven ? match.awayTeamId : match.homeTeamId,
+          awayTeamId: isEven ? match.homeTeamId : match.awayTeamId,
           matchday,
           scheduledDate: matchDateTime,
           status: MatchStatus.SCHEDULED,
@@ -180,38 +180,37 @@ export class MatchService {
           updatedAt: new Date()
         });
       }
-      
       matchday++;
       currentDate.setDate(currentDate.getDate() + daysPerMatchday);
     }
 
-    // Generar SEGUNDA VUELTA (invertir local y visitante)
-    console.log(`Segunda vuelta: ${firstRoundMatches.length} jornadas adicionales`);
-    
-    for (const roundMatches of firstRoundMatches) {
+    // Segunda vuelta: partidos de vuelta, N jornadas después
+    for (let i = 0; i < numRounds; i++) {
+      const roundMatches = firstRoundMatches[i];
+      // La jornada de vuelta será en la jornada actual + numRounds
+      const matchdayVuelta = i + 1 + numRounds;
+      // Calcular fecha de la jornada de vuelta
+      const matchDateTime = new Date(startDate);
+      matchDateTime.setDate(matchDateTime.getDate() + (matchdayVuelta - 1) * daysPerMatchday);
+      matchDateTime.setHours(17, 0, 0, 0);
       for (const match of roundMatches) {
-        // Crear fecha con hora específica (17:00)
-        const matchDateTime = new Date(currentDate);
-        matchDateTime.setHours(17, 0, 0, 0); // 17:00:00
-        
+        // Alternar local/visitante igual que en la ida pero invertido
+        const isEven = i % 2 === 1;
         matches.push({
           seasonId,
           leagueId,
-          homeTeamId: match.awayTeamId, // Intercambiar local y visitante
-          awayTeamId: match.homeTeamId,
-          matchday,
+          homeTeamId: isEven ? match.homeTeamId : match.awayTeamId,
+          awayTeamId: isEven ? match.awayTeamId : match.homeTeamId,
+          matchday: matchdayVuelta,
           scheduledDate: matchDateTime,
           status: MatchStatus.SCHEDULED,
           createdAt: new Date(),
           updatedAt: new Date()
         });
       }
-      
-      matchday++;
-      currentDate.setDate(currentDate.getDate() + daysPerMatchday);
     }
 
-    console.log(`Total generado: ${matches.length} partidos en ${matchday - 1} jornadas`);
+    console.log(`Total generado: ${matches.length} partidos en ${numRounds * 2} jornadas`);
     return matches;
   }
 

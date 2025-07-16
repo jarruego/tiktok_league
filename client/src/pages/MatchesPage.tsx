@@ -4,20 +4,13 @@ import {
   Table, 
   Button, 
   Select, 
-  DatePicker, 
   message, 
   Space, 
-  Tag, 
-  Divider,
-  Statistic,
-  Row,
-  Col
+  Tag
 } from 'antd';
 import { 
   CalendarOutlined, 
-  TrophyOutlined, 
-  TeamOutlined,
-  PlayCircleOutlined,
+  TrophyOutlined,
   ReloadOutlined,
   ClearOutlined
 } from '@ant-design/icons';
@@ -28,12 +21,11 @@ import type {
   Match, 
   MatchFilters
 } from '../types/match.types';
-import type { Season, Division } from '../types/league.types';
+import type { Division } from '../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
-const { RangePicker } = DatePicker;
 
 const statusColors = {
   scheduled: 'blue',
@@ -54,7 +46,6 @@ const statusLabels = {
 export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [seasons, setSeasons] = useState<Season[]>([]);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [filters, setFilters] = useState<MatchFilters>({});
@@ -97,7 +88,6 @@ export default function MatchesPage() {
         leagueApi.getDivisionStructure()
       ]);
       
-      setSeasons(seasonsData);
       setDivisions(divisionsData);
       
       // Seleccionar temporada activa por defecto
@@ -289,90 +279,14 @@ export default function MatchesPage() {
 
   return (
     <LayoutContainer>
-      <div style={{ padding: '24px 16px' }}>
+      <div style={{ padding: '0' }}>
         <Card style={{ margin: 0 }}>
           <div style={{ marginBottom: '24px' }}>
             <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
               <CalendarOutlined />
-              Calendario de Partidos
+              Calendario
             </h1>
           </div>
-
-          {/* Estadísticas */}
-          {selectedSeason && (
-            <>
-              <Row gutter={16} style={{ marginBottom: '16px' }}>
-                <Col span={4}>
-                  <Statistic
-                    title="Total Partidos"
-                    value={stats.totalMatches}
-                    prefix={<TrophyOutlined />}
-                  />
-                </Col>
-                <Col span={4}>
-                  <Statistic
-                    title="Programados"
-                    value={stats.scheduledMatches}
-                    prefix={<CalendarOutlined />}
-                  />
-                </Col>
-                <Col span={4}>
-                  <Statistic
-                    title="Finalizados"
-                    value={stats.finishedMatches}
-                    prefix={<PlayCircleOutlined />}
-                  />
-                </Col>
-                <Col span={4}>
-                  <Statistic
-                    title="Jornadas"
-                    value={stats.totalMatchdays}
-                  />
-                </Col>
-                <Col span={4}>
-                  <Statistic
-                    title="Ligas"
-                    value={stats.leaguesCount}
-                    prefix={<TeamOutlined />}
-                  />
-                </Col>
-              </Row>
-              
-              {/* Segunda fila con estadísticas de playoffs */}
-              <Row gutter={16} style={{ marginBottom: '8px' }}>
-                <Col span={4}>
-                  <Statistic
-                    title="Liga Regular"
-                    value={stats.regularMatches}
-                    valueStyle={{ color: '#1890ff' }}
-                  />
-                </Col>
-                <Col span={4}>
-                  <Statistic
-                    title="🏆 Playoffs"
-                    value={stats.playoffMatches}
-                    valueStyle={{ color: '#faad14' }}
-                  />
-                </Col>
-                {stats.playoffMatches > 0 && (
-                  <Col span={16}>
-                    <div style={{ 
-                      padding: '8px 12px',
-                      background: '#fff7e6',
-                      border: '1px solid #ffd666',
-                      borderRadius: '6px',
-                      fontSize: '13px'
-                    }}>
-                      <TrophyOutlined style={{ color: '#faad14', marginRight: '6px' }} />
-                      <strong>Playoffs activos:</strong> {stats.playoffMatches} partidos de eliminatoria detectados
-                    </div>
-                  </Col>
-                )}
-              </Row>
-            </>
-          )}
-
-          <Divider />
 
           {/* Filtros */}
           <div style={{ marginBottom: '16px' }}>
@@ -382,27 +296,26 @@ export default function MatchesPage() {
                 placeholder="Buscar por equipo"
                 value={teamName}
                 onChange={e => setTeamName(e.target.value)}
-                style={{ width: 180, padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9' }}
+                style={{ width: 200, padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9' }}
               />
-              <Select
-                placeholder="Seleccionar temporada"
-                style={{ width: 200 }}
-                value={selectedSeason}
-                onChange={handleSeasonChange}
-              >
-                {seasons.map(season => (
-                  <Option key={season.id} value={season.id}>
-                    {season.name} {season.isActive && '(Activa)'}
-                  </Option>
-                ))}
-              </Select>
-
+              <Button 
+                icon={<ReloadOutlined />} 
+                onClick={loadMatches}
+                loading={loading}
+                style={{ padding: '0 8px' }}
+              />
+              <Button 
+                icon={<ClearOutlined />}
+                onClick={clearFilters}
+                disabled={Object.keys(filters).filter(key => filters[key as keyof typeof filters] !== undefined).length === 0}
+                style={{ padding: '0 8px' }}
+              />
               <Select
                 placeholder="División"
                 style={{ width: 150 }}
                 value={filters.divisionId}
                 allowClear
-                onChange={(value) => setFilters(prev => ({ ...prev, divisionId: value }))}
+                onChange={(value) => setFilters(prev => ({ ...prev, divisionId: value, leagueId: undefined }))}
               >
                 {divisions.map(division => (
                   <Option key={division.id} value={division.id}>
@@ -410,116 +323,42 @@ export default function MatchesPage() {
                   </Option>
                 ))}
               </Select>
-
-              <Select
-                placeholder="Estado"
-                style={{ width: 120 }}
-                value={filters.status}
-                allowClear
-                onChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
-              >
-                <Option value="scheduled">Programados</Option>
-                <Option value="finished">Finalizados</Option>
-                <Option value="live">En curso</Option>
-                <Option value="postponed">Aplazados</Option>
-                <Option value="cancelled">Cancelados</Option>
-              </Select>
-
-              <Select
-                placeholder="Tipo de partido"
-                style={{ width: 130 }}
-                value={filters.isPlayoff !== undefined ? (filters.isPlayoff ? 'playoff' : 'regular') : undefined}
-                allowClear
-                onChange={(value) => {
-                  if (value === 'playoff') {
-                    setFilters(prev => ({ ...prev, isPlayoff: true }));
-                  } else if (value === 'regular') {
-                    setFilters(prev => ({ ...prev, isPlayoff: false }));
-                  } else {
-                    setFilters(prev => ({ ...prev, isPlayoff: undefined }));
-                  }
-                }}
-              >
-                <Option value="regular">Liga Regular</Option>
-                <Option value="playoff">🏆 Playoffs</Option>
-              </Select>
-
-              {filters.isPlayoff === true && (
+              {/* Filtro de liga/grupo dependiente de la división seleccionada */}
+              {filters.divisionId && (
                 <Select
-                  placeholder="Ronda de playoff"
-                  style={{ width: 140 }}
-                  value={filters.playoffRound}
+                  placeholder="Grupo"
+                  style={{ width: 120 }}
+                  value={filters.leagueId}
                   allowClear
-                  onChange={(value) => setFilters(prev => ({ ...prev, playoffRound: value }))}
+                  onChange={(value) => setFilters(prev => ({ ...prev, leagueId: value }))}
                 >
-                  <Option value="Semifinal">Semifinal</Option>
-                  <Option value="Final">Final</Option>
-                  <Option value="Cuartos">Cuartos</Option>
-                  <Option value="Primera Ronda">Primera Ronda</Option>
+                  {(divisions.find(d => d.id === filters.divisionId)?.leagues || []).map(league => (
+                    <Option key={league.id} value={league.id}>
+                      Grupo {league.groupCode}
+                    </Option>
+                  ))}
                 </Select>
               )}
-
               <Select
                 placeholder="Jornada"
-                style={{ width: 100 }}
+                style={{ width: 120 }}
                 value={filters.matchday}
                 allowClear
                 onChange={(value) => setFilters(prev => ({ ...prev, matchday: value }))}
               >
-                {Array.from({ length: stats.totalMatchdays }, (_, i) => i + 1).map(matchday => (
+                {/* Jornadas de liga regular (1-38) */}
+                {Array.from({ length: 38 }, (_, i) => i + 1).map(matchday => (
                   <Option key={matchday} value={matchday}>
                     J{matchday}
                   </Option>
                 ))}
+                {/* Jornadas de playoff si existen partidos de playoff */}
+                {stats.playoffMatches > 0 && matches.filter(m => m.isPlayoff && m.playoffRound).map(m => m.playoffRound).filter((v, i, arr) => v && arr.indexOf(v) === i).map(round => (
+                  <Option key={round} value={round}>
+                    {round}
+                  </Option>
+                ))}
               </Select>
-
-              <RangePicker
-                placeholder={['Fecha desde', 'Fecha hasta']}
-                value={[
-                  filters.fromDate ? dayjs(filters.fromDate) : null,
-                  filters.toDate ? dayjs(filters.toDate) : null
-                ]}
-                onChange={(dates) => {
-                  setFilters(prev => ({
-                    ...prev,
-                    fromDate: dates?.[0]?.format('YYYY-MM-DD') || undefined,
-                    toDate: dates?.[1]?.format('YYYY-MM-DD') || undefined
-                  }));
-                }}
-              />
-
-              <Button 
-                icon={<ReloadOutlined />} 
-                onClick={loadMatches}
-                loading={loading}
-              >
-                Actualizar
-              </Button>
-
-              <Button 
-                icon={<ClearOutlined />}
-                onClick={clearFilters}
-                disabled={Object.keys(filters).filter(key => filters[key as keyof typeof filters] !== undefined).length === 0}
-              >
-                Limpiar Filtros
-              </Button>
-
-              {stats.playoffMatches > 0 && (
-                <Button 
-                  type={filters.isPlayoff === true ? "primary" : "default"}
-                  icon={<TrophyOutlined />}
-                  onClick={() => {
-                    if (filters.isPlayoff === true) {
-                      setFilters(prev => ({ ...prev, isPlayoff: undefined, playoffRound: undefined }));
-                    } else {
-                      setFilters(prev => ({ ...prev, isPlayoff: true }));
-                    }
-                  }}
-                  style={{ borderColor: '#faad14', color: filters.isPlayoff === true ? '#fff' : '#faad14' }}
-                >
-                  Ver Playoffs ({stats.playoffMatches})
-                </Button>
-              )}
             </Space>
           </div>
 

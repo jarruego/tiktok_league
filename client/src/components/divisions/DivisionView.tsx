@@ -57,30 +57,50 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
   
   return [
     { 
-      title: 'Pos', 
+      title: 'Posición', 
       dataIndex: 'position', 
       key: 'position', 
-      width: 60,
+      width: 100,
       render: (position: number, record: ExtendedTeamInLeague) => {
-        return record.standing?.position || position || '-';
-      },
-    },
-    { 
-      title: 'Estado', 
-      key: 'status', 
-      width: 120,
-      render: (_, record: ExtendedTeamInLeague) => {
-        // Usar el status que viene del backend en lugar de calcularlo localmente
         const backendStatus = (record.standing as any)?.status;
-        if (!backendStatus) return null;
-        
-        const statusDisplay = getStatusDisplay(backendStatus);
+        const statusDisplay = backendStatus ? getStatusDisplay(backendStatus) : null;
         return (
-          <Tag color={statusDisplay.color} style={{ margin: 0 }}>
-            {statusDisplay.badge}
-          </Tag>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontWeight: 500 }}>{record.standing?.position || position || '-'}</span>
+            {statusDisplay && (
+              <Tag color={statusDisplay.color} style={{
+                margin: 0,
+                minWidth: window.innerWidth <= 640 ? 28 : undefined,
+                minHeight: window.innerWidth <= 640 ? 28 : undefined,
+                width: window.innerWidth <= 640 ? 28 : undefined,
+                height: window.innerWidth <= 640 ? 28 : undefined,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: window.innerWidth <= 640 ? '0px 12px' : '0 8px',
+                fontSize: window.innerWidth <= 640 ? 20 : 14,
+                borderRadius: window.innerWidth <= 640 ? 6 : undefined,
+                boxSizing: 'border-box',
+              }}>
+                {window.innerWidth <= 640
+                  ? (() => {
+                      // Extraer emoji, si no existe, usar alternativa
+                      const match = statusDisplay.badge.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\u{238C}-\u{2454}\u{20D0}-\u{20FF}]+)\s?/u);
+                      if (match && match[1]) return match[1];
+                      // Alternativas unicode si el emoji no se detecta
+                      if (backendStatus === 'PROMOTES') return '\u2191'; // ↑
+                      if (backendStatus === 'RELEGATES') return '\u2193'; // ↓
+                      if (backendStatus === 'PLAYOFF') return '\u25B6'; // ▶
+                      if (backendStatus === 'TOURNAMENT') return '\u2605'; // ★
+                      if (backendStatus === 'SAFE') return '\u2713'; // ✓
+                      return '';
+                    })()
+                  : statusDisplay.badge}
+              </Tag>
+            )}
+          </div>
         );
-      }
+      },
     },
     { 
       title: 'Escudo', 
@@ -117,9 +137,7 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
           onClick={() => handleTeamClick(record.teamId)}
         >
           <div className="clickable-team-name" style={{ fontWeight: 500 }}>{teamName}</div>
-          {record.shortName && record.shortName !== teamName && (
-            <Text type="secondary" style={{ fontSize: '12px' }}>{record.shortName}</Text>
-          )}
+          {record.shortName && record.shortName !== teamName }
         </div>
       )
     },
@@ -397,114 +415,121 @@ export default function DivisionView() {
   const selectedLeagueData = selectedDivision?.leagues.find(l => l.id === selectedLeague);
 
   return (
-    <div style={{ width: '100%', padding: '0 16px 24px 16px' }}>
-      {/* Card principal: selector y cabecera informativa de la liga */}
+    <div style={{ width: '100%', padding: '0 0 0 0' }}>
+      {/* Cabecera visual destacada */}
       {selectedLeagueData && (
-        <Card
-          title={
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, width: '100%' }}>
-              <span style={{ fontWeight: 500, fontSize: 18 }}>{selectedLeagueData.name}</span>
-              {selectedDivision && (
-                <Tag color="blue">{teams.length} / {selectedDivision.teamsPerLeague} equipos</Tag>
-              )}
-              <Tag color="purple">{season.name}</Tag>
-              {selectedDivision && selectedDivision.level === 1 && (
-                <Tag color="purple">🏆 8 plazas de torneo</Tag>
-              )}
-                {selectedDivision && selectedDivision.promoteSlots > 0 && (
-                  <Tag color="green">↑ {selectedDivision.promoteSlots} ascensos directos</Tag>
-                )}
-                {selectedDivision && selectedDivision.promotePlayoffSlots > 0 && (
-                  <Tag color="orange">⚡ {selectedDivision.promotePlayoffSlots} playoff ascenso</Tag>
-                )}
-                {selectedDivision && selectedDivision.relegateSlots > 0 && (
-                  <Tag color="red">↓ {selectedDivision.relegateSlots} descensos</Tag>
-                )}
-                {selectedDivision && (
-                  <Tag color="purple">🏟️ {selectedDivision.totalLeagues} liga{selectedDivision.totalLeagues > 1 ? 's' : ''}</Tag>
-                )}
-              </div>
-            }
-            style={{ marginBottom: 0, width: '100%' }}
-            styles={{ body: { padding: 0, width: '100%' } }}
-          >
-            <div className="division-controls" style={{ flexWrap: 'wrap', gap: 16, display: 'flex', alignItems: 'center', width: '100%' }}>
-              <div>
-                <Text strong style={{ marginRight: '8px' }}>División:</Text>
+        <div style={{
+          width: '100%',
+          background: 'linear-gradient(90deg, #e0e7ff 0%, #fff 100%)',
+          padding: '10px 0',
+          marginBottom: 0,
+          borderRadius: 12,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 8
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 24, color: '#3b3b3b', letterSpacing: 1, marginBottom: 0 }}>
+            {selectedDivision?.description || selectedDivision?.name || 'División'}
+          </div>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <Select
+                value={selectedDivision?.level}
+                onChange={handleDivisionChange}
+                style={{ minWidth: 160, maxWidth: 220, fontWeight: 600, fontSize: 16, borderRadius: 8, border: '2px solid #a5b4fc', background: '#fff' }}
+                placeholder="Seleccionar división"
+              >
+                {divisions.map(division => (
+                  <Option key={division.level} value={division.level}>
+                    {division.description || division.name}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+            {selectedDivision && selectedDivision.leagues.length > 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 <Select
-                  value={selectedDivision?.level}
-                  onChange={handleDivisionChange}
-                  style={{ width: '100%', minWidth: 150, maxWidth: 200 }}
-                  placeholder="Seleccionar división"
+                  value={selectedLeague}
+                  onChange={handleLeagueChange}
+                  style={{ minWidth: 160, maxWidth: 220, fontWeight: 600, fontSize: 16, borderRadius: 8, border: '2px solid #a5b4fc', background: '#fff' }}
+                  placeholder="Seleccionar grupo"
                 >
-                  {divisions.map(division => (
-                    <Option key={division.level} value={division.level}>
-                      {division.description || division.name}
+                  {selectedDivision.leagues.map(league => (
+                    <Option key={league.id} value={league.id}>
+                      Grupo {league.groupCode}
                     </Option>
                   ))}
                 </Select>
               </div>
-              {selectedDivision && selectedDivision.leagues.length > 1 && (
-                <div>
-                  <Text strong style={{ marginRight: '8px' }}>Liga:</Text>
-                  <Select
-                    value={selectedLeague}
-                    onChange={handleLeagueChange}
-                    style={{ width: '100%', minWidth: 150, maxWidth: 200 }}
-                    placeholder="Seleccionar liga"
-                  >
-                    {selectedDivision.leagues.map(league => (
-                      <Option key={league.id} value={league.id}>
-                        Grupo {league.groupCode}
-                      </Option>
-                    ))}
-                  </Select>
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
+            )}
+          </div>
+        </div>
+      )}
 
-        {/* Tabla de equipos */}
-        {selectedLeagueData && (
-          <Card style={{ marginTop: 0, width: '100%' }} styles={{ body: { padding: 0, width: '100%' } }}>
-            <Table
-              columns={createColumns(navigate)}
-              dataSource={teams}
-              rowKey="teamId"
-              loading={teamsLoading}
-              pagination={false}
-              size="middle"
-              scroll={{ x: '100%' }}
-              style={{ width: '100%' }}
-              rowClassName={(record: ExtendedTeamInLeague) => {
+      {/* Tabla de equipos */}
+      {selectedLeagueData && (
+        <Card style={{ marginTop: 0, width: '100%' }} styles={{ body: { padding: 0, width: '100%' } }}>
+          <Table
+            columns={createColumns(navigate)}
+            dataSource={teams}
+            rowKey="teamId"
+            loading={teamsLoading}
+            pagination={false}
+            size="middle"
+            scroll={{ x: '100%' }}
+            style={{ width: '100%' }}
+            rowClassName={(record: ExtendedTeamInLeague) => {
+              const backendStatus = (record.standing as any)?.status;
+              if (!backendStatus) return '';
+              return `team-row-${backendStatus.toLowerCase()}`;
+            }}
+            onRow={(record: ExtendedTeamInLeague) => ({
+              style: (() => {
                 const backendStatus = (record.standing as any)?.status;
-                if (!backendStatus) return '';
-                return `team-row-${backendStatus.toLowerCase()}`;
-              }}
-              onRow={(record: ExtendedTeamInLeague) => ({
-                style: (() => {
-                  const backendStatus = (record.standing as any)?.status;
-                  if (!backendStatus) return {};
-                  const statusDisplay = getStatusDisplay(backendStatus);
-                  return {
-                    backgroundColor: statusDisplay.backgroundColor,
-                    borderLeft: `4px solid ${statusDisplay.color}`
-                  };
-                })()
-              })}
-            />
-          </Card>
-        )}
-
-        {!selectedLeague && selectedDivision && (
-          <Alert
-            message="Selecciona una liga"
-            description="Selecciona una liga para ver los equipos asignados."
-            type="info"
-            style={{ marginTop: 0, marginBottom: 0 }}
+                if (!backendStatus) return {};
+                const statusDisplay = getStatusDisplay(backendStatus);
+                return {
+                  backgroundColor: statusDisplay.backgroundColor,
+                  borderLeft: `4px solid ${statusDisplay.color}`
+                };
+              })()
+            })}
           />
-        )}
+          {/* Etiquetas informativas de la liga debajo de la tabla */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, width: '100%', marginTop: 16 }}>
+            {selectedDivision && (
+              <Tag color="blue">{teams.length} / {selectedDivision.teamsPerLeague} equipos</Tag>
+            )}
+            <Tag color="purple">{season.name}</Tag>
+            {selectedDivision && selectedDivision.level === 1 && (
+              <Tag color="purple">🏆 8 plazas de torneo</Tag>
+            )}
+            {selectedDivision && selectedDivision.promoteSlots > 0 && (
+              <Tag color="green">↑ {selectedDivision.promoteSlots} ascensos directos</Tag>
+            )}
+            {selectedDivision && selectedDivision.promotePlayoffSlots > 0 && (
+              <Tag color="orange">⚡ {selectedDivision.promotePlayoffSlots} playoff ascenso</Tag>
+            )}
+            {selectedDivision && selectedDivision.relegateSlots > 0 && (
+              <Tag color="red">↓ {selectedDivision.relegateSlots} descensos</Tag>
+            )}
+            {selectedDivision && (
+              <Tag color="purple">🏟️ {selectedDivision.totalLeagues} liga{selectedDivision.totalLeagues > 1 ? 's' : ''}</Tag>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {!selectedLeague && selectedDivision && (
+        <Alert
+          message="Selecciona una liga"
+          description="Selecciona una liga para ver los equipos asignados."
+          type="info"
+          style={{ marginTop: 0, marginBottom: 0 }}
+        />
+      )}
     </div>
   );
 }
