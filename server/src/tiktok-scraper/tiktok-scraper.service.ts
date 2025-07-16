@@ -555,24 +555,24 @@ export class TiktokScraperService {
   async updateFollowers() {
     const db = this.databaseService.db;
     
-    // PASO 1: Obtener equipos que nunca han sido scrapeados Y no tienen demasiados fallos y cuyo tiktokId no empieza por 'Bot_'
+    // PASO 1: Obtener equipos que nunca han sido scrapeados Y no tienen demasiados fallos y que no son bots
     const unscrapedTeams = await db
       .select()
       .from(teamTable)
       .where(
-        sql`${teamTable.lastScrapedAt} IS NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL) AND ${teamTable.tiktokId} NOT LIKE 'Bot\_%'`
+        sql`${teamTable.lastScrapedAt} IS NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL) AND ${teamTable.isBot} = 0`
       )
       .limit(1);
     
     let batch = unscrapedTeams;
     
-    // PASO 2: Si no hay equipos sin scrapear, obtener el más antiguo que no haya fallado mucho y cuyo tiktokId no empieza por 'Bot_'
+    // PASO 2: Si no hay equipos sin scrapear, obtener el más antiguo que no haya fallado mucho y que no sea bot
     if (batch.length < 1) {
       const oldestScrapedTeams = await db
         .select()
         .from(teamTable)
         .where(
-          sql`${teamTable.lastScrapedAt} IS NOT NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL) AND ${teamTable.tiktokId} NOT LIKE 'Bot\_%'`
+          sql`${teamTable.lastScrapedAt} IS NOT NULL AND (${teamTable.failedScrapingAttempts} < 3 OR ${teamTable.failedScrapingAttempts} IS NULL) AND ${teamTable.isBot} = 0`
         )
         .orderBy(asc(teamTable.lastScrapedAt))
         .limit(1);
@@ -582,7 +582,7 @@ export class TiktokScraperService {
     
     // PASO 3: Si aún no hay equipos, verificar si REALMENTE todos han fallado mucho
     if (batch.length < 1) {
-      // Contar el total de equipos y los problemáticos (sin filtrar Bot_ aquí, para estadísticas globales)
+      // Contar el total de equipos y los problemáticos (sin filtrar bots aquí, para estadísticas globales)
       const totalTeamsCount = await db
         .select({ count: sql<number>`count(*)` })
         .from(teamTable);
@@ -614,11 +614,11 @@ export class TiktokScraperService {
         
         this.logger.log(`🔄 Reseteados contadores de equipos que fallaron hace más de 24 horas`);
         
-        // Intentar obtener equipos de nuevo después del reset, excluyendo los Bot_
+        // Intentar obtener equipos de nuevo después del reset, excluyendo los bots
         const resetTeams = await db
           .select()
           .from(teamTable)
-          .where(sql`${teamTable.failedScrapingAttempts} < 3 AND ${teamTable.tiktokId} NOT LIKE 'Bot\_%'`)
+          .where(sql`${teamTable.failedScrapingAttempts} < 3 AND ${teamTable.isBot} = 0`)
           .orderBy(asc(teamTable.lastScrapedAt))
           .limit(1);
           

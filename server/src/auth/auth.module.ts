@@ -20,7 +20,7 @@ import { GoogleAuthService } from './google.strategy';
       inject: [ConfigService],
     })
   ],
-  providers: [AuthService, UsersService, GoogleAuthService],
+  providers: [AuthService, UsersService, GoogleAuthService, JwtStrategy],
   controllers: [AuthController],
   exports: [AuthService, UsersService],
 })
