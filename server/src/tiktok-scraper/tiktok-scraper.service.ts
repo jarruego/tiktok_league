@@ -420,6 +420,13 @@ export class TiktokScraperService {
    * Se ejecuta después del scraping de TikTok si el equipo tiene IDs configurados
    */
   private async autoImportFromCache(team: any): Promise<{ imported: boolean; message: string }> {
+    // No procesar equipos marcados como bot
+    if (team.isBot === 1) {
+      return {
+        imported: false,
+        message: `Equipo ${team.name} está marcado como bot (isBot=1), no se procesa.`
+      };
+    }
     // Verificar si el equipo tiene footballDataId y competitionId configurados
     if (!team.footballDataId || !team.competitionId) {
       return { 
@@ -747,13 +754,19 @@ export class TiktokScraperService {
     
     // Obtener los datos del equipo
     const [team] = await db.select().from(teamTable).where(eq(teamTable.id, teamId));
-    
     if (!team) {
       throw new Error(`Equipo con ID ${teamId} no encontrado`);
     }
-
+    if (team.isBot === 1) {
+      return {
+        success: false,
+        teamId,
+        teamName: team.name,
+        error: 'Equipo marcado como bot (isBot=1), no se procesa.',
+        timestamp: new Date()
+      };
+    }
     const importResult = await this.autoImportFromCache(team);
-    
     return {
       teamId,
       teamName: team.name,
@@ -769,15 +782,22 @@ export class TiktokScraperService {
     
     // Obtener los datos del equipo
     const [team] = await db.select().from(teamTable).where(eq(teamTable.id, teamId));
-    
     if (!team) {
       throw new Error(`Equipo con ID ${teamId} no encontrado`);
     }
-
+    if (team.isBot === 1) {
+      return {
+        success: false,
+        teamId,
+        teamName: team.name,
+        tiktokId: team.tiktokId,
+        error: 'Equipo marcado como bot (isBot=1), no se procesa.',
+        timestamp: new Date()
+      };
+    }
     try {
       // Hacer scraping del perfil de TikTok del equipo
       const scrapingResult = await scrapeTikTokProfile(team.tiktokId);
-      
       return {
         success: true,
         teamId,
@@ -786,7 +806,6 @@ export class TiktokScraperService {
         scrapingResult,
         timestamp: new Date()
       };
-      
     } catch (error) {
       return {
         success: false,
