@@ -20,6 +20,8 @@ interface Match {
   homeGoals?: number;
   awayGoals?: number;
   date: string;
+  homeCrest?: string;
+  awayCrest?: string;
 }
 
 const MyTeamPage: React.FC = () => {
@@ -123,12 +125,18 @@ const MyTeamPage: React.FC = () => {
         id: next.id,
         homeTeam: next.homeTeam?.name ?? next.homeTeam ?? '',
         awayTeam: next.awayTeam?.name ?? next.awayTeam ?? '',
+        homeCrest: next.homeTeam?.crest ?? '',
+        awayCrest: next.awayTeam?.crest ?? '',
+        homeGoals: next.homeGoals,
+        awayGoals: next.awayGoals,
         date: next.scheduledDate
       } : null);
       setLastMatch(last ? {
         id: last.id,
         homeTeam: last.homeTeam?.name ?? last.homeTeam ?? '',
         awayTeam: last.awayTeam?.name ?? last.awayTeam ?? '',
+        homeCrest: last.homeTeam?.crest ?? '',
+        awayCrest: last.awayTeam?.crest ?? '',
         homeGoals: last.homeGoals,
         awayGoals: last.awayGoals,
         date: last.scheduledDate
@@ -159,12 +167,24 @@ const MyTeamPage: React.FC = () => {
       <div className="card" style={{ marginBottom: 16, padding: 16, border: '1px solid #eee', borderRadius: 8 }}>
         <h3>Próximo partido</h3>
         {nextMatch ? (
-          <div>
-            <div>{nextMatch.homeTeam} vs {nextMatch.awayTeam}</div>
-            <div>{nextMatch.date}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
+              {nextMatch.homeCrest && <img src={nextMatch.homeCrest} alt="Escudo local" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+              <span style={{ fontWeight: 600 }}>{nextMatch.homeTeam}</span>
+            </div>
+            <span style={{ fontWeight: 700, fontSize: 18 }}>vs</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-start' }}>
+              <span style={{ fontWeight: 600 }}>{nextMatch.awayTeam}</span>
+              {nextMatch.awayCrest && <img src={nextMatch.awayCrest} alt="Escudo visitante" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+            </div>
           </div>
         ) : (
           <div>No hay próximo partido programado.</div>
+        )}
+        {nextMatch && (
+          <div style={{ textAlign: 'center', marginTop: 8, color: '#888' }}>
+            {new Date(nextMatch.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+          </div>
         )}
       </div>
       {/* Card: Último partido */}
@@ -172,9 +192,24 @@ const MyTeamPage: React.FC = () => {
         <h3>Último partido</h3>
         {lastMatch ? (
           <div>
-            <div>{lastMatch.homeTeam} vs {lastMatch.awayTeam}</div>
-            <div>Resultado: {lastMatch.homeGoals} - {lastMatch.awayGoals}</div>
-            <div>{lastMatch.date}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
+                {lastMatch.homeCrest && <img src={lastMatch.homeCrest} alt="Escudo local" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                <span style={{ fontWeight: 600 }}>{lastMatch.homeTeam}</span>
+              </div>
+              <span style={{ fontWeight: 700, fontSize: 18 }}>
+                {typeof lastMatch.homeGoals === 'number' && typeof lastMatch.awayGoals === 'number'
+                  ? `${lastMatch.homeGoals} - ${lastMatch.awayGoals}`
+                  : 'vs'}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-start' }}>
+                <span style={{ fontWeight: 600 }}>{lastMatch.awayTeam}</span>
+                {lastMatch.awayCrest && <img src={lastMatch.awayCrest} alt="Escudo visitante" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', marginTop: 8, color: '#888' }}>
+              {new Date(lastMatch.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+            </div>
           </div>
         ) : (
           <div>No hay partidos jugados aún.</div>
