@@ -495,29 +495,23 @@ export class TiktokScraperService {
   @Cron('*/5 * * * *') // Cada 5 minutos
   async autoImportFromFootballData() {
     const db = this.databaseService.db;
-    
     try {
       this.logger.log('🔄 Iniciando auto-import independiente de Football-Data...');
-      
-      // Obtener equipos con Football-Data configurado que no hayan sido importados recientemente
+      // Solo equipos humanos (isBot = 0) con Football-Data configurado
       const teamsForImport = await db
         .select()
         .from(teamTable)
         .where(
-          sql`${teamTable.footballDataId} IS NOT NULL AND ${teamTable.competitionId} IS NOT NULL`
+          sql`${teamTable.footballDataId} IS NOT NULL AND ${teamTable.competitionId} IS NOT NULL AND ${teamTable.isBot} = 0`
         )
         .limit(3); // Procesar hasta 3 equipos por ciclo
-      
       if (teamsForImport.length === 0) {
         this.logger.debug('📊 Auto-import independiente: No hay equipos con Football-Data configurado');
         return { imported: 0, message: 'No hay equipos configurados para auto-import' };
       }
-      
       this.logger.log(`📊 Auto-import independiente: Procesando ${teamsForImport.length} equipos configurados`);
-      
       let importedCount = 0;
       let errorCount = 0;
-      
       for (const team of teamsForImport) {
         try {
           const importResult = await this.autoImportFromCache(team);
@@ -531,11 +525,9 @@ export class TiktokScraperService {
           errorCount++;
           this.logger.warn(`⚠️ Error en auto-import independiente para ${team.name}: ${error.message}`);
         }
-        
         // Pequeño delay entre equipos
         await delay(2000);
       }
-      
       this.logger.log(`✅ Auto-import independiente completado: ${importedCount}/${teamsForImport.length} equipos actualizados, ${errorCount} errores`);
       return { 
         imported: importedCount, 
@@ -543,7 +535,6 @@ export class TiktokScraperService {
         errors: errorCount,
         timestamp: new Date()
       };
-      
     } catch (error) {
       this.logger.error(`❌ Error crítico en auto-import independiente: ${error.message}`);
       return { imported: 0, error: error.message, timestamp: new Date() };
