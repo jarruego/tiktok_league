@@ -488,11 +488,11 @@ export class TiktokScraperService {
   }
 
   /**
-   * Tarea programada que se ejecuta cada 5 minutos para auto-import independiente
+   * Tarea programada que se ejecuta cada 30 minutos para auto-import independiente
    * Importa datos de Football-Data desde cache para equipos configurados
    * Se ejecuta independientemente del scraping de TikTok
    */
-@Cron('*/5 * * * *') // Cada 5 minutos
+@Cron('0 */30 * * * *') // Cada 30 minutos
 async autoImportFromFootballData() {
   const db = this.databaseService.db;
   try {
@@ -509,7 +509,12 @@ async autoImportFromFootballData() {
       .limit(3); // Procesar hasta 3 equipos por ciclo
     if (teamsForImport.length === 0) {
       this.logger.debug('📊 Auto-import independiente: No hay equipos pendientes de auto-import (<24h)');
-      return { imported: 0, message: 'No hay equipos pendientes de auto-import (<24h)' };
+      // Resetear lastAutoImportedAt para todos los equipos humanos con Football-Data configurado
+      await db.update(teamTable)
+        .set({ lastAutoImportedAt: null })
+        .where(sql`${teamTable.footballDataId} IS NOT NULL AND ${teamTable.competitionId} IS NOT NULL AND ${teamTable.isBot} = 0`);
+      this.logger.warn('🔄 Se han reseteado los campos lastAutoImportedAt para todos los equipos humanos con Football-Data configurado. Volverán a entrar en cola de auto-import.');
+      return { imported: 0, message: 'No había equipos pendientes, se ha reseteado lastAutoImportedAt para todos los equipos humanos con Football-Data configurado.' };
     }
     this.logger.log(`📊 Auto-import independiente: Procesando ${teamsForImport.length} equipos configurados`);
     let importedCount = 0;
