@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
 import { matchApi } from '../../api/matchApi';
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import type { Division, Season, ExtendedTeamInLeague } from '../../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
@@ -202,8 +203,9 @@ export default function DivisionView() {
   const [loading, setLoading] = useState(true);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [systemInitialized, setSystemInitialized] = useState(false);
+  const [searchParams] = useSearchParams();
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales, soportando teamId en la query string
   const loadInitialData = async () => {
     try {
       setLoading(true);
@@ -227,16 +229,17 @@ export default function DivisionView() {
           let foundDivision = null;
           let foundLeague = null;
 
-          // Si el usuario tiene equipo, buscar en qué liga está asignado en la temporada activa
-          if (user?.teamId && activeSeason) {
+          // Buscar teamId en la query string
+          const teamIdParam = searchParams.get('teamId');
+          const teamId = teamIdParam ? parseInt(teamIdParam, 10) : user?.teamId;
+
+          if (teamId && activeSeason) {
             outer: for (const division of divisionStructure) {
               for (const league of division.leagues) {
-                // Buscar si el equipo está en esta liga
                 try {
-                  // Obtener equipos de la liga para la temporada activa
                   // eslint-disable-next-line no-await-in-loop
                   const teamsInLeague = await leagueApi.getTeamsInLeague(league.id, activeSeason.id);
-                  if (teamsInLeague.some(t => t.teamId === user.teamId)) {
+                  if (teamsInLeague.some(t => t.teamId === teamId)) {
                     foundDivision = division;
                     foundLeague = league;
                     break outer;
@@ -248,7 +251,7 @@ export default function DivisionView() {
             }
           }
 
-          // Si se encontró la liga del usuario, seleccionarla; si no, División 1 por defecto
+          // Si se encontró la liga del equipo, seleccionarla; si no, División 1 por defecto
           const divisionToSelect = foundDivision || divisionStructure.find(d => d.level === 1) || divisionStructure[0];
           setSelectedDivision(divisionToSelect);
           if (foundLeague) {

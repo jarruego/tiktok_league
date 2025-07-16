@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import MyTeamPage from './pages/MyTeamPage';
 import TeamDetail from './pages/TeamDetail';
+import DivisionView from './components/divisions/DivisionView';
 import { AuthProvider } from './context/AuthContext';
 import { AuthGuard } from './components/AuthGuard';
 import { AdminGuard } from './components/AdminGuard';
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="/mi-equipo" element={<AuthGuard><MyTeamPage /></AuthGuard>} />
             <Route path="/config" element={<AdminGuard><ConfigPage /></AdminGuard>} />
             <Route path="/leagues" element={<AdminGuard><LeaguesPage /></AdminGuard>} />
+            <Route path="/divisions" element={<AuthGuard><DivisionView /></AuthGuard>} />
             <Route path="/login" element={<LoginScreen />} />
             <Route path="/register" element={<RegisterScreen />} />
           </Routes>

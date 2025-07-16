@@ -204,6 +204,14 @@ export default function TeamDetail() {
                 {team.shortName} {team.tla && `(${team.tla})`}
               </p>
             )}
+            {/* Enlace a la clasificación de la liga/división del equipo */}
+            <Button
+              type="link"
+              style={{ padding: 0, fontSize: '16px', color: '#1890ff', marginTop: '8px' }}
+              onClick={() => navigate(`/divisions?teamId=${team.id}`)}
+            >
+              Ver clasificación de la liga/división
+            </Button>
           </div>
         </div>
 
