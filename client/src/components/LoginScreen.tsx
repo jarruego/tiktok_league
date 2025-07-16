@@ -21,6 +21,11 @@ export const LoginScreen: React.FC = () => {
     try {
       await auth.login(values.username, values.password);
       form.resetFields();
+      if (auth.user && auth.user.teamId) {
+        navigate('/mi-equipo');
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error de autenticación');
     } finally {

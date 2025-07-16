@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { AuthStatus } from './AuthStatus';
 import { usePermissions } from '../hooks/usePermissions';
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export default function MainHeader() {
   const { isAuthenticated } = usePermissions();
@@ -16,6 +17,7 @@ export default function MainHeader() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const { user } = useAuth();
   return (
     <header style={{
       background: '#fff', borderBottom: '1px solid #eee',
@@ -41,29 +43,34 @@ export default function MainHeader() {
           <div style={{ flex: 1 }}></div>
           
           {/* Opciones de menú en escritorio (antes del dropdown) */}
-          {isAuthenticated && !isMobile && (
-            <div style={{ 
-              display: 'flex',
-              alignItems: 'center',
-              gap: 24,
-              marginRight: 16  // Margen derecho para separar del dropdown
-            }}>
-              <Link 
-                to="/matches" 
-                style={{ 
-                  color: '#666', 
-                  textDecoration: 'none', 
-                  fontWeight: 500,
-                  transition: 'color 0.3s',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseOver={(e) => (e.target as HTMLElement).style.color = '#1890ff'}
-                onMouseOut={(e) => (e.target as HTMLElement).style.color = '#666'}
-              >
-                Partidos
-              </Link>
-            </div>
-          )}
+           {isAuthenticated && !isMobile && (
+             <div style={{ 
+               display: 'flex',
+               alignItems: 'center',
+               gap: 24,
+               marginRight: 16  // Margen derecho para separar del dropdown
+             }}>
+               <Link 
+                 to="/matches" 
+                 style={{ 
+                   color: '#666', 
+                   textDecoration: 'none', 
+                   fontWeight: 500,
+                   transition: 'color 0.3s',
+                   whiteSpace: 'nowrap'
+                 }}
+                 onMouseOver={(e) => (e.target as HTMLElement).style.color = '#1890ff'}
+                 onMouseOut={(e) => (e.target as HTMLElement).style.color = '#666'}
+               >
+                 Partidos
+               </Link>
+              {user && user.teamId && (
+                <Link to="/mi-equipo" style={{ marginLeft: 16, fontWeight: 500 }}>
+                  Mi Equipo
+                </Link>
+              )}
+             </div>
+           )}
           
           {/* AuthStatus (dropdown) siempre a la derecha */}
           <div style={{ display: 'flex', alignItems: 'center' }}>
