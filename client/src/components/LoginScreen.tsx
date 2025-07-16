@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 
 const { Content } = Layout;
 
+
 export const LoginScreen: React.FC = () => {
   const [form] = Form.useForm();
   const [isLoading, setIsLoading] = useState(false);
@@ -14,18 +15,24 @@ export const LoginScreen: React.FC = () => {
   const auth = useAuth();
   const navigate = useNavigate();
 
+  // Redirigir tras login exitoso (usuario/pass, Google, TikTok)
+  React.useEffect(() => {
+    if (auth.isAuthenticated && auth.user) {
+      if (auth.user.teamId) {
+        navigate('/mi-equipo', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [auth.isAuthenticated, auth.user, navigate]);
+
   const handleSubmit = async (values: { username: string; password: string }) => {
     setIsLoading(true);
     setError(null);
-
     try {
       await auth.login(values.username, values.password);
       form.resetFields();
-      if (auth.user && auth.user.teamId) {
-        navigate('/mi-equipo');
-      } else {
-        navigate('/');
-      }
+      // La redirección se maneja en el useEffect
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error de autenticación');
     } finally {
