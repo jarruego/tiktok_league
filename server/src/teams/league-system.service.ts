@@ -383,9 +383,9 @@ export class LeagueSystemService {
       .select()
       .from(teamTable)
       .where(
-        assignedTeamIds.length > 0 
-          ? sql`${teamTable.id} NOT IN (${assignedTeamIds.join(',')})`
-          : sql`1=1` // Sin filtro si no hay equipos asignados
+        assignedTeamIds.length > 0
+          ? sql`${teamTable.id} NOT IN ${assignedTeamIds}`
+          : sql`1=1`
       )
       .orderBy(desc(teamTable.followers));
 
