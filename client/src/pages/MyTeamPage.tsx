@@ -154,42 +154,72 @@ const MyTeamPage: React.FC = () => {
 
   return (
     <div style={{ width: '100vw', minHeight: '100vh', boxSizing: 'border-box', background: '#fafbfc', padding: 0, margin: 0 }}>
-      {/* Cabecera: escudo y nombre del equipo */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, padding: '12px 4px 0 4px' }}>
-        {team?.logoUrl && (
-          <img src={team.logoUrl} alt="Escudo" style={{ width: 48, height: 48, marginRight: 8 }} />
-        )}
-        <h2 style={{ fontSize: 20, margin: 0 }}>{team?.name || 'Mi Equipo'}</h2>
-      </div>
-      {/* Card: Liga y posición */}
-      <div className="card" style={{ marginBottom: 6, padding: '8px 4px', border: '1px solid #eee', borderRadius: 8, background: '#fff', marginLeft: 0, marginRight: 0 }}>
+      {/* Cabecera destacada: escudo y nombre del equipo + card liga */}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0}}>
+        <div style={{
+          width: '100%',
+          border: '1px solid #eee',
+          borderRadius: 12,
+          background: '#fff', 
+          padding: '18px 0 10px 0', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center'
+        }}>
+          {team?.logoUrl && (
+            <img src={team.logoUrl} alt="Escudo" style={{ width: 56, height: 56, marginRight: 16, borderRadius: 12, border: '2px solid #1e90ff', background: '#fff' }} />
+          )}
+          <h2 style={{ fontSize: 26, margin: 0, fontWeight: 800, color: '#1e90ff', letterSpacing: 0.5 }}>{team?.name || 'Mi Equipo'}</h2>
+        </div>
+        {/* Card: Liga y posición destacada y enlazable */}
         {league && divisionName ? (
-          <h3 style={{ margin: 0, fontSize: 16, color: '#1e90ff', fontWeight: 700 }}>
-            {divisionName} - {league.name}
-          </h3>
+          <a
+            href={`/divisions?teamId=${team?.id}`}
+            style={{
+              width: '100%',
+              textDecoration: 'none',
+              display: 'block',
+              border: '1px solid #eee',
+              borderRadius: 12,
+              background: '#fff',
+              padding: '18px 0 18px 0',
+              marginTop: 0,
+              cursor: 'pointer',
+              textAlign: 'center',
+              transition: 'box-shadow 0.2s',
+            }}
+            target="_self"
+          >
+            <div style={{ fontSize: 32, fontWeight: 900, color: '#222', marginBottom: 0, marginTop: 8 }}>
+              {typeof league.position === 'number' ? `${league.position}ª Posición` : 'Sin posición'}
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#1e90ff', marginBottom: 2 }}>
+              {league.name}
+            </div>
+          </a>
         ) : (
-          <h3 style={{ margin: 0, fontSize: 16 }}>Liga</h3>
+          <div style={{ width: '100%', borderRadius: 16, background: '#fff', border: '1px solid #eee', padding: '18px 0', textAlign: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: 18 }}>Liga</h3>
+            <div>{league?.name || 'Sin liga'}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: '#222', marginTop: 8 }}>-</div>
+          </div>
         )}
-        <div>{league?.name || 'Sin liga'}</div>
-        <div>Posición: {league?.position ?? '-'}</div>
       </div>
-            {/* Card: Último partido */}
-      <div className="card" style={{
-        marginBottom: 16,
-        padding: '18px 8px',
-        border: '2px solid #1e90ff',
-        borderRadius: 16,
-        background: 'linear-gradient(90deg, #e3f0ff 0%, #fafdff 100%)',
-        marginLeft: 0,
-        marginRight: 0,
-        boxShadow: '0 4px 16px 0 rgba(30,144,255,0.10)',
-        width: '100%',
-        alignSelf: 'stretch',
+      {/* Card: Último partido */}
+      <div style={{
+        padding: '20px 10px',
+        border: '2px solid #90caff',
+        borderRadius: 14,
+        background: '#f6faff',
+        margin: '10px auto',
+        width: '95%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        boxShadow: '0 2px 12px 0 rgba(30,144,255,0.07)',
+        transition: 'box-shadow 0.2s',
       }}>
-        <h3 style={{ margin: 0, fontSize: 22, color: '#1e90ff', fontWeight: 800, letterSpacing: 0.5 }}>Último partido</h3>
+        <h3 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: 0.5 }}>Último partido</h3>
         {lastMatch ? (
           <div style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, minHeight: 60, margin: '18px 0' }}>
@@ -217,10 +247,11 @@ const MyTeamPage: React.FC = () => {
       </div>
       {/* Card: Próximos partidos */}
       <div style={{ width: '100%', overflowX: 'hidden' }}>
-        <h3 style={{ margin: 0, fontSize: 16, marginBottom: 6 }}>Próximos partidos</h3>
+        <h3 style={{ margin: 0, fontSize: 24, marginBottom: 6, textAlign: 'center' }}>Próximos partidos</h3>
         {nextMatches.length > 0 ? (
           <div
             style={{
+              padding: '0px 10px',
               display: 'flex',
               flexWrap: 'wrap',
               gap: 10,
