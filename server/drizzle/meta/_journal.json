@@ -176,6 +176,13 @@
       "when": 1752681266681,
       "tag": "0024_curvy_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1752740430521,
+      "tag": "0025_unusual_slipstream",
+      "breakpoints": true
     }
   ]
 }

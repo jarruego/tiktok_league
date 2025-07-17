@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import MyTeamPage from './pages/MyTeamPage';
 import TeamDetail from './pages/TeamDetail';
+import TeamSquadPage from './pages/TeamSquadPage';
 import DivisionView from './components/divisions/DivisionView';
 import { AuthProvider } from './context/AuthContext';
 import { AuthGuard } from './components/AuthGuard';
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/tiktok-callback" element={<TikTokCallback />} />
             <Route path="/account" element={<AuthGuard><AccountPage /></AuthGuard>} />
             <Route path="/mi-equipo" element={<AuthGuard><MyTeamPage /></AuthGuard>} />
+            <Route path="/alineacion" element={<AuthGuard><TeamSquadPage /></AuthGuard>} />
             <Route path="/config" element={<AdminGuard><ConfigPage /></AdminGuard>} />
             <Route path="/leagues" element={<AdminGuard><LeaguesPage /></AdminGuard>} />
             <Route path="/divisions" element={<AuthGuard><DivisionView /></AuthGuard>} />

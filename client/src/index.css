@@ -1,3 +1,17 @@
+/* Alineación: filas de selects adaptables */
+.field-row {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.field-row select {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+}
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

@@ -7,4 +7,8 @@ export class DatabaseService<
   TSchema extends Record<string, unknown> = typeof schema,
 > {
   constructor(public readonly db: NodePgDatabase<TSchema>) {}
+
+  getDb() {
+    return this.db;
+  }
 }

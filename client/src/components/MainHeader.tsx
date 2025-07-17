@@ -51,27 +51,51 @@ export default function MainHeader() {
                marginRight: 16
              }}>
               {user && user.teamId && (
-                <Link 
-                  to="/mi-equipo" 
-                  style={{ 
-                    marginLeft: 16,
-                    color: '#666',
-                    textDecoration: 'none',
-                    fontWeight: 500,
-                    transition: 'color 0.3s',
-                    whiteSpace: 'nowrap',
-                    fontSize: 18,
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
-                  onMouseOver={(e) => (e.target as HTMLElement).style.color = '#1890ff'}
-                  onMouseOut={(e) => (e.target as HTMLElement).style.color = '#666'}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
-                    <path d="M12 3L4 6v6c0 5.25 4.5 8.25 8 9 3.5-.75 8-3.75 8-9V6z" />
-                  </svg>
-                  Mi Equipo
-                </Link>
+                <>
+                  <Link 
+                    to="/mi-equipo" 
+                    style={{ 
+                      marginLeft: 16,
+                      color: '#666',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      transition: 'color 0.3s',
+                      whiteSpace: 'nowrap',
+                      fontSize: 18,
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    onMouseOver={(e) => (e.target as HTMLElement).style.color = '#1890ff'}
+                    onMouseOut={(e) => (e.target as HTMLElement).style.color = '#666'}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
+                      <path d="M12 3L4 6v6c0 5.25 4.5 8.25 8 9 3.5-.75 8-3.75 8-9V6z" />
+                    </svg>
+                    Mi Equipo
+                  </Link>
+                  <Link 
+                    to="/alineacion" 
+                    style={{ 
+                      marginLeft: 16,
+                      color: '#666',
+                      textDecoration: 'none',
+                      fontWeight: 500,
+                      transition: 'color 0.3s',
+                      whiteSpace: 'nowrap',
+                      fontSize: 18,
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    onMouseOver={(e) => (e.target as HTMLElement).style.color = '#1890ff'}
+                    onMouseOut={(e) => (e.target as HTMLElement).style.color = '#666'}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 6 }}>
+                      <circle cx="12" cy="12" r="10" />
+                      <rect x="8" y="8" width="8" height="8" rx="2" />
+                    </svg>
+                    Alineación
+                  </Link>
+                </>
               )}
                <Link 
                  to="/divisions" 
@@ -140,11 +164,19 @@ export default function MainHeader() {
             width: '100%'
           }}>
             {user && user.teamId && (
-              <Link to="/mi-equipo" style={{ fontWeight: 500, whiteSpace: 'nowrap', fontSize: 28, display: 'flex', alignItems: 'center' }} aria-label="Mi Equipo">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
-                  <path d="M12 3L4 6v6c0 5.25 4.5 8.25 8 9 3.5-.75 8-3.75 8-9V6z" />
-                </svg>
-              </Link>
+              <>
+                <Link to="/mi-equipo" style={{ fontWeight: 500, whiteSpace: 'nowrap', fontSize: 28, display: 'flex', alignItems: 'center' }} aria-label="Mi Equipo">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+                    <path d="M12 3L4 6v6c0 5.25 4.5 8.25 8 9 3.5-.75 8-3.75 8-9V6z" />
+                  </svg>
+                </Link>
+                <Link to="/alineacion" style={{ fontWeight: 500, whiteSpace: 'nowrap', fontSize: 28, display: 'flex', alignItems: 'center' }} aria-label="Alineación">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <rect x="8" y="8" width="8" height="8" rx="2" />
+                  </svg>
+                </Link>
+              </>
             )}
             <Link 
               to="/divisions" 

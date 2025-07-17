@@ -34,6 +34,7 @@ dotenv.config();
         return new DatabaseService(db);
       },
     },
+    // DatabaseService eliminado, solo se usa el provider DATABASE_PROVIDER
     MigrationService,
   ],
   exports: [DATABASE_PROVIDER, MigrationService],

@@ -224,7 +224,7 @@ const MyTeamPage: React.FC = () => {
           <div style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, minHeight: 60, margin: '18px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
-                {lastMatch.homeCrest && <img src={lastMatch.homeCrest} alt="Escudo local" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff', borderRadius: 6, border: '2px solid #1e90ff' }} />}
+                {lastMatch.homeCrest && <img src={lastMatch.homeCrest} alt="Escudo local" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff' }} />}
                 <span style={{ fontWeight: 700, fontSize: 20, marginLeft: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#222' }}>{lastMatch.homeTeam}</span>
               </div>
               <span style={{ fontWeight: 900, fontSize: 28, margin: '0 16px', minWidth: 48, textAlign: 'center', color: '#1e90ff' }}>
@@ -234,7 +234,7 @@ const MyTeamPage: React.FC = () => {
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
                 <span style={{ fontWeight: 700, fontSize: 20, marginRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#222' }}>{lastMatch.awayTeam}</span>
-                {lastMatch.awayCrest && <img src={lastMatch.awayCrest} alt="Escudo visitante" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff', borderRadius: 6, border: '2px solid #1e90ff' }} />}
+                {lastMatch.awayCrest && <img src={lastMatch.awayCrest} alt="Escudo visitante" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff' }} />}
               </div>
             </div>
             <div style={{ textAlign: 'center', marginTop: 8, color: '#1e90ff', fontSize: 15, fontWeight: 600, letterSpacing: 0.2 }}>

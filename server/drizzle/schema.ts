@@ -243,3 +243,17 @@ export const standings = pgTable("standings", {
 			name: "standings_team_id_teams_id_fk"
 		}).onDelete("cascade"),
 ]);
+// Tabla para guardar el once titular y plantilla de cada equipo
+export const lineups = pgTable("lineups", {
+  id: serial().primaryKey().notNull(),
+  teamId: integer("team_id").notNull(),
+  lineup: jsonb("lineup").notNull(),
+  createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+  foreignKey({
+	columns: [table.teamId],
+	foreignColumns: [teams.id],
+	name: "lineups_team_id_teams_id_fk"
+  })
+]);

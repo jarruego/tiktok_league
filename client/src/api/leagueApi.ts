@@ -4,6 +4,44 @@ import { authService } from './authApi';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const leagueApi = {
+  // Obtener jugadores por equipo
+  async getPlayersByTeam(teamId: number) {
+    const response = await fetch(`${API_BASE_URL}/api/players/team/${teamId}`, {
+      headers: authService.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  // Obtener alineación titular guardada
+  async getLineup(teamId: number) {
+    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/lineup`, {
+      headers: authService.getAuthHeaders(),
+    });
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  // Guardar alineación titular
+  async saveLineup(teamId: number, lineup: any) {
+    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/lineup`, {
+      method: 'POST',
+      headers: {
+        ...authService.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(lineup),
+    });
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    return response.json();
+  },
   // Verificar estado del sistema
   async getSystemStatus(): Promise<{
     isInitialized: boolean;
