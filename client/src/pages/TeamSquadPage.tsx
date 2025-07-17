@@ -142,63 +142,88 @@ export default function TeamSquadPage() {
         <div className="football-field">
           {/* Portero */}
           <div className="field-row goalkeeper-row">
-            {selected.Goalkeeper.map((val, idx) => (
-              <select
-                key={idx}
-                value={val}
-                onChange={(e) => handleSelect('Goalkeeper', idx, e.target.value)}
-              >
-                <option value="">Portero</option>
-                {grouped.Goalkeeper.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            ))}
+            {selected.Goalkeeper.map((val, idx) => {
+              // Todos los jugadores seleccionados en cualquier posición
+              const allSelected = Object.values(selected).flat().filter(Boolean);
+              const options = Array.isArray(grouped.Goalkeeper) ? grouped.Goalkeeper : [];
+              return (
+                <select
+                  key={idx}
+                  value={val}
+                  onChange={(e) => handleSelect('Goalkeeper', idx, e.target.value)}
+                >
+                  <option value="">Portero</option>
+                  {options
+                    .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+              );
+            })}
           </div>
           {/* Defensas */}
           <div className="field-row defence-row">
-            {selected.Defence.map((val, idx) => (
-              <select
-                key={idx}
-                value={val}
-                onChange={(e) => handleSelect('Defence', idx, e.target.value)}
-              >
-                <option value="">Defensa</option>
-                {grouped.Defence.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            ))}
+            {selected.Defence.map((val, idx) => {
+              const allSelected = Object.values(selected).flat().filter(Boolean);
+              const options = Array.isArray(grouped.Defence) ? grouped.Defence : [];
+              return (
+                <select
+                  key={idx}
+                  value={val}
+                  onChange={(e) => handleSelect('Defence', idx, e.target.value)}
+                >
+                  <option value="">Defensa</option>
+                  {options
+                    .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+              );
+            })}
           </div>
           {/* Medios */}
           <div className="field-row midfield-row">
-            {selected.Midfield.map((val, idx) => (
-              <select
-                key={idx}
-                value={val}
-                onChange={(e) => handleSelect('Midfield', idx, e.target.value)}
-              >
-                <option value="">Medio</option>
-                {grouped.Midfield.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            ))}
+            {selected.Midfield.map((val, idx) => {
+              const allSelected = Object.values(selected).flat().filter(Boolean);
+              const options = Array.isArray(grouped.Midfield) ? grouped.Midfield : [];
+              return (
+                <select
+                  key={idx}
+                  value={val}
+                  onChange={(e) => handleSelect('Midfield', idx, e.target.value)}
+                >
+                  <option value="">Medio</option>
+                  {options
+                    .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+              );
+            })}
           </div>
           {/* Delanteros */}
           <div className="field-row forward-row">
-            {selected.Forward.map((val, idx) => (
-              <select
-                key={idx}
-                value={val}
-                onChange={(e) => handleSelect('Forward', idx, e.target.value)}
-              >
-                <option value="">Delantero</option>
-                {grouped.Forward.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            ))}
+            {selected.Forward.map((val, idx) => {
+              const allSelected = Object.values(selected).flat().filter(Boolean);
+              const options = Array.isArray(grouped.Forward) ? grouped.Forward : [];
+              return (
+                <select
+                  key={idx}
+                  value={val}
+                  onChange={(e) => handleSelect('Forward', idx, e.target.value)}
+                >
+                  <option value="">Delantero</option>
+                  {options
+                    .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -210,7 +235,7 @@ export default function TeamSquadPage() {
         <div key={pos}>
           <h4>{pos}</h4>
           <ul>
-            {grouped[pos]?.map((p) => (
+            {(Array.isArray(grouped[pos]) ? grouped[pos] : []).map((p) => (
               <li key={p.id}>{p.name} ({p.position})</li>
             ))}
           </ul>
