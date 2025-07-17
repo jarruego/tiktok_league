@@ -5,6 +5,7 @@ import { DatabaseService } from './database.service';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as bcrypt from 'bcryptjs';
 import * as dotenv from 'dotenv';
+import { seasonTable } from './tables/season.table';
 
 dotenv.config();
 
@@ -371,6 +372,23 @@ async function seed(existingDb?: any) {
     const dbInstance = drizzle(databaseUrl);
     const databaseService = new DatabaseService(dbInstance);
     db = databaseService.db;
+  }
+
+  // Crear temporada inicial "Temporada 1"
+  try {
+    const existingSeason = await db.select().from(seasonTable).where(eq(seasonTable.name, 'Temporada 1'));
+    if (existingSeason.length === 0) {
+      await db.insert(seasonTable).values({
+        name: 'Temporada 1',
+        year: new Date().getFullYear(),
+        isActive: true
+      });
+      console.log('Temporada inicial creada: Temporada 1');
+    } else {
+      console.log('La temporada inicial ya existe');
+    }
+  } catch (error) {
+    console.log('Error creando la temporada inicial:', error.message);
   }
 
   // Crear usuario admin por defecto

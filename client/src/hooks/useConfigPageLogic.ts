@@ -276,9 +276,18 @@ export function useConfigPageLogic() {
   const handleCacheAllCompetitions = async () => {
     setCaching(true);
     try {
-      message.info('Función de cache de competiciones no disponible actualmente');
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/football-data/cache/all-competitions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('Error');
+      message.success('Caché de competiciones poblada correctamente');
     } catch (error: any) {
-      message.error(`Error: ${error.message}`);
+      message.error(`Error al poblar la caché de competiciones: ${error.message}`);
     } finally {
       setCaching(false);
     }
