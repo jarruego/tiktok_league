@@ -1,7 +1,31 @@
+
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { leagueApi } from '../api/leagueApi';
 import type { Player, Lineup } from '../types/player.types';
+// Icono SVG de papelera
+const TrashIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', cursor: 'pointer' }}>
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
+const POSITION_TRANSLATIONS: Record<string, string> = {
+  'Goalkeeper': 'Portero',
+  'Centre-Back': 'Defensa central',
+  'Right-Back': 'Lateral derecho',
+  'Left-Back': 'Lateral izquierdo',
+  'Defence': 'Defensa',
+  'Central Midfield': 'Centrocampista central',
+  'Defensive Midfield': 'Centrocampista defensivo',
+  'Attacking Midfield': 'Centrocampista ofensivo',
+  'Midfield': 'Centrocampista',
+  'Centre-Forward': 'Delantero centro',
+  'Right Winger': 'Extremo derecho',
+  'Left Winger': 'Extremo izquierdo',
+};
 
 const POSITIONS = {
   Goalkeeper: ['Goalkeeper'],
@@ -51,6 +75,43 @@ function groupPlayers(players: Player[]): Record<string, Player[]> {
 }
 
 export default function TeamSquadPage() {
+  // Estado para modal de confirmación de borrado
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [playerToDelete, setPlayerToDelete] = useState<Player | null>(null);
+
+  // Eliminar jugador
+  async function handleDeletePlayer() {
+    if (!playerToDelete) return;
+    try {
+      await leagueApi.deletePlayer(playerToDelete.id);
+      setShowDeleteModal(false);
+      setPlayerToDelete(null);
+      // Refresca la lista de jugadores
+      const data = await leagueApi.getPlayersByTeam(user?.teamId!);
+      setPlayers(data);
+      setGrouped(groupPlayers(data));
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar jugador');
+      setShowDeleteModal(false);
+      setPlayerToDelete(null);
+    }
+  }
+
+  // Modal de confirmación
+  const DeleteModal = () => (
+    showDeleteModal && playerToDelete ? (
+      <div className="modal-overlay" style={{ position: 'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.3)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+        <div className="modal-content" style={{ background:'#fff', padding:24, borderRadius:8, minWidth:300, boxShadow:'0 2px 8px rgba(0,0,0,0.2)' }}>
+          <h4>Confirmar acción</h4>
+          <p>¿Estás seguro de querer despedir al jugador <strong>{playerToDelete.name}</strong>?</p>
+          <div style={{ display:'flex', gap:12, justifyContent:'flex-end', marginTop:16 }}>
+            <button onClick={() => { setShowDeleteModal(false); setPlayerToDelete(null); }}>Cancelar</button>
+            <button style={{ background:'#d32f2f', color:'#fff' }} onClick={handleDeletePlayer}>Despedir</button>
+          </div>
+        </div>
+      </div>
+    ) : null
+  );
   function getTactic(selected: Lineup) {
     const counts: Record<string, number> = {
       Defence: 0,
@@ -214,8 +275,12 @@ export default function TeamSquadPage() {
               required
             >
               <option value="">Posición</option>
-              {Object.values(POSITIONS).flat().map(pos => (
-                <option key={pos} value={pos}>{pos}</option>
+              {positionOrder.map((groupKey) => (
+                <optgroup key={groupKey} label={POSITION_TRANSLATIONS[groupKey] || groupKey}>
+                  {POSITIONS[groupKey as keyof typeof POSITIONS].map((pos: string) => (
+                    <option key={pos} value={pos}>{POSITION_TRANSLATIONS[pos] || pos}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
             <button type="submit" disabled={adding}>Añadir jugador</button>
@@ -279,8 +344,12 @@ export default function TeamSquadPage() {
               required
             >
               <option value="">Posición</option>
-              {Object.values(POSITIONS).flat().map(pos => (
-                <option key={pos} value={pos}>{pos}</option>
+              {positionOrder.map((groupKey) => (
+                <optgroup key={groupKey} label={POSITION_TRANSLATIONS[groupKey] || groupKey}>
+                  {POSITIONS[groupKey as keyof typeof POSITIONS].map((pos: string) => (
+                    <option key={pos} value={pos}>{POSITION_TRANSLATIONS[pos] || pos}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
             <button type="submit" disabled={adding}>Añadir jugador</button>
@@ -387,16 +456,26 @@ export default function TeamSquadPage() {
       {error && <div className="error-message">{error}</div>}
       <hr />
       <h3>Jugadores por demarcación</h3>
-      {positionOrder.map((pos) => (
-        <div key={pos}>
-          <h4>{pos}</h4>
-          <ul>
-            {(Array.isArray(grouped[pos]) ? grouped[pos] : []).map((p) => (
-              <li key={p.id}>{p.name} ({p.position})</li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <>
+        {positionOrder.map((pos) => (
+          <div key={pos}>
+            <h4>{POSITION_TRANSLATIONS[pos] || pos}</h4>
+            <ul>
+              {(Array.isArray(grouped[pos]) ? grouped[pos] : []).map((p) => (
+                <li key={p.id} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  {p.name} ({POSITION_TRANSLATIONS[p.position] || p.position})
+                  {!hasFootballDataId && (
+                    <span title="Despedir jugador" onClick={() => { setPlayerToDelete(p); setShowDeleteModal(true); }}>
+                      <TrashIcon size={16} />
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <DeleteModal />
+      </>
     </div>
   );
 }

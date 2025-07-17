@@ -4,6 +4,25 @@ import { authService } from './authApi';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const leagueApi = {
+  // Eliminar jugador manualmente (solo equipos sin football_data_id)
+  async deletePlayer(playerId: number) {
+    const response = await fetch(`${API_BASE_URL}/api/players/${playerId}`, {
+      method: 'DELETE',
+      headers: {
+        ...authService.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      let errorMsg = `Error ${response.status}: ${response.statusText}`;
+      try {
+        const err = await response.json();
+        errorMsg = err.userMessage || err.message || errorMsg;
+      } catch {}
+      throw new Error(errorMsg);
+    }
+    return response.json();
+  },
   // Añadir jugador manualmente
   async addPlayer(playerData: {
     name: string;
