@@ -1,17 +1,11 @@
 
 import { useEffect, useState } from 'react';
+import { Card, Button, Typography, Divider, List, Modal } from 'antd';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { leagueApi } from '../api/leagueApi';
 import type { Player, Lineup } from '../types/player.types';
-// Icono SVG de papelera
-const TrashIcon = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', cursor: 'pointer' }}>
-    <polyline points="3 6 5 6 21 6" />
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m5 0V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2" />
-    <line x1="10" y1="11" x2="10" y2="17" />
-    <line x1="14" y1="11" x2="14" y2="17" />
-  </svg>
-);
+const { Text } = Typography;
 const POSITION_TRANSLATIONS: Record<string, string> = {
   'Goalkeeper': 'Portero',
   'Centre-Back': 'Defensa central',
@@ -25,6 +19,7 @@ const POSITION_TRANSLATIONS: Record<string, string> = {
   'Centre-Forward': 'Delantero centro',
   'Right Winger': 'Extremo derecho',
   'Left Winger': 'Extremo izquierdo',
+  'Forward': 'Delantero',
 };
 
 const POSITIONS = {
@@ -97,20 +92,19 @@ export default function TeamSquadPage() {
     }
   }
 
-  // Modal de confirmación
+  // Modal de confirmación con Ant Design
   const DeleteModal = () => (
-    showDeleteModal && playerToDelete ? (
-      <div className="modal-overlay" style={{ position: 'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.3)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-        <div className="modal-content" style={{ background:'#fff', padding:24, borderRadius:8, minWidth:300, boxShadow:'0 2px 8px rgba(0,0,0,0.2)' }}>
-          <h4>Confirmar acción</h4>
-          <p>¿Estás seguro de querer despedir al jugador <strong>{playerToDelete.name}</strong>?</p>
-          <div style={{ display:'flex', gap:12, justifyContent:'flex-end', marginTop:16 }}>
-            <button onClick={() => { setShowDeleteModal(false); setPlayerToDelete(null); }}>Cancelar</button>
-            <button style={{ background:'#d32f2f', color:'#fff' }} onClick={handleDeletePlayer}>Despedir</button>
-          </div>
-        </div>
-      </div>
-    ) : null
+    <Modal
+      open={showDeleteModal}
+      title="Confirmar acción"
+      onCancel={() => { setShowDeleteModal(false); setPlayerToDelete(null); }}
+      onOk={handleDeletePlayer}
+      okText="Despedir"
+      cancelText="Cancelar"
+      okButtonProps={{ danger: true }}
+    >
+      <Text>¿Estás seguro de querer despedir al jugador <b>{playerToDelete?.name}</b>?</Text>
+    </Modal>
   );
   function getTactic(selected: Lineup) {
     const counts: Record<string, number> = {
@@ -220,7 +214,7 @@ export default function TeamSquadPage() {
     setError('Alineación guardada correctamente.');
   }
 
-  if (loading) return <div>Cargando...</div>;
+  if (loading) return <div style={{textAlign:'center',marginTop:40}}><Text strong>Cargando...</Text></div>;
 
   // Si el equipo no tiene football_data_id, mostrar el formulario aunque no haya jugadores
   if (!hasFootballDataId && !players.length) {
@@ -292,12 +286,117 @@ export default function TeamSquadPage() {
   }
 
   return (
-    <div className="team-squad-page">
-      <h2>Plantilla y Alineación Titular</h2>
-      {/* Si el equipo NO tiene football_data_id, mostrar formulario para añadir jugadores manualmente */}
+    <div style={{ width: '100%' }}>
+      <h2 style={{ textAlign: 'center', fontWeight: 700, margin: '16px 0 8px 0' }}>Plantilla y Alineación Titular</h2>
+      {/* Card verde simulando campo de fútbol */}
+      <Card
+        bodyStyle={{
+          background: 'linear-gradient(180deg, #43a047 0%, #388e3c 100%)',
+          padding: '10px 10px',
+          borderRadius: 0,
+          minHeight: 180,
+        }}
+        style={{
+          margin: '0 0 16px 0',
+          width: '100%',
+          boxShadow: '0 2px 8px rgba(60,120,60,0.10)',
+          border: '1px solid #388e3c',
+        }}
+      >      
+      <div style={{ textAlign: 'center', fontWeight: 500, marginBottom: 8, color: '#fff' }}>
+        Esquema táctico: <span style={{ fontWeight: 700 }}>{getTactic(selected)}</span>
+      </div>
+        <div style={{ width: '100%' }}>
+          {positionOrder.map((groupKey) => {
+            const selects = (selected[groupKey as keyof Lineup] as string[]);
+            // Para móvil: detecta si la pantalla es pequeña
+            const isMobile = window.innerWidth <= 600;
+            return (
+              <div
+                key={groupKey}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  gap: '2px',
+                  width: '100%',
+                  marginBottom: '8px',
+                  flexWrap: 'nowrap',
+                }}
+              >
+                {selects.map((val: string, idx: number) => {
+                  const allSelected = Object.values(selected).flat().filter(Boolean);
+                  const options = Array.isArray(grouped[groupKey]) ? grouped[groupKey] : [];
+                  // En móvil, portero tiene ancho mínimo, los demás se reparten
+                  let selectStyle: React.CSSProperties = {
+                    fontSize: isMobile ? '13px' : '15px',
+                    padding: isMobile ? '2px 4px' : '4px 6px',
+                    appearance: 'auto',
+                    minWidth: '20%'
+                  };
+                  if (isMobile) {
+                    if (groupKey === 'Goalkeeper') {
+                      selectStyle.flex = '0 1 40px';
+                      selectStyle.maxWidth = 60;
+                    } else {
+                      selectStyle.flex = '1 1 0';
+                      selectStyle.maxWidth = undefined;
+                    }
+                  } else {
+                    selectStyle.flex = 1;
+                    selectStyle.maxWidth = 120;
+                  }
+                  return (
+                    <select
+                      key={idx}
+                      value={val}
+                      onChange={e => handleSelect(groupKey as keyof Lineup, idx, e.target.value)}
+                      style={selectStyle}
+                    >
+                      <option value="">{POSITION_TRANSLATIONS[groupKey] || groupKey}</option>
+                      {options
+                        .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                    </select>
+                  );
+                })}
+              </div>
+            );
+          })}
+          <Button
+            type="primary"
+            block
+            size="large"
+            onClick={handleSave}
+            style={{
+              marginTop: 8,
+              maxWidth: 220,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              display: 'block',
+              background: '#fff',
+              borderColor: '#388e3c',
+              color: '#388e3c',
+              fontWeight: 700,
+              boxShadow: '0 2px 8px rgba(56,142,60,0.10)'
+            }}
+          >
+            Guardar alineación
+          </Button>
+        </div>
+      </Card>
+          {error && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+              <span style={{ background: '#d32f2f', color: '#fff', borderRadius: 6, padding: '6px 16px', fontWeight: 600, fontSize: 15, textAlign: 'center' }}>
+                {error}
+              </span>
+            </div>
+          )}
+      {/* Formulario de añadir jugador restaurado */}
       {!hasFootballDataId && (
-        <div className="manual-add-player">
-          <h3>Añadir jugador manualmente (máx. 30)</h3>
+        <div className="manual-add-player" style={{ width: '100%', margin: '24px 0 0 0' }}>
+          <h3 style={{ fontWeight: 600, marginBottom: 8, textAlign: 'center' }}>Jugadores (máx. 30)</h3>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -329,153 +428,123 @@ export default function TeamSquadPage() {
               }
               setAdding(false);
             }}
+            style={{ display: 'flex', alignItems: 'center', gap: '2px', width: '100%' }}
           >
-            <input
-              type="text"
-              placeholder="Nombre"
-              value={manualPlayer.name}
-              onChange={e => setManualPlayer({ ...manualPlayer, name: e.target.value })}
-              maxLength={40}
-              required
-            />
-            <select
-              value={manualPlayer.position}
-              onChange={e => setManualPlayer({ ...manualPlayer, position: e.target.value })}
-              required
-            >
-              <option value="">Posición</option>
-              {positionOrder.map((groupKey) => (
-                <optgroup key={groupKey} label={POSITION_TRANSLATIONS[groupKey] || groupKey}>
-                  {POSITIONS[groupKey as keyof typeof POSITIONS].map((pos: string) => (
-                    <option key={pos} value={pos}>{POSITION_TRANSLATIONS[pos] || pos}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <button type="submit" disabled={adding}>Añadir jugador</button>
+            <div style={{ display: 'flex', width: '100%', gap: '2px' }}>
+              <input
+                type="text"
+                placeholder="Nombre"
+                value={manualPlayer.name}
+                onChange={e => setManualPlayer({ ...manualPlayer, name: e.target.value })}
+                maxLength={40}
+                required
+                style={{ flex: 1, fontSize: '15px', padding: '4px 6px', minWidth: 0 }}
+              />
+              <select
+                value={manualPlayer.position}
+                onChange={e => setManualPlayer({ ...manualPlayer, position: e.target.value })}
+                required
+                style={{ flex: 1, fontSize: '15px', padding: '4px 6px', minWidth: 0, appearance: 'auto' }}
+              >
+                <option value="">Posición</option>
+                {positionOrder.map((groupKey) => (
+                  <optgroup key={groupKey} label={POSITION_TRANSLATIONS[groupKey] || groupKey}>
+                    {POSITIONS[groupKey as keyof typeof POSITIONS].map((pos: string) => (
+                      <option key={pos} value={pos}>{POSITION_TRANSLATIONS[pos] || pos}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={<PlusOutlined />}
+                shape="circle"
+                size="small"
+                style={{ background: '#1890ff', borderColor: '#1890ff', color: '#fff', minWidth: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(24,144,255,0.10)' }}
+                disabled={adding}
+              />
+            </div>
           </form>
-          {error && <div className="error-message">{error}</div>}
         </div>
       )}
-      <div className="field-container">
-        <div className="tactic">
-          <strong>Esquema táctico:</strong> {getTactic(selected)}
-        </div>
-        <div className="football-field">
-          {/* Portero */}
-          <div className="field-row goalkeeper-row">
-            {selected.Goalkeeper.map((val, idx) => {
-              // ...existing code...
-              const allSelected = Object.values(selected).flat().filter(Boolean);
-              const options = Array.isArray(grouped.Goalkeeper) ? grouped.Goalkeeper : [];
-              return (
-                <select
-                  key={idx}
-                  value={val}
-                  onChange={(e) => handleSelect('Goalkeeper', idx, e.target.value)}
-                >
-                  <option value="">Portero</option>
-                  {options
-                    .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                </select>
-              );
-            })}
-          </div>
-          {/* Defensas */}
-          <div className="field-row defence-row">
-            {selected.Defence.map((val, idx) => {
-              // ...existing code...
-              const allSelected = Object.values(selected).flat().filter(Boolean);
-              const options = Array.isArray(grouped.Defence) ? grouped.Defence : [];
-              return (
-                <select
-                  key={idx}
-                  value={val}
-                  onChange={(e) => handleSelect('Defence', idx, e.target.value)}
-                >
-                  <option value="">Defensa</option>
-                  {options
-                    .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                </select>
-              );
-            })}
-          </div>
-          {/* Medios */}
-          <div className="field-row midfield-row">
-            {selected.Midfield.map((val, idx) => {
-              // ...existing code...
-              const allSelected = Object.values(selected).flat().filter(Boolean);
-              const options = Array.isArray(grouped.Midfield) ? grouped.Midfield : [];
-              return (
-                <select
-                  key={idx}
-                  value={val}
-                  onChange={(e) => handleSelect('Midfield', idx, e.target.value)}
-                >
-                  <option value="">Medio</option>
-                  {options
-                    .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                </select>
-              );
-            })}
-          </div>
-          {/* Delanteros */}
-          <div className="field-row forward-row">
-            {selected.Forward.map((val, idx) => {
-              // ...existing code...
-              const allSelected = Object.values(selected).flat().filter(Boolean);
-              const options = Array.isArray(grouped.Forward) ? grouped.Forward : [];
-              return (
-                <select
-                  key={idx}
-                  value={val}
-                  onChange={(e) => handleSelect('Forward', idx, e.target.value)}
-                >
-                  <option value="">Delantero</option>
-                  {options
-                    .filter((p) => !allSelected.includes(String(p.id)) || String(p.id) === val)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                </select>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      <button onClick={handleSave}>Guardar alineación</button>
-      {error && <div className="error-message">{error}</div>}
-      <hr />
-      <h3>Jugadores por demarcación</h3>
-      <>
+      
+      <Divider style={{ margin: '16px 0' }} />
+      {/* Lista de jugadores por demarcación en Cards, apiladas en móvil y en línea en escritorio */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: window.innerWidth <= 600 ? 'column' : 'row',
+          width: '100%',
+          gap: window.innerWidth <= 600 ? '0px' : '12px',
+        }}
+      >
         {positionOrder.map((pos) => (
-          <div key={pos}>
-            <h4>{POSITION_TRANSLATIONS[pos] || pos}</h4>
-            <ul>
-              {(Array.isArray(grouped[pos]) ? grouped[pos] : []).map((p) => (
-                <li key={p.id} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  {p.name} ({POSITION_TRANSLATIONS[p.position] || p.position})
-                  {!hasFootballDataId && (
-                    <span title="Despedir jugador" onClick={() => { setPlayerToDelete(p); setShowDeleteModal(true); }}>
-                      <TrashIcon size={16} />
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
+          <div
+            key={pos}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minWidth: 0,
+              margin: window.innerWidth <= 600 ? '0 0 12px 0' : '0 4px 0 4px',
+            }}
+          >
+            <Card
+              size="small"
+              title={POSITION_TRANSLATIONS[pos] || pos}
+              style={{
+                width: '100%',
+                minWidth: 0,
+                marginBottom: 0,
+                background: '#f5f5f5',
+                borderRadius: 10,
+                boxShadow: '0 1px 4px rgba(60,120,60,0.07)',
+                border: '1px solid #e0e0e0',
+                padding: 0,
+              }}
+              headStyle={{
+                background:
+                  pos === 'Goalkeeper' ? '#1976d2' :
+                  pos === 'Defence' ? '#388e3c' :
+                  pos === 'Midfield' ? '#fbc02d' :
+                  pos === 'Forward' ? '#d81b60' : '#333',
+                borderRadius: '10px 10px 0 0',
+                fontWeight: 600,
+                textAlign: 'center',
+                fontSize: '15px',
+                color: '#fff',
+                padding: '4px 0',
+              }}
+              bodyStyle={{ padding: '4px 0' }}
+            >
+              <List
+                size="small"
+                dataSource={Array.isArray(grouped[pos]) ? grouped[pos] : []}
+                renderItem={p => (
+                  <List.Item
+                    style={{ padding: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                    actions={
+                      !hasFootballDataId ? [
+                        <Button
+                          type="text"
+                          danger
+                          icon={<DeleteOutlined />}
+                          size="small"
+                          onClick={() => { setPlayerToDelete(p); setShowDeleteModal(true); }}
+                        />
+                      ] : []
+                    }
+                  >
+                    <span>{p.name} <Text type="secondary">({POSITION_TRANSLATIONS[p.position] || p.position})</Text></span>
+                  </List.Item>
+                )}
+              />
+            </Card>
           </div>
         ))}
-        <DeleteModal />
-      </>
+      </div>
+      <DeleteModal />
     </div>
   );
 }
