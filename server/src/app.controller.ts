@@ -3,6 +3,7 @@ import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
+
   constructor(private readonly appService: AppService) {}
 
   @Get()
@@ -17,12 +18,12 @@ export class AppController {
       date: new Date().toISOString(),
     };
   }
-
-  @Get('status')
-  getStatus(): { status: string; date: string } {
+  @Get('ping')
+  getPing(): { status: string; date: string } {
     return {
       status: 'ok',
       date: new Date().toISOString(),
     };
   }
+
 }
