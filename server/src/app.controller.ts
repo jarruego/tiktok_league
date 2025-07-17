@@ -17,4 +17,12 @@ export class AppController {
       date: new Date().toISOString(),
     };
   }
+
+  @Get('status')
+  getStatus(): { status: string; date: string } {
+    return {
+      status: 'ok',
+      date: new Date().toISOString(),
+    };
+  }
 }
