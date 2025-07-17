@@ -4,6 +4,38 @@ import { authService } from './authApi';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const leagueApi = {
+  // Añadir jugador manualmente
+  async addPlayer(playerData: {
+    name: string;
+    position: string;
+    role?: string;
+    nationality?: string;
+    teamId: number;
+  }) {
+    const response = await fetch(`${API_BASE_URL}/api/players`, {
+      method: 'POST',
+      headers: {
+        ...authService.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: playerData.name,
+        position: playerData.position,
+        role: playerData.role || 'PLAYER',
+        nationality: playerData.nationality || 'Spain',
+        teamId: playerData.teamId,
+      }),
+    });
+    if (!response.ok) {
+      let errorMsg = `Error ${response.status}: ${response.statusText}`;
+      try {
+        const err = await response.json();
+        errorMsg = err.userMessage || err.message || errorMsg;
+      } catch {}
+      throw new Error(errorMsg);
+    }
+    return response.json();
+  },
   // Obtener jugadores por equipo
   async getPlayersByTeam(teamId: number) {
     const response = await fetch(`${API_BASE_URL}/api/players/team/${teamId}`, {

@@ -76,6 +76,9 @@ export default function TeamSquadPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  // Para añadir jugadores manualmente
+  const [manualPlayer, setManualPlayer] = useState({ name: '', position: '' });
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -99,6 +102,33 @@ export default function TeamSquadPage() {
     }
     fetchData();
   }, [user]);
+
+  // Obtener football_data_id correctamente consultando el equipo
+  const [teamFootballDataId, setTeamFootballDataId] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function fetchTeamFootballDataId() {
+      const teamId = user?.teamId;
+      if (!teamId) {
+        setTeamFootballDataId(null);
+        return;
+      }
+      try {
+        const response = await fetch(`/api/teams/${teamId}`);
+        if (!response.ok) {
+          setTeamFootballDataId(null);
+          return;
+        }
+        const team = await response.json();
+        setTeamFootballDataId(team.footballDataId || null);
+      } catch {
+        setTeamFootballDataId(null);
+      }
+    }
+    fetchTeamFootballDataId();
+  }, [user]);
+
+  const hasFootballDataId = !!teamFootballDataId;
 
   function handleSelect(pos: keyof Lineup, idx: number, value: string) {
     const updated: Lineup = { ...selected };
@@ -130,11 +160,134 @@ export default function TeamSquadPage() {
   }
 
   if (loading) return <div>Cargando...</div>;
-  if (!players.length) return <div>No tienes jugadores en tu equipo.</div>;
+
+  // Si el equipo no tiene football_data_id, mostrar el formulario aunque no haya jugadores
+  if (!hasFootballDataId && !players.length) {
+    return (
+      <div className="team-squad-page">
+        <h2>Plantilla y Alineación Titular</h2>
+        <div className="manual-add-player">
+          <h3>Añadir jugador manualmente (máx. 30)</h3>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!manualPlayer.name || !manualPlayer.position) {
+                setError('Debes indicar nombre y posición');
+                return;
+              }
+              if (players.length >= 30) {
+                setError('Solo puedes añadir hasta 30 jugadores.');
+                return;
+              }
+              setAdding(true);
+              setError('');
+              try {
+                await leagueApi.addPlayer({
+                  name: manualPlayer.name,
+                  position: manualPlayer.position,
+                  role: 'PLAYER',
+                  nationality: 'Spain',
+                  teamId: user?.teamId!,
+                });
+                setManualPlayer({ name: '', position: '' });
+                // Refresca la lista de jugadores
+                const data = await leagueApi.getPlayersByTeam(user?.teamId!);
+                setPlayers(data);
+                setGrouped(groupPlayers(data));
+              } catch (err: any) {
+                setError(err.message || 'Error al añadir jugador');
+              }
+              setAdding(false);
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Nombre"
+              value={manualPlayer.name}
+              onChange={e => setManualPlayer({ ...manualPlayer, name: e.target.value })}
+              maxLength={40}
+              required
+            />
+            <select
+              value={manualPlayer.position}
+              onChange={e => setManualPlayer({ ...manualPlayer, position: e.target.value })}
+              required
+            >
+              <option value="">Posición</option>
+              {Object.values(POSITIONS).flat().map(pos => (
+                <option key={pos} value={pos}>{pos}</option>
+              ))}
+            </select>
+            <button type="submit" disabled={adding}>Añadir jugador</button>
+          </form>
+          {error && <div className="error-message">{error}</div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="team-squad-page">
       <h2>Plantilla y Alineación Titular</h2>
+      {/* Si el equipo NO tiene football_data_id, mostrar formulario para añadir jugadores manualmente */}
+      {!hasFootballDataId && (
+        <div className="manual-add-player">
+          <h3>Añadir jugador manualmente (máx. 30)</h3>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!manualPlayer.name || !manualPlayer.position) {
+                setError('Debes indicar nombre y posición');
+                return;
+              }
+              if (players.length >= 30) {
+                setError('Solo puedes añadir hasta 30 jugadores.');
+                return;
+              }
+              setAdding(true);
+              setError('');
+              try {
+                await leagueApi.addPlayer({
+                  name: manualPlayer.name,
+                  position: manualPlayer.position,
+                  role: 'PLAYER',
+                  nationality: 'Spain',
+                  teamId: user?.teamId!,
+                });
+                setManualPlayer({ name: '', position: '' });
+                // Refresca la lista de jugadores
+                const data = await leagueApi.getPlayersByTeam(user?.teamId!);
+                setPlayers(data);
+                setGrouped(groupPlayers(data));
+              } catch (err: any) {
+                setError(err.message || 'Error al añadir jugador');
+              }
+              setAdding(false);
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Nombre"
+              value={manualPlayer.name}
+              onChange={e => setManualPlayer({ ...manualPlayer, name: e.target.value })}
+              maxLength={40}
+              required
+            />
+            <select
+              value={manualPlayer.position}
+              onChange={e => setManualPlayer({ ...manualPlayer, position: e.target.value })}
+              required
+            >
+              <option value="">Posición</option>
+              {Object.values(POSITIONS).flat().map(pos => (
+                <option key={pos} value={pos}>{pos}</option>
+              ))}
+            </select>
+            <button type="submit" disabled={adding}>Añadir jugador</button>
+          </form>
+          {error && <div className="error-message">{error}</div>}
+        </div>
+      )}
       <div className="field-container">
         <div className="tactic">
           <strong>Esquema táctico:</strong> {getTactic(selected)}
@@ -143,7 +296,7 @@ export default function TeamSquadPage() {
           {/* Portero */}
           <div className="field-row goalkeeper-row">
             {selected.Goalkeeper.map((val, idx) => {
-              // Todos los jugadores seleccionados en cualquier posición
+              // ...existing code...
               const allSelected = Object.values(selected).flat().filter(Boolean);
               const options = Array.isArray(grouped.Goalkeeper) ? grouped.Goalkeeper : [];
               return (
@@ -165,6 +318,7 @@ export default function TeamSquadPage() {
           {/* Defensas */}
           <div className="field-row defence-row">
             {selected.Defence.map((val, idx) => {
+              // ...existing code...
               const allSelected = Object.values(selected).flat().filter(Boolean);
               const options = Array.isArray(grouped.Defence) ? grouped.Defence : [];
               return (
@@ -186,6 +340,7 @@ export default function TeamSquadPage() {
           {/* Medios */}
           <div className="field-row midfield-row">
             {selected.Midfield.map((val, idx) => {
+              // ...existing code...
               const allSelected = Object.values(selected).flat().filter(Boolean);
               const options = Array.isArray(grouped.Midfield) ? grouped.Midfield : [];
               return (
@@ -207,6 +362,7 @@ export default function TeamSquadPage() {
           {/* Delanteros */}
           <div className="field-row forward-row">
             {selected.Forward.map((val, idx) => {
+              // ...existing code...
               const allSelected = Object.values(selected).flat().filter(Boolean);
               const options = Array.isArray(grouped.Forward) ? grouped.Forward : [];
               return (
