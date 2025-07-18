@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LayoutContainer } from '../components/LayoutContainer';
 
@@ -7,6 +8,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 // Esta página recoge el code de TikTok y lo envía al backend para intercambiarlo por un token
 const TikTokCallback: React.FC = () => {
   const navigate = useNavigate();
+  const { refreshAuthState } = useAuth();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -33,14 +35,17 @@ const TikTokCallback: React.FC = () => {
           if (data.access_token && data.user) {
             localStorage.setItem('auth_token', data.access_token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
+            refreshAuthState();
             navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: data.user.follower_count } });
           } else if (data.success && data.token && data.user) {
             localStorage.setItem('auth_token', data.token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
+            refreshAuthState();
             navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: data.user.follower_count } });
           } else if (data.success && data.token) {
             // Compatibilidad con respuesta antigua
             localStorage.setItem('auth_token', data.token);
+            refreshAuthState();
             navigate('/welcome', { replace: true, state: { fromTikTok: true } });
           } else {
             alert('No se pudo iniciar sesión con TikTok');
