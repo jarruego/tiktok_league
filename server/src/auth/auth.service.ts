@@ -120,10 +120,29 @@ export class AuthService {
       // 3. Buscar o crear usuario en tu base de datos
       let user = await this.usersService.findByUsername(tiktokUser.open_id);
       if (!user) {
-        // Crear usuario nuevo con rol por defecto
+        // Buscar equipo is_bot mejor clasificado en la liga más alta posible (divisiones 1 a 5)
+        let assignedTeam: any = undefined;
+        for (let division = 1; division <= 5; division++) {
+          const botTeams = await this.usersService.findBotTeamsByDivision(division);
+          if (Array.isArray(botTeams) && botTeams.length > 0 && botTeams[0]?.id) {
+            assignedTeam = botTeams[0];
+            break;
+          }
+        }
+        // Crear usuario nuevo con rol por defecto y asignar equipo si existe
         user = await this.usersService.createFromTikTok({
-          username: tiktokUser.open_id
+          username: tiktokUser.open_id,
+          teamId: assignedTeam && assignedTeam.id ? assignedTeam.id : undefined
         });
+        // Si se asignó un equipo bot, actualizarlo: is_bot=false y nombre=usuario TikTok
+        if (assignedTeam && assignedTeam.id) {
+          const newName = tiktokUser.username || tiktokUser.open_id || tiktokUser.displayName || tiktokUser.nickname || tiktokUser.unique_id || `Equipo de ${tiktokUser.open_id}`;
+          await this.usersService.updateTeamBotAssignment({
+            teamId: assignedTeam.id,
+            isBot: false,
+            name: newName
+          });
+        }
       }
 
       // 4. Generar JWT y devolver, incluyendo followers
