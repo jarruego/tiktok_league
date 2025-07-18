@@ -34,13 +34,31 @@ const WelcomePage: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                         {tiktokUser.avatar_url && <img src={tiktokUser.avatar_url} alt="avatar" style={{ width: 64, height: 64, borderRadius: '50%' }} />}
                         <div>
-                          <div><b>Usuario:</b> {tiktokUser.username || tiktokUser.open_id}</div>
+                          <div>
+                            <b>Usuario:</b> {
+                              tiktokUser.username ||
+                              tiktokUser.open_id ||
+                              tiktokUser.displayName ||
+                              tiktokUser.nickname ||
+                              tiktokUser.unique_id ||
+                              <span style={{color: 'gray'}}>No disponible</span>
+                            }
+                          </div>
                           {typeof numFollowers === 'number' && numFollowers >= 0 && (
                             <div><b>Seguidores:</b> {numFollowers}</div>
                           )}
                           {tiktokUser.open_id && <div><b>Open ID:</b> {tiktokUser.open_id}</div>}
                           {tiktokUser.displayName && <div><b>Nombre:</b> {tiktokUser.displayName}</div>}
-                          {/* Puedes añadir más campos si el objeto los tiene */}
+                          {tiktokUser.nickname && <div><b>Nickname:</b> {tiktokUser.nickname}</div>}
+                          {tiktokUser.unique_id && <div><b>Unique ID:</b> {tiktokUser.unique_id}</div>}
+                          {/* Mostrar cualquier otro campo relevante automáticamente */}
+                          {Object.entries(tiktokUser).map(([key, value]) => {
+                            if (["username","open_id","displayName","nickname","unique_id","avatar_url"].includes(key)) return null;
+                            if (typeof value === "string" || typeof value === "number") {
+                              return <div key={key}><b>{key}:</b> {value}</div>;
+                            }
+                            return null;
+                          })}
                         </div>
                       </div>
                     </div>
