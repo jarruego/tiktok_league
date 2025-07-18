@@ -8,7 +8,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 // Esta página recoge el code de TikTok y lo envía al backend para intercambiarlo por un token
 const TikTokCallback: React.FC = () => {
   const navigate = useNavigate();
-  const { refreshAuthState, user } = useAuth();
+  const { refreshAuthState } = useAuth();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
