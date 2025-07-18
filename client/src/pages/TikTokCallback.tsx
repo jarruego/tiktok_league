@@ -8,7 +8,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 // Esta página recoge el code de TikTok y lo envía al backend para intercambiarlo por un token
 const TikTokCallback: React.FC = () => {
   const navigate = useNavigate();
-  const { refreshAuthState } = useAuth();
+  const { refreshAuthState, user } = useAuth();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -32,21 +32,37 @@ const TikTokCallback: React.FC = () => {
         .then(res => res.json())
         .then(data => {
           // Ajuste: guardar token y usuario en localStorage para AuthService
+          const goToWelcome = (followers: number | undefined) => {
+            navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: followers } });
+          };
           if (data.access_token && data.user) {
             localStorage.setItem('auth_token', data.access_token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
             refreshAuthState();
-            navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: data.user.follower_count } });
+            setTimeout(() => {
+              // Comprobar que el usuario está autenticado antes de navegar
+              if (user || localStorage.getItem('auth_token')) {
+                goToWelcome(data.user.follower_count);
+              }
+            }, 200);
           } else if (data.success && data.token && data.user) {
             localStorage.setItem('auth_token', data.token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
             refreshAuthState();
-            navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: data.user.follower_count } });
+            setTimeout(() => {
+              if (user || localStorage.getItem('auth_token')) {
+                goToWelcome(data.user.follower_count);
+              }
+            }, 200);
           } else if (data.success && data.token) {
             // Compatibilidad con respuesta antigua
             localStorage.setItem('auth_token', data.token);
             refreshAuthState();
-            navigate('/welcome', { replace: true, state: { fromTikTok: true } });
+            setTimeout(() => {
+              if (user || localStorage.getItem('auth_token')) {
+                goToWelcome(undefined);
+              }
+            }, 200);
           } else {
             alert('No se pudo iniciar sesión con TikTok');
             navigate('/');
