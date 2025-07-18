@@ -27,7 +27,7 @@ export class AuthService {
   }
 
   // Genera el JWT para el usuario
-  async login(user: any) {
+  async login(user: any, extra: any = {}) {
     // Mapear team_id a teamId si viene en snake_case
     const teamId = user.teamId ?? user.team_id ?? null;
     const payload = { username: user.username, sub: user.id, role: user.role, teamId };
@@ -37,7 +37,8 @@ export class AuthService {
         id: user.id,
         username: user.username,
         role: user.role,
-        teamId
+        teamId,
+        ...extra
       }
     };
   }
@@ -109,10 +110,10 @@ export class AuthService {
       }
       const access_token = tokenRes.data.data.access_token;
 
-      // 2. Obtener datos del usuario
+      // 2. Obtener datos del usuario, incluyendo seguidores
       const userRes = await axios.get('https://open.tiktokapis.com/v2/user/info/', {
         headers: { 'Authorization': `Bearer ${access_token}` },
-        params: { fields: 'open_id,username,avatar_url' }
+        params: { fields: 'open_id,username,avatar_url,follower_count' }
       });
       const tiktokUser = userRes.data.data.user;
 
@@ -125,8 +126,8 @@ export class AuthService {
         });
       }
 
-      // 4. Generar JWT y devolver
-      return this.login(user);
+      // 4. Generar JWT y devolver, incluyendo followers
+      return this.login(user, { follower_count: tiktokUser.follower_count });
     } catch (err) {
       // Mostrar mensaje especial en sandbox
       if (isSandbox) {

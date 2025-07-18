@@ -33,11 +33,11 @@ const TikTokCallback: React.FC = () => {
           if (data.access_token && data.user) {
             localStorage.setItem('auth_token', data.access_token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
-            navigate('/welcome', { replace: true, state: { fromTikTok: true } });
+            navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: data.user.follower_count } });
           } else if (data.success && data.token && data.user) {
             localStorage.setItem('auth_token', data.token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
-            navigate('/welcome', { replace: true, state: { fromTikTok: true } });
+            navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: data.user.follower_count } });
           } else if (data.success && data.token) {
             // Compatibilidad con respuesta antigua
             localStorage.setItem('auth_token', data.token);
