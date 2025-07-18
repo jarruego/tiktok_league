@@ -35,34 +35,35 @@ const TikTokCallback: React.FC = () => {
           const goToWelcome = (followers: number | undefined) => {
             navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: followers } });
           };
+          const TIMEOUT = 500;
           if (data.access_token && data.user) {
             localStorage.setItem('auth_token', data.access_token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
             refreshAuthState();
             setTimeout(() => {
-              // Comprobar que el usuario está autenticado antes de navegar
-              if (user || localStorage.getItem('auth_token')) {
+              // Comprobar solo el token en localStorage antes de navegar
+              if (localStorage.getItem('auth_token')) {
                 goToWelcome(data.user.follower_count);
               }
-            }, 200);
+            }, TIMEOUT);
           } else if (data.success && data.token && data.user) {
             localStorage.setItem('auth_token', data.token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
             refreshAuthState();
             setTimeout(() => {
-              if (user || localStorage.getItem('auth_token')) {
+              if (localStorage.getItem('auth_token')) {
                 goToWelcome(data.user.follower_count);
               }
-            }, 200);
+            }, TIMEOUT);
           } else if (data.success && data.token) {
             // Compatibilidad con respuesta antigua
             localStorage.setItem('auth_token', data.token);
             refreshAuthState();
             setTimeout(() => {
-              if (user || localStorage.getItem('auth_token')) {
+              if (localStorage.getItem('auth_token')) {
                 goToWelcome(undefined);
               }
-            }, 200);
+            }, TIMEOUT);
           } else {
             alert('No se pudo iniciar sesión con TikTok');
             navigate('/');
