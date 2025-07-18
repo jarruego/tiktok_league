@@ -33,7 +33,11 @@ const TikTokCallback: React.FC = () => {
         .then(data => {
           // Ajuste: guardar token y usuario en localStorage para AuthService
           const goToWelcome = (followers: number | undefined) => {
-            navigate('/welcome', { replace: true, state: { fromTikTok: true, numFollowers: followers } });
+            // Guardar los seguidores en sessionStorage para WelcomePage si quieres usarlos
+            if (typeof followers === 'number') {
+              sessionStorage.setItem('numFollowers', followers.toString());
+            }
+            window.location.replace('/welcome');
           };
           if (data.access_token && data.user) {
             localStorage.setItem('auth_token', data.access_token);

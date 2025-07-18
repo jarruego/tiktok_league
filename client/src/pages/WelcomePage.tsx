@@ -2,12 +2,16 @@ import React from 'react';
 import { Button } from 'antd';
 import { LayoutContainer } from '../components/LayoutContainer';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AuthGuard } from '../components/AuthGuard';
 
 const WelcomePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const fromTikTok = location.state && location.state.fromTikTok;
-  const numFollowers = location.state && location.state.numFollowers;
+  // Leer numFollowers de sessionStorage si existe
+  const numFollowers = location.state && location.state.numFollowers !== undefined
+    ? location.state.numFollowers
+    : (sessionStorage.getItem('numFollowers') ? Number(sessionStorage.getItem('numFollowers')) : undefined);
   // Extraer todos los datos posibles del usuario TikTok
   let tiktokUser = null;
   try {
@@ -15,6 +19,7 @@ const WelcomePage: React.FC = () => {
   } catch {}
 
   return (
+    <AuthGuard>
       <LayoutContainer>
         <div style={{ maxWidth: 480, margin: '0 auto', width: '100%', textAlign: 'center', marginTop: 80 }}>
           <h1>¡Bienvenido a Social League!</h1>
@@ -45,11 +50,12 @@ const WelcomePage: React.FC = () => {
             <br />
             ¡Disfruta de la experiencia!
           </p>
-          <Button type="primary" size="large" style={{ fontSize: 18 }} onClick={() => navigate('/mi-equipo')}>
-            Continuar
-          </Button>
+        <Button type="primary" size="large" style={{ fontSize: 18 }} onClick={() => navigate('/mi-equipo')}>
+          Continuar
+        </Button>
         </div>
       </LayoutContainer>
+    </AuthGuard>
   );
 };
 
