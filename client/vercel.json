@@ -9,24 +9,18 @@
       }
     }
   ],
-  "routes": [
+  "rewrites": [
+    { "source": "/tiktokUxeNS6CjZ6htEXe9q3xSjor0TOWYTHYr.txt", "destination": "/tiktokUxeNS6CjZ6htEXe9q3xSjor0TOWYTHYr.txt" },
+    { "source": "/api/(.*)", "destination": "https://foodball-backend.onrender.com/api/$1" },
+    { "source": "/assets/(.*)", "destination": "/assets/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
     {
-      "src": "/tiktokUxeNS6CjZ6htEXe9q3xSjor0TOWYTHYr.txt",
-      "dest": "/tiktokUxeNS6CjZ6htEXe9q3xSjor0TOWYTHYr.txt"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "https://foodball-backend.onrender.com/api/$1"
-    },
-    {
-      "src": "/assets/(.*)",
-      "headers": {
-        "cache-control": "max-age=31536000, immutable"
-      }
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "cache-control", "value": "max-age=31536000, immutable" }
+      ]
     }
   ]
 }
