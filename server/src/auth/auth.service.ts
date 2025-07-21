@@ -85,21 +85,31 @@ export class AuthService {
 
     // Log de variables de entorno
     console.log('TikTok env:', { client_key, client_secret, redirect_uri, code, isSandbox });
+    // Log del body que se enviará a TikTok
+    const tiktokBody = {
+      client_key,
+      client_secret,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri,
+    };
+    console.log('Body enviado a TikTok:', tiktokBody);
 
     try {
       // 1. Intercambiar code por access_token
-      const tokenRes = await axios.post(tokenEndpoint, {
-        client_key,
-        client_secret,
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri,
-      }, {
+      const tokenRes = await axios.post(tokenEndpoint, tiktokBody, {
         headers: { 'Content-Type': 'application/json' }
       });
 
       // Log para depuración: respuesta completa de TikTok
       console.log('TikTok token response:', tokenRes.data);
+      // Log de la respuesta completa (headers, status, etc.)
+      console.log('Respuesta completa de TikTok:', {
+        status: tokenRes.status,
+        statusText: tokenRes.statusText,
+        headers: tokenRes.headers,
+        data: tokenRes.data
+      });
 
       if (!tokenRes.data || !tokenRes.data.data || !tokenRes.data.data.access_token) {
         if (isSandbox) {
@@ -153,7 +163,17 @@ export class AuthService {
         console.error('TikTok Sandbox error:', err?.response?.data || err);
         throw new UnauthorizedException('TikTok Sandbox: El flujo de login no puede completarse en modo Sandbox. El código y la integración son correctos, pero TikTok solo permite el flujo completo en producción.');
       }
-      console.error('Error en loginWithTikTok:', err?.response?.data || err);
+      // Log detallado del error
+      if (err.response) {
+        console.error('Error en loginWithTikTok:', {
+          status: err.response.status,
+          statusText: err.response.statusText,
+          headers: err.response.headers,
+          data: err.response.data
+        });
+      } else {
+        console.error('Error en loginWithTikTok (sin response):', err);
+      }
       throw new UnauthorizedException('Error en login con TikTok');
     }
   }
