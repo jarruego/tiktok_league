@@ -80,8 +80,8 @@ export class AuthService {
       };
     }
 
-    // Usar el endpoint oficial de TikTok para producción y sandbox
-    const tokenEndpoint = 'https://open.tiktokapis.com/v2/oauth/token';
+    // Usar el endpoint alternativo de TikTok para producción y sandbox
+    const tokenEndpoint = 'https://open-api.tiktok.com/oauth/access_token/';
 
     // Log de variables de entorno
     console.log('TikTok env:', { client_key, client_secret, redirect_uri, code, isSandbox });
