@@ -85,20 +85,21 @@ export class AuthService {
 
     // Log de variables de entorno
     console.log('TikTok env:', { client_key, client_secret, redirect_uri, code, isSandbox });
-    // Log del body que se enviará a TikTok
-    const tiktokBody = {
-      client_key,
-      client_secret,
-      code,
+    // Log del body que se enviará a TikTok (como x-www-form-urlencoded)
+    const tiktokBodyObj = {
+      client_key: client_key || '',
+      client_secret: client_secret || '',
+      code: code || '',
       grant_type: 'authorization_code',
-      redirect_uri,
+      redirect_uri: redirect_uri || '',
     };
-    console.log('Body enviado a TikTok:', tiktokBody);
+    const tiktokBody = new URLSearchParams(tiktokBodyObj).toString();
+    console.log('Body enviado a TikTok (urlencoded):', tiktokBody);
 
     try {
       // 1. Intercambiar code por access_token
       const tokenRes = await axios.post(tokenEndpoint, tiktokBody, {
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       });
 
       // Log para depuración: respuesta completa de TikTok
