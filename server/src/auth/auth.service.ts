@@ -61,29 +61,31 @@ export class AuthService {
     const client_secret = this.configService.get<string>('TIKTOK_CLIENT_SECRET');
     const redirect_uri = this.configService.get<string>('TIKTOK_REDIRECT_URI');
 
-    // Depuración extra
     console.log('--- TikTok OAuth Debug ---');
-    console.log('Código recibido:', code);
-    console.log('Redirect URI usado:', redirect_uri);
+    console.log('Código recibido:', code?.substring(0, 20) + '...');
+    console.log('Client Key (primeros 10 chars):', client_key?.substring(0, 10) + '...');
+    console.log('Redirect URI:', redirect_uri);
+
+    // Validaciones estrictas
     if (!code || typeof code !== 'string' || code.length < 10) {
-      console.error('El código recibido es inválido o está vacío:', code);
-      throw new UnauthorizedException('El código de TikTok es inválido o está vacío.');
+      console.error('El código recibido es inválido:', code);
+      throw new UnauthorizedException('El código de TikTok es inválido.');
     }
-    if (redirect_uri !== 'https://social-league-ivory.vercel.app/tiktok-callback') {
-      console.error('El redirect_uri no coincide con el registrado en TikTok Developers:', redirect_uri);
-      throw new UnauthorizedException('El redirect_uri no coincide con el registrado en TikTok Developers.');
+    if (!client_key || !client_secret || !redirect_uri) {
+      console.error('Faltan variables de entorno TikTok');
+      throw new UnauthorizedException('Configuración TikTok incompleta');
     }
 
-    // Detectar entorno sandbox para mostrar mensaje amigable
-    const isSandbox = process.env.TIKTOK_CLIENT_KEY?.includes('sbawp') || process.env.NODE_ENV !== 'production';
+    // Detectar entorno sandbox solo por client_key
+    const isSandbox = client_key.includes('sbawp');
+    console.log('Entorno detectado:', isSandbox ? 'Sandbox' : 'Production');
 
     if (isSandbox) {
-      // Simulación temporal para sandbox: usuario fijo de prueba con rol 'user' (solo en memoria)
       let user = await this.usersService.findByUsername('sandbox_tiktok_user');
       if (!user) {
         user = await this.usersService.createFromTikTok({ username: 'sandbox_tiktok_user' });
       }
-      user.role = 'user'; // Forzar rol en memoria para la simulación
+      user.role = 'user';
       const jwt = this.jwtService.sign({ username: user.username, sub: user.id, role: user.role });
       return {
         access_token: jwt,
@@ -93,62 +95,71 @@ export class AuthService {
       };
     }
 
-    // Usar el endpoint alternativo de TikTok para producción y sandbox
     const tokenEndpoint = 'https://open-api.tiktok.com/oauth/access_token/';
 
-    // Log de variables de entorno
-    console.log('TikTok env:', { client_key, client_secret, redirect_uri, code, isSandbox });
-    // Log del body que se enviará a TikTok (como x-www-form-urlencoded)
-    const tiktokBodyObj = {
-      client_key: client_key || '',
-      client_secret: client_secret || '',
-      code: code || '',
-      grant_type: 'authorization_code',
-      redirect_uri: redirect_uri || '',
-    };
-    const tiktokBody = new URLSearchParams(tiktokBodyObj).toString();
-    console.log('Body enviado a TikTok (urlencoded):', tiktokBody);
-    // Depuración: mostrar cada parámetro por separado
-    Object.entries(tiktokBodyObj).forEach(([key, value]) => {
-      console.log(`Param ${key}:`, value);
-    });
-
     try {
-      // 1. Intercambiar code por access_token
-      const tokenRes = await axios.post(tokenEndpoint, tiktokBody, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      });
+      // Crear URLSearchParams directamente sin objeto intermedio
+      const params = new URLSearchParams();
+      params.append('client_key', client_key);
+      params.append('client_secret', client_secret);
+      params.append('code', code);
+      params.append('grant_type', 'authorization_code');
+      params.append('redirect_uri', redirect_uri);
 
-      // Log para depuración: respuesta completa de TikTok
-      console.log('TikTok token response:', tokenRes.data);
-      // Log de la respuesta completa (headers, status, etc.)
-      console.log('Respuesta completa de TikTok:', {
-        status: tokenRes.status,
-        statusText: tokenRes.statusText,
-        headers: tokenRes.headers,
-        data: tokenRes.data
-      });
-
-      if (!tokenRes.data || !tokenRes.data.data || !tokenRes.data.data.access_token) {
-        if (isSandbox) {
-          // Mensaje especial para sandbox
-          throw new UnauthorizedException('TikTok Sandbox: El flujo de login no puede completarse en modo Sandbox. El código y la integración son correctos, pero TikTok solo permite el flujo completo en producción.');
+      console.log('Parámetros enviados a TikTok:');
+      for (const [key, value] of params.entries()) {
+        if (key === 'client_secret') {
+          console.log(`${key}: ${value.substring(0, 8)}...`);
+        } else if (key === 'code') {
+          console.log(`${key}: ${value.substring(0, 15)}...`);
+        } else {
+          console.log(`${key}: ${value}`);
         }
-        throw new UnauthorizedException('No se pudo obtener el access_token de TikTok');
       }
+
+      // Realizar petición con configuración mínima
+      const tokenRes = await axios.post(tokenEndpoint, params, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 15000,
+        validateStatus: (status) => status < 500
+      });
+
+      console.log('TikTok Response Status:', tokenRes.status);
+      console.log('TikTok Response Data:', JSON.stringify(tokenRes.data, null, 2));
+
+      // Verificar estructura de respuesta
+      if (tokenRes.status !== 200) {
+        console.error('TikTok returned non-200 status:', tokenRes.status, tokenRes.data);
+        throw new UnauthorizedException(`TikTok OAuth error: ${tokenRes.status}`);
+      }
+
+      if (!tokenRes.data || tokenRes.data.error) {
+        console.error('TikTok returned error:', tokenRes.data);
+        throw new UnauthorizedException('TikTok OAuth failed: ' + (tokenRes.data?.data?.description || 'Unknown error'));
+      }
+
+      if (!tokenRes.data.data || !tokenRes.data.data.access_token) {
+        console.error('TikTok response missing access_token:', tokenRes.data);
+        throw new UnauthorizedException('TikTok did not return access_token');
+      }
+
       const access_token = tokenRes.data.data.access_token;
 
-      // 2. Obtener datos del usuario, incluyendo seguidores
+      // 2. Obtener datos del usuario
       const userRes = await axios.get('https://open.tiktokapis.com/v2/user/info/', {
         headers: { 'Authorization': `Bearer ${access_token}` },
-        params: { fields: 'open_id,username,avatar_url,follower_count' }
+        params: { fields: 'open_id,username,avatar_url,follower_count' },
+        timeout: 10000
       });
+
+      console.log('TikTok User Info:', userRes.data);
       const tiktokUser = userRes.data.data.user;
 
-      // 3. Buscar o crear usuario en tu base de datos
+      // 3. Tu lógica de usuario existente...
       let user = await this.usersService.findByUsername(tiktokUser.open_id);
       if (!user) {
-        // Buscar equipo is_bot mejor clasificado en la liga más alta posible (divisiones 1 a 5)
         let assignedTeam: any = undefined;
         for (let division = 1; division <= 5; division++) {
           const botTeams = await this.usersService.findBotTeamsByDivision(division);
@@ -157,14 +168,14 @@ export class AuthService {
             break;
           }
         }
-        // Crear usuario nuevo con rol por defecto y asignar equipo si existe
+
         user = await this.usersService.createFromTikTok({
           username: tiktokUser.open_id,
-          teamId: assignedTeam && assignedTeam.id ? assignedTeam.id : undefined
+          teamId: assignedTeam?.id
         });
-        // Si se asignó un equipo bot, actualizarlo: is_bot=false y nombre=usuario TikTok
-        if (assignedTeam && assignedTeam.id) {
-          const newName = tiktokUser.username || tiktokUser.open_id || tiktokUser.displayName || tiktokUser.nickname || tiktokUser.unique_id || `Equipo de ${tiktokUser.open_id}`;
+
+        if (assignedTeam?.id) {
+          const newName = tiktokUser.username || tiktokUser.open_id || `Equipo de ${tiktokUser.open_id}`;
           await this.usersService.updateTeamBotAssignment({
             teamId: assignedTeam.id,
             isBot: false,
@@ -173,26 +184,22 @@ export class AuthService {
         }
       }
 
-      // 4. Generar JWT y devolver, incluyendo followers
       return this.login(user, { follower_count: tiktokUser.follower_count });
+
     } catch (err) {
-      // Mostrar mensaje especial en sandbox
-      if (isSandbox) {
-        console.error('TikTok Sandbox error:', err?.response?.data || err);
-        throw new UnauthorizedException('TikTok Sandbox: El flujo de login no puede completarse en modo Sandbox. El código y la integración son correctos, pero TikTok solo permite el flujo completo en producción.');
-      }
-      // Log detallado del error
+      console.error('=== TikTok OAuth Error Details ===');
       if (err.response) {
-        console.error('Error en loginWithTikTok:', {
-          status: err.response.status,
-          statusText: err.response.statusText,
-          headers: err.response.headers,
-          data: err.response.data
-        });
+        console.error('Status:', err.response.status);
+        console.error('Headers:', err.response.headers);
+        console.error('Data:', JSON.stringify(err.response.data, null, 2));
+      } else if (err.request) {
+        console.error('Request made but no response:', err.request);
       } else {
-        console.error('Error en loginWithTikTok (sin response):', err);
+        console.error('Error message:', err.message);
       }
-      throw new UnauthorizedException('Error en login con TikTok');
+      console.error('Full error:', err);
+
+      throw new UnauthorizedException('Error en login con TikTok: ' + (err.response?.data?.data?.description || err.message));
     }
   }
 
