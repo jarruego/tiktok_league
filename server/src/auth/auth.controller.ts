@@ -19,12 +19,6 @@ export class AuthController {
     return this.authService.loginWithTikTok(body.code);
   }
 
-  // Endpoint para probar el callback simple de TikTok
-  @Post('tiktok-simple')
-  async tiktokLoginSimple(@Body() body: { code: string }) {
-    return this.authService.loginWithTikTokSimple(body.code);
-  }
-
   // Endpoint para login con Google OAuth
   @Post('google')
   async googleLogin(@Body() body: { token: string }) {

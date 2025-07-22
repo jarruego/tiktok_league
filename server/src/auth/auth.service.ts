@@ -211,38 +211,4 @@ export class AuthService {
     }
     return this.login(user);
   }
-
-  // Versión simple para probar el callback de TikTok sin lógica extra
-  async loginWithTikTokSimple(code: string) {
-    const client_key = this.configService.get<string>('TIKTOK_CLIENT_KEY') || '';
-    const client_secret = this.configService.get<string>('TIKTOK_CLIENT_SECRET') || '';
-    const redirect_uri = this.configService.get<string>('TIKTOK_REDIRECT_URI') || '';
-
-    const tokenEndpoint = 'https://open-api.tiktok.com/oauth/access_token/';
-    const tiktokBodyObj: Record<string, string> = {
-      client_key: client_key,
-      client_secret: client_secret,
-      code: code || '',
-      grant_type: 'authorization_code',
-      redirect_uri: redirect_uri,
-    };
-    const tiktokBody = new URLSearchParams(tiktokBodyObj).toString();
-    try {
-      const tokenRes = await axios.post(tokenEndpoint, tiktokBody, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-      });
-      // Devuelve la respuesta cruda de TikTok para depuración
-      return tokenRes.data;
-    } catch (err) {
-      // Devuelve el error crudo para depuración
-      if (err.response) {
-        return {
-          error: true,
-          status: err.response.status,
-          data: err.response.data
-        };
-      }
-      return { error: true, message: err.message };
-    }
-  }
 }
