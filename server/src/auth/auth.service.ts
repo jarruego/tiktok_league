@@ -61,6 +61,19 @@ export class AuthService {
     const client_secret = this.configService.get<string>('TIKTOK_CLIENT_SECRET');
     const redirect_uri = this.configService.get<string>('TIKTOK_REDIRECT_URI');
 
+    // Depuración extra
+    console.log('--- TikTok OAuth Debug ---');
+    console.log('Código recibido:', code);
+    console.log('Redirect URI usado:', redirect_uri);
+    if (!code || typeof code !== 'string' || code.length < 10) {
+      console.error('El código recibido es inválido o está vacío:', code);
+      throw new UnauthorizedException('El código de TikTok es inválido o está vacío.');
+    }
+    if (redirect_uri !== 'https://social-league-ivory.vercel.app/tiktok-callback') {
+      console.error('El redirect_uri no coincide con el registrado en TikTok Developers:', redirect_uri);
+      throw new UnauthorizedException('El redirect_uri no coincide con el registrado en TikTok Developers.');
+    }
+
     // Detectar entorno sandbox para mostrar mensaje amigable
     const isSandbox = process.env.TIKTOK_CLIENT_KEY?.includes('sbawp') || process.env.NODE_ENV !== 'production';
 
@@ -95,6 +108,10 @@ export class AuthService {
     };
     const tiktokBody = new URLSearchParams(tiktokBodyObj).toString();
     console.log('Body enviado a TikTok (urlencoded):', tiktokBody);
+    // Depuración: mostrar cada parámetro por separado
+    Object.entries(tiktokBodyObj).forEach(([key, value]) => {
+      console.log(`Param ${key}:`, value);
+    });
 
     try {
       // 1. Intercambiar code por access_token
