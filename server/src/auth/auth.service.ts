@@ -98,30 +98,20 @@ export class AuthService {
     const tokenEndpoint = 'https://open-api.tiktok.com/oauth/access_token/';
 
     try {
-      // Crear URLSearchParams directamente sin objeto intermedio
+      // Crear el payload de forma estricta y sin repeticiones
       const params = new URLSearchParams();
-      params.append('client_key', client_key);
-      params.append('client_secret', client_secret);
-      params.append('code', code);
-      params.append('grant_type', 'authorization_code');
-      params.append('redirect_uri', redirect_uri);
+      params.set('client_key', client_key);
+      params.set('client_secret', client_secret);
+      params.set('code', code);
+      params.set('grant_type', 'authorization_code');
+      params.set('redirect_uri', redirect_uri);
 
-      console.log('Parámetros enviados a TikTok:');
-      for (const [key, value] of params.entries()) {
-        if (key === 'client_secret') {
-          console.log(`${key}: ${value.substring(0, 8)}...`);
-        } else if (key === 'code') {
-          console.log(`${key}: ${value.substring(0, 15)}...`);
-        } else {
-          console.log(`${key}: ${value}`);
-        }
-      }
-      // Log raw payload and headers for debugging
-      console.log('Raw payload:', params.toString());
+      // Debug: mostrar el payload final
+      console.log('Payload TikTok:', params.toString());
       const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
       console.log('Request headers:', headers);
 
-      // Realizar petición con configuración mínima
+      // Realizar petición con configuración mínima y sin parámetros extra
       const tokenRes = await axios.post(tokenEndpoint, params.toString(), {
         headers,
         timeout: 15000,
