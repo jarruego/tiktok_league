@@ -116,12 +116,14 @@ export class AuthService {
           console.log(`${key}: ${value}`);
         }
       }
+      // Log raw payload and headers for debugging
+      console.log('Raw payload:', params.toString());
+      const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+      console.log('Request headers:', headers);
 
       // Realizar petición con configuración mínima
-      const tokenRes = await axios.post(tokenEndpoint, params, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
+      const tokenRes = await axios.post(tokenEndpoint, params.toString(), {
+        headers,
         timeout: 15000,
         validateStatus: (status) => status < 500
       });
