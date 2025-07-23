@@ -40,14 +40,17 @@ export const LoginScreen: React.FC = () => {
     const client_id = import.meta.env.VITE_TIKTOK_CLIENT_ID || '';
     const redirect_uri = encodeURIComponent(window.location.origin + '/tiktok-callback');
     const scope = 'user.info.basic';
-    const state = Math.random().toString(36).substring(2, 15); // CSRF protection
+    // Generar state seguro usando window.crypto
+    const array = new Uint8Array(30);
+    const csrfState = Array.from(window.crypto.getRandomValues(array), b => b.toString(36)).join('');
+    sessionStorage.setItem('tiktok_csrf_state', csrfState);
     const authUrl =
       `https://www.tiktok.com/v2/auth/authorize?` +
       `client_key=${client_id}` +
       `&response_type=code` +
       `&scope=${scope}` +
       `&redirect_uri=${redirect_uri}` +
-      `&state=${state}`;
+      `&state=${csrfState}`;
     window.location.href = authUrl;
   };
 

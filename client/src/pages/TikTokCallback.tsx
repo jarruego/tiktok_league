@@ -14,16 +14,22 @@ const TikTokCallback: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const error = params.get('error');
+    const state = params.get('state');
+    const expectedState = sessionStorage.getItem('tiktok_csrf_state');
 
     if (error) {
-      // Manejar error de login
       alert('Error en el login con TikTok: ' + error);
       navigate('/');
       return;
     }
 
+    if (!state || state !== expectedState) {
+      alert('Error de seguridad: el parámetro state no coincide (posible CSRF)');
+      navigate('/');
+      return;
+    }
+
     if (code) {
-      // Aquí deberías enviar el code a tu backend para intercambiarlo por un token
       fetch(`${API_BASE_URL}/api/auth/tiktok`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,9 +37,7 @@ const TikTokCallback: React.FC = () => {
       })
         .then(res => res.json())
         .then(data => {
-          // Ajuste: guardar token y usuario en localStorage para AuthService
           const goToWelcome = (followers: number | undefined) => {
-            // Guardar los seguidores en sessionStorage para WelcomePage si quieres usarlos
             if (typeof followers === 'number') {
               sessionStorage.setItem('numFollowers', followers.toString());
             }
@@ -50,7 +54,6 @@ const TikTokCallback: React.FC = () => {
             refreshAuthState();
             goToWelcome(data.user.follower_count);
           } else if (data.success && data.token) {
-            // Compatibilidad con respuesta antigua
             localStorage.setItem('auth_token', data.token);
             refreshAuthState();
             goToWelcome(undefined);
