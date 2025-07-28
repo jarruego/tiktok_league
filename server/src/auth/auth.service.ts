@@ -95,7 +95,7 @@ export class AuthService {
       };
     }
 
-    const tokenEndpoint = 'https://open-api.tiktok.com/oauth/access_token/';
+    const tokenEndpoint = 'https://open.tiktokapis.com/oauth/token/';
 
     try {
       // Crear el payload de forma estricta y sin repeticiones
