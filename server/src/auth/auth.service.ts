@@ -5,6 +5,7 @@ import * as bcrypt from 'bcryptjs';
 import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
 import { GoogleAuthService } from './google.strategy';
+import { TeamService } from '../teams/team.service';
 
 @Injectable()
 export class AuthService {
@@ -12,7 +13,9 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly googleAuthService: GoogleAuthService, // inyectar
+    private readonly googleAuthService: GoogleAuthService,
+    @Inject(forwardRef(() => TeamService))
+    private readonly teamService: TeamService,
   ) {}
 
   // Valida usuario y contraseña
@@ -165,14 +168,25 @@ export class AuthService {
       // 3. Tu lógica de usuario existente...
 
 
+
       let user = await this.usersService.findByUsername(tiktokUser.open_id);
+      let teamAssignment: { success: boolean; message?: string; teamId?: number; team?: any } | null = null;
       if (!user) {
         user = await this.usersService.createFromTikTok({
           username: tiktokUser.open_id
         });
+        // Asignar equipo bot al usuario nuevo (nombre provisional: TikTokUser + 4 dígitos)
+        const teamName = tiktokUser.username || ("TikTokUser" + Math.floor(1000 + Math.random() * 9000));
+        if (this.teamService && typeof this.teamService.assignTeamForUser === 'function') {
+          teamAssignment = await this.teamService.assignTeamForUser(user.username, teamName, tiktokUser.open_id);
+        }
       }
 
-      return this.login(user, { follower_count: tiktokUser.follower_count });
+      const loginResult = await this.login(user, { follower_count: tiktokUser.follower_count });
+      if (teamAssignment) {
+        return { ...loginResult, teamAssignment };
+      }
+      return loginResult;
 
     } catch (err) {
       console.error('=== TikTok OAuth Error Details ===');
