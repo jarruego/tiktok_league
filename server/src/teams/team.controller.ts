@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { TeamService } from  './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -62,5 +63,17 @@ export class TeamController {
       message: `Team ${updatedTeam.name} mapped to Football-Data ID ${footballDataId}`,
       team: updatedTeam
     };
+  }
+
+  // Nuevo endpoint: crear equipo para usuario autenticado
+  @UseGuards(JwtAuthGuard)
+  @Post('create-for-user')
+  async createForUser(@Body('name') name: string, @Req() req: Request) {
+    const user = req.user as any;
+    if (!user || !user.username) {
+      return { success: false, message: 'Usuario no autenticado' };
+    }
+    const result = await this.teamService.createTeamForUser(user.username, name);
+    return result;
   }
 }

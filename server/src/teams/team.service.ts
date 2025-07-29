@@ -1,12 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { teamTable, coachTable } from '../database/schema';
+import { teamTable, coachTable, userTable } from '../database/schema';
 import { eq } from 'drizzle-orm';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 import { FootballDataTeamResponseDto } from '../players/dto/football-data.dto';
 import { CoachService } from '../coaches/coach.service';
-import { Inject } from '@nestjs/common';
 import { DATABASE_PROVIDER } from '../database/database.module';
 
 @Injectable()
@@ -16,6 +16,25 @@ export class TeamService {
     private readonly databaseService: DatabaseService,
     private readonly coachService: CoachService,
   ) {}
+
+  // Crea un equipo y lo asigna al usuario autenticado (por username)
+  async createTeamForUser(username: string, name: string) {
+    const db = this.databaseService.db;
+    // Buscar usuario por username
+    const [user] = await db.select().from(userTable).where(eq(userTable.username, username));
+    if (!user) {
+      return { success: false, message: 'Usuario no encontrado' };
+    }
+    // Verificar si ya tiene equipo asignado
+    if (user.teamId) {
+      return { success: false, message: 'Ya tienes un equipo asignado', teamId: user.teamId };
+    }
+    // Crear equipo
+    const [team] = await db.insert(teamTable).values({ name, tiktokId: username }).returning();
+    // Asignar equipo al usuario
+    await db.update(userTable).set({ teamId: team.id }).where(eq(userTable.id, user.id));
+    return { success: true, teamId: team.id, team };
+  }
 
   async create(createTeamDto: CreateTeamDto) {
     const db = this.databaseService.db;

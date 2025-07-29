@@ -1,5 +1,5 @@
-import React from 'react';
-import { Button } from 'antd';
+import React, { useState } from 'react';
+import { Button, Input, Form, message } from 'antd';
 import { LayoutContainer } from '../components/LayoutContainer';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthGuard } from '../components/AuthGuard';
@@ -17,6 +17,17 @@ const WelcomePage: React.FC = () => {
   try {
     tiktokUser = JSON.parse(localStorage.getItem('auth_user') || 'null');
   } catch {}
+
+  // Nuevo: Si el usuario ya tiene equipo, redirigir a MyTeamPage
+  React.useEffect(() => {
+    if (tiktokUser && tiktokUser.teamId) {
+      navigate('/mi-equipo');
+    }
+  }, [tiktokUser, navigate]);
+
+  // Nuevo: Estado para el nombre del equipo
+  const [teamName, setTeamName] = useState('');
+  const [loading, setLoading] = useState(false);
 
   return (
     <AuthGuard>
@@ -63,14 +74,72 @@ const WelcomePage: React.FC = () => {
                       </div>
                     </div>
                   )}
+                  {/* Si el usuario NO tiene equipo, mostrar formulario para asignar nombre */}
+                  {(!tiktokUser?.teamId) && (
+                    <Form
+                      layout="vertical"
+                      style={{ marginTop: 32, textAlign: 'left' }}
+                      onFinish={async () => {
+                        if (!teamName.trim()) return;
+                        setLoading(true);
+                        try {
+                          // Llamar al backend para crear/asignar equipo
+                          const token = localStorage.getItem('auth_token');
+                          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/teams/create-for-user`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                            },
+                            body: JSON.stringify({ name: teamName })
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.success) {
+                            // Actualizar usuario en localStorage
+                            const updatedUser = { ...tiktokUser, teamId: data.teamId };
+                            localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+                            message.success('¡Equipo creado!');
+                            navigate('/mi-equipo');
+                          } else {
+                            message.error(data.message || 'No se pudo crear el equipo');
+                          }
+                        } catch (err) {
+                          message.error('Error al conectar con el backend');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                    >
+                      <Form.Item
+                        label="Elige el nombre de tu equipo"
+                        required
+                        rules={[{ required: true, message: 'Introduce un nombre para tu equipo' }]}
+                      >
+                        <Input
+                          value={teamName}
+                          onChange={e => setTeamName(e.target.value)}
+                          maxLength={32}
+                          placeholder="Nombre de tu equipo"
+                          disabled={loading}
+                        />
+                      </Form.Item>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        size="large"
+                        style={{ fontSize: 18, width: '100%' }}
+                        disabled={!teamName.trim() || loading}
+                        loading={loading}
+                      >
+                        Guardar y continuar
+                      </Button>
+                    </Form>
+                  )}
                 </>
               : 'Has accedido correctamente.'}
             <br />
             ¡Disfruta de la experiencia!
           </p>
-        <Button type="primary" size="large" style={{ fontSize: 18 }} onClick={() => navigate('/mi-equipo')}>
-          Continuar
-        </Button>
         </div>
       </LayoutContainer>
     </AuthGuard>
