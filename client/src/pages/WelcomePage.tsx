@@ -91,7 +91,7 @@ const WelcomePage: React.FC = () => {
                               'Content-Type': 'application/json',
                               ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                             },
-                            body: JSON.stringify({ name: teamName })
+                          body: JSON.stringify({ name: teamName, tiktokId: tiktokUser?.open_id || '' })
                           });
                           const data = await res.json();
                           if (res.ok && data.success) {

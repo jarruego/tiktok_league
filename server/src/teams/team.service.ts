@@ -17,8 +17,8 @@ export class TeamService {
     private readonly coachService: CoachService,
   ) {}
 
-  // Crea un equipo y lo asigna al usuario autenticado (por username)
-  async createTeamForUser(username: string, name: string) {
+  // Crea un equipo y lo asigna al usuario autenticado (por username), usando tiktokId si se provee
+  async createTeamForUser(username: string, name: string, tiktokId?: string) {
     const db = this.databaseService.db;
     // Buscar usuario por username
     const [user] = await db.select().from(userTable).where(eq(userTable.username, username));
@@ -29,8 +29,8 @@ export class TeamService {
     if (user.teamId) {
       return { success: false, message: 'Ya tienes un equipo asignado', teamId: user.teamId };
     }
-    // Crear equipo
-    const [team] = await db.insert(teamTable).values({ name, tiktokId: username }).returning();
+    // Crear equipo con tiktokId si viene, si no, con username (legacy)
+    const [team] = await db.insert(teamTable).values({ name, tiktokId: tiktokId || username }).returning();
     // Asignar equipo al usuario
     await db.update(userTable).set({ teamId: team.id }).where(eq(userTable.id, user.id));
     return { success: true, teamId: team.id, team };

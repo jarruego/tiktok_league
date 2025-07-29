@@ -70,10 +70,12 @@ export class TeamController {
   @Post('create-for-user')
   async createForUser(@Body('name') name: string, @Req() req: Request) {
     const user = req.user as any;
+    const tiktokId = (req.body && req.body.tiktokId) || null;
     if (!user || !user.username) {
       return { success: false, message: 'Usuario no autenticado' };
     }
-    const result = await this.teamService.createTeamForUser(user.username, name);
+    // Si viene tiktokId, lo pasamos, si no, null
+    const result = await this.teamService.createTeamForUser(user.username, name, tiktokId);
     return result;
   }
 }
