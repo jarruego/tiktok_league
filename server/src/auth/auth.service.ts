@@ -170,22 +170,14 @@ export class AuthService {
 
 
       let user = await this.usersService.findByUsername(tiktokUser.open_id);
-      let teamAssignment: { success: boolean; message?: string; teamId?: number; team?: any } | null = null;
       if (!user) {
         user = await this.usersService.createFromTikTok({
           username: tiktokUser.open_id
         });
-        // Asignar equipo bot al usuario nuevo (nombre provisional: TikTokUser + 4 dígitos)
-        const teamName = tiktokUser.username || ("TikTokUser" + Math.floor(1000 + Math.random() * 9000));
-        if (this.teamService && typeof this.teamService.assignTeamForUser === 'function') {
-          teamAssignment = await this.teamService.assignTeamForUser(user.username, teamName, tiktokUser.open_id);
-        }
+        // NO asignar equipo automáticamente, dejar que el frontend lo cree con el nombre elegido
       }
 
       const loginResult = await this.login(user, { follower_count: tiktokUser.follower_count });
-      if (teamAssignment) {
-        return { ...loginResult, teamAssignment };
-      }
       return loginResult;
 
     } catch (err) {

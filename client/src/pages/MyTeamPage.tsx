@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { leagueApi } from '../api/leagueApi';
 import { matchApi } from '../api/matchApi';
@@ -31,6 +32,7 @@ const MyTeamPage: React.FC = () => {
   const user = auth.user;
   // Solo usar setUser si existe en el contexto
   const setUser = (auth && typeof (auth as any).setUser === 'function') ? (auth as any).setUser : undefined;
+  const navigate = useNavigate();
   const [team, setTeam] = useState<Team | null>(null);
   const [league, setLeague] = useState<League | null>(null);
   const [divisionName, setDivisionName] = useState<string | null>(null);
@@ -142,8 +144,14 @@ const MyTeamPage: React.FC = () => {
     });
   }, [user, setUser]);
 
+  useEffect(() => {
+    if (user && (!user.teamId || typeof user.teamId !== 'number')) {
+      navigate('/welcome', { replace: true });
+    }
+  }, [user, navigate]);
+
   if (!user?.teamId) {
-    return <div>No tienes equipo asignado.</div>;
+    return null;
   }
 
   return (

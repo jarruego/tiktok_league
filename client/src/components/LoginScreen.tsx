@@ -13,20 +13,40 @@ export const LoginScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const auth = useAuth();
+  // Usar setUser directamente desde el hook useAuth
+  const { setUser } = auth;
   const navigate = useNavigate();
 
   // Redirigir tras login exitoso (usuario/pass, Google, TikTok)
   React.useEffect(() => {
-    if (auth.isAuthenticated && auth.user && typeof auth.user.teamId === 'number') {
-      navigate('/mi-equipo', { replace: true });
+    if (auth.isAuthenticated && auth.user) {
+      if (typeof auth.user.teamId === 'number' && auth.user.teamId) {
+        window.location.replace('/mi-equipo');
+      } else {
+        window.location.replace('/welcome');
+      }
     }
-  }, [auth.isAuthenticated, auth.user?.teamId, navigate]);
+  }, [auth.isAuthenticated, auth.user?.teamId]);
 
   const handleSubmit = async (values: { username: string; password: string }) => {
     setIsLoading(true);
     setError(null);
     try {
       await auth.login(values.username, values.password);
+      // Refrescar usuario desde backend para obtener teamId actualizado
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/me`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const user = await res.json();
+          if (setUser) setUser(user);
+        }
+      }
       form.resetFields();
       // La redirección se maneja en el useEffect
     } catch (error) {
