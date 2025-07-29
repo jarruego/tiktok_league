@@ -44,7 +44,7 @@ const TikTokCallback: React.FC = () => {
             // Chequear si el usuario tiene equipo asignado (teamId o team_id)
             const teamId = user?.teamId ?? user?.team_id;
             if (teamId) {
-              window.location.replace('/my-team');
+              window.location.replace('/mi-equipo');
             } else {
               window.location.replace('/welcome');
             }
