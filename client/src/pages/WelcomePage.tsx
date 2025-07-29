@@ -7,7 +7,6 @@ import { AuthGuard } from '../components/AuthGuard';
 const WelcomePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const fromTikTok = location.state && location.state.fromTikTok;
   // Leer numFollowers de sessionStorage si existe
   const numFollowers = location.state && location.state.numFollowers !== undefined
     ? location.state.numFollowers
