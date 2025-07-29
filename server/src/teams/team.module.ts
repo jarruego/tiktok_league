@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { TeamService } from './team.service';
 import { TeamController } from './team.controller';
 import { LeagueSystemService } from './league-system.service';
@@ -13,7 +14,13 @@ import { MatchModule } from '../matches/match.module';
 import { PlayoffStatusService } from '../services/playoff-status.service';
 
 @Module({
-  imports: [DatabaseModule, CoachModule, StandingsModule, forwardRef(() => MatchModule)],
+  imports: [
+    DatabaseModule,
+    CoachModule,
+    StandingsModule,
+    forwardRef(() => MatchModule),
+    forwardRef(() => AuthModule),
+  ],
   controllers: [TeamController, LeagueSystemController, SeasonTransitionController],
   providers: [TeamService, LeagueSystemService, SeasonTransitionService, SeasonTransitionAssignmentService,PlayoffStatusService],
   exports: [TeamService, LeagueSystemService, SeasonTransitionService, SeasonTransitionAssignmentService],
