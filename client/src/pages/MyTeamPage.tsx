@@ -26,7 +26,11 @@ interface Match {
 
 
 const MyTeamPage: React.FC = () => {
-  const { user } = useAuth();
+  // Asegura que setUser existe en el contexto
+  const auth = useAuth ? useAuth() : { user: null };
+  const user = auth.user;
+  // Solo usar setUser si existe en el contexto
+  const setUser = (auth && typeof (auth as any).setUser === 'function') ? (auth as any).setUser : undefined;
   const [team, setTeam] = useState<Team | null>(null);
   const [league, setLeague] = useState<League | null>(null);
   const [divisionName, setDivisionName] = useState<string | null>(null);
@@ -34,13 +38,30 @@ const MyTeamPage: React.FC = () => {
   const [lastMatch, setLastMatch] = useState<Match | null>(null);
 
   useEffect(() => {
-    if (!user?.teamId) return;
+    // Si el usuario no tiene teamId, intenta refrescar desde el backend
+    if (!user?.teamId) {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/me`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data && data.teamId) {
+              setUser && setUser(data);
+            }
+          });
+      }
+      return;
+    }
 
     // 1. Obtener temporada activa
     leagueApi.getActiveSeason().then(async (season) => {
-      // 2. Buscar en todas las ligas/equipos dónde está el equipo del usuario
+      // 2. Obtener estructura de divisiones
       const divisionStructure = await leagueApi.getDivisionStructure();
-
       let foundTeam: any = null;
       let foundLeague: any = null;
       let foundLeagueId: number | null = null;
@@ -70,24 +91,11 @@ const MyTeamPage: React.FC = () => {
       let position: number | undefined = undefined;
       if (foundLeagueId) {
         const standings = await matchApi.getLeagueStandings(foundLeagueId, season.id);
-        // Mostrar ejemplo de standings
-        if (standings && standings.length > 0) {
-          // eslint-disable-next-line no-console
-          console.log('Ejemplo de standings:', standings[0]);
-        }
-        // Buscar por varias claves posibles
         const myStanding = standings.find((s: any) => {
           const teamId = s.team_id ?? s.teamId ?? s.id ?? s.team?.id;
           return Number(teamId) === Number(user.teamId);
         });
         position = myStanding?.position;
-        // eslint-disable-next-line no-console
-        if (!myStanding) {
-          console.warn('No se encontró el equipo en standings. user.teamId:', user.teamId, 'Standings:', standings);
-        }
-        // eslint-disable-next-line no-console
-        console.log('Standings:', standings);
-        console.log('MyStanding:', myStanding);
       }
       setLeague(foundLeague ? {
         id: foundLeague.id,
@@ -98,15 +106,6 @@ const MyTeamPage: React.FC = () => {
       // 3. Buscar partidos del equipo en la temporada
       const matchesResp = await matchApi.getMatchesByTeam(Number(user.teamId), { seasonId: season.id, limit: 100 });
       const matches = matchesResp.matches || [];
-      // Mostrar ejemplo de partido
-      if (matches && matches.length > 0) {
-        // eslint-disable-next-line no-console
-        console.log('Ejemplo de partido:', matches[0]);
-      }
-      // DEBUG: mostrar todos los partidos devueltos
-      // eslint-disable-next-line no-console
-      console.log('Todos los partidos:', matches);
-      // Próximos partidos: status 'scheduled', fechas futuras más próximas (sin límite)
       const now = new Date();
       const nextArr = matches
         .filter((m: any) => {
@@ -125,14 +124,9 @@ const MyTeamPage: React.FC = () => {
           awayGoals: next.awayGoals,
           date: next.scheduledDate
         }));
-      // Último partido: status 'finished', el más reciente por fecha
       const last = matches
         .filter((m: any) => m.status === 'finished')
         .sort((a: any, b: any) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
-
-      // DEBUG: mostrar último partido
-      // eslint-disable-next-line no-console
-      console.log('Último partido:', last);
 
       setNextMatches(nextArr);
       setLastMatch(last ? {
@@ -146,7 +140,7 @@ const MyTeamPage: React.FC = () => {
         date: last.scheduledDate
       } : null);
     });
-  }, [user]);
+  }, [user, setUser]);
 
   if (!user?.teamId) {
     return <div>No tienes equipo asignado.</div>;
