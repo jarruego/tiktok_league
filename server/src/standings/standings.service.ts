@@ -876,4 +876,43 @@ export class StandingsService {
       consequences
     };
   }
+
+  /**
+   * Devuelve el teamId del bot mejor clasificado en una liga para una temporada
+   * Un bot es un equipo con isBot = 1 y que no está asignado a ningún usuario real
+   */
+  async getBestRankedBotTeam(seasonId: number, leagueId: number): Promise<number | null> {
+    const db = this.databaseService.db;
+    // 1. Obtener la clasificación ordenada
+    const standings = await this.calculateStandings(seasonId, leagueId);
+    if (!standings.length) return null;
+
+    // 2. Obtener los teamId de la liga
+    const teamIds = standings.map(s => s.teamId);
+
+    // 3. Buscar los equipos que sean bots (isBot = 1)
+    const botTeams = await db
+      .select({ teamId: teamTable.id })
+      .from(teamTable)
+      .where(
+        and(
+          inArray(teamTable.id, teamIds),
+          eq(teamTable.isBot, 1)
+        )
+      );
+    const botTeamIds = botTeams.map(t => t.teamId);
+
+    if (!botTeamIds.length) return null;
+
+    // 4. Filtrar los equipos bot que NO estén asignados a ningún usuario real
+    const assignedUsers = await db
+      .select({ teamId: sql<number>`team_id` })
+      .from(sql`users`)
+      .where(inArray(sql`team_id`, botTeamIds));
+    const assignedTeamIds = new Set(assignedUsers.map(u => u.teamId));
+
+    // 5. Devolver el primer equipo bot libre según la clasificación
+    const bestBot = standings.find(s => botTeamIds.includes(s.teamId) && !assignedTeamIds.has(s.teamId));
+    return bestBot ? bestBot.teamId : null;
+  }
 }

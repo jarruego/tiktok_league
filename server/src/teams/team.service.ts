@@ -1,4 +1,3 @@
-
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { teamTable, coachTable, userTable } from '../database/schema';
@@ -10,6 +9,7 @@ import { FootballDataTeamResponseDto } from '../players/dto/football-data.dto';
 import { CoachService } from '../coaches/coach.service';
 import { DATABASE_PROVIDER } from '../database/database.module';
 import { UsersService } from '../auth/users.service';
+import { StandingsService } from '../standings/standings.service';
 
 @Injectable()
 export class TeamService {
@@ -18,6 +18,7 @@ export class TeamService {
     private readonly databaseService: DatabaseService,
     private readonly coachService: CoachService,
     private readonly usersService: UsersService,
+    private readonly standingsService: StandingsService,
   ) {}
 
   // Asigna el mejor equipo bot disponible al usuario, cambiando el nombre y tiktokId
@@ -34,14 +35,26 @@ export class TeamService {
     // Buscar divisiones ordenadas por nivel ascendente (más alta primero)
     const divisions = await db.select().from(schema.divisionTable).orderBy(schema.divisionTable.level);
     let assignedTeam: any = null;
+    // Buscar la temporada activa (puedes ajustar esto según tu lógica)
+    const [activeSeason] = await db.select().from(schema.seasonTable).where(eq(schema.seasonTable.isActive, true));
+    if (!activeSeason) {
+      return { success: false, message: 'No hay temporada activa' };
+    }
     for (const division of divisions) {
-      const team = await this.usersService.findBestAvailableBotTeamByDivision(division.id);
-      if (team) {
-        await db.update(userTable).set({ teamId: team.id }).where(eq(userTable.id, user.id));
-        await db.update(teamTable).set({ isBot: 0, name, tiktokId: tiktokId || username }).where(eq(teamTable.id, team.id));
-        assignedTeam = team;
-        break;
+      // Buscar ligas de la división
+      const leagues = await db.select().from(schema.leagueTable).where(eq(schema.leagueTable.divisionId, division.id));
+      for (const league of leagues) {
+        // Usar StandingsService para obtener el mejor bot libre en la liga
+        const teamId = await this.standingsService.getBestRankedBotTeam(activeSeason.id, league.id);
+        if (teamId) {
+          // Asignar el equipo al usuario y actualizar el equipo
+          await db.update(userTable).set({ teamId }).where(eq(userTable.id, user.id));
+          await db.update(teamTable).set({ isBot: 0, name, tiktokId: tiktokId || username }).where(eq(teamTable.id, teamId));
+          assignedTeam = await db.select().from(teamTable).where(eq(teamTable.id, teamId)).then(r => r[0]);
+          break;
+        }
       }
+      if (assignedTeam) break;
     }
     if (!assignedTeam) {
       return { success: false, message: 'No hay equipos disponibles para asignar' };
