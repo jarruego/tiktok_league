@@ -132,24 +132,34 @@ export class AuthService {
         throw new UnauthorizedException('TikTok OAuth failed: ' + (tokenRes.data?.data?.description || 'Unknown error'));
       }
 
-      if (!tokenRes.data.data || !tokenRes.data.data.access_token) {
-        console.error('TikTok response missing access_token:', tokenRes.data);
-        throw new UnauthorizedException('TikTok did not return access_token');
+
+      if (!tokenRes.data.access_token || !tokenRes.data.open_id) {
+        console.error('TikTok response missing access_token or open_id:', tokenRes.data);
+        throw new UnauthorizedException('TikTok did not return access_token or open_id');
       }
 
-      const access_token = tokenRes.data.data.access_token;
+      const access_token = tokenRes.data.access_token;
+      const open_id = tokenRes.data.open_id;
 
-      // 2. Obtener datos del usuario
-      const userRes = await axios.get('https://open.tiktokapis.com/v2/user/info/', {
-        headers: { 'Authorization': `Bearer ${access_token}` },
-        params: { fields: 'open_id,username,avatar_url,follower_count' },
-        timeout: 10000
-      });
-
-      console.log('TikTok User Info:', userRes.data);
-      const tiktokUser = userRes.data.data.user;
+      // 2. Obtener datos del usuario (si quieres más info, pero open_id ya está)
+      // Puedes omitir esta llamada si solo necesitas open_id
+      let tiktokUser: any = { open_id };
+      try {
+        const userRes = await axios.get('https://open.tiktokapis.com/v2/user/info/', {
+          headers: { 'Authorization': `Bearer ${access_token}` },
+          params: { fields: 'open_id,username,avatar_url,follower_count' },
+          timeout: 10000
+        });
+        console.log('TikTok User Info:', userRes.data);
+        if (userRes.data && userRes.data.data && userRes.data.data.user) {
+          tiktokUser = userRes.data.data.user;
+        }
+      } catch (e) {
+        console.warn('No se pudo obtener info extendida del usuario TikTok, usando solo open_id');
+      }
 
       // 3. Tu lógica de usuario existente...
+
       let user = await this.usersService.findByUsername(tiktokUser.open_id);
       if (!user) {
         let assignedTeam: any = undefined;
