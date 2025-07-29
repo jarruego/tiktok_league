@@ -20,7 +20,7 @@ const WelcomePage: React.FC = () => {
 
   // Nuevo: Si el usuario ya tiene equipo, redirigir a MyTeamPage
   React.useEffect(() => {
-    if (tiktokUser && tiktokUser.teamId) {
+    if (tiktokUser && (tiktokUser.teamId || tiktokUser.team_id)) {
       navigate('/mi-equipo');
     }
   }, [tiktokUser, navigate]);
@@ -75,7 +75,7 @@ const WelcomePage: React.FC = () => {
                     </div>
                   )}
                   {/* Si el usuario NO tiene equipo, mostrar formulario para asignar nombre */}
-                  {(!tiktokUser?.teamId) && (
+                  {!(tiktokUser?.teamId || tiktokUser?.team_id) && (
                     <Form
                       layout="vertical"
                       style={{ marginTop: 32, textAlign: 'left' }}
