@@ -40,12 +40,12 @@ const WelcomePage: React.FC = () => {
         <div style={{ maxWidth: 480, margin: '0 auto', width: '100%', textAlign: 'center', marginTop: 80 }}>
           <h1>¡Bienvenido a Social League!</h1>
           <p style={{ fontSize: 18, margin: '32px 0' }}>
-            {fromTikTok
-              ? <>
-                  {typeof numFollowers === 'number' && numFollowers >= 0 && (
-                    <>Comienzas la liga con <b>{numFollowers}</b> seguidores.<br /></>
-                  )}
-                  {tiktokUser && (
+            {/* Forzar renderizado del formulario para depuración */}
+            <>
+              {typeof numFollowers === 'number' && numFollowers >= 0 && (
+                <>Comienzas la liga con <b>{numFollowers}</b> seguidores.<br /></>
+              )}
+              {tiktokUser && (
                     <div style={{ margin: '24px 0', padding: 16, border: '1px solid #eee', borderRadius: 8, background: '#fafafa', display: 'inline-block', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                         {tiktokUser.avatar_url && <img src={tiktokUser.avatar_url} alt="avatar" style={{ width: 64, height: 64, borderRadius: '50%' }} />}
@@ -141,7 +141,7 @@ const WelcomePage: React.FC = () => {
                     </Form>
                   )}
                 </>
-              : 'Has accedido correctamente.'}
+            }
             <br />
             ¡Disfruta de la experiencia!
           </p>
