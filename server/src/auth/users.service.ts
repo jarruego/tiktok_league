@@ -23,23 +23,7 @@ export class UsersService {
   // Crea un usuario a partir de los datos de TikTok, permite asignar teamId
   async createFromTikTok({ username, displayName, avatar, teamId }: { username: string; displayName?: string; avatar?: string; teamId?: number }) {
     const db = this.databaseService.db;
-    // Si no se pasa teamId, buscar el equipo bot más alto y asignarlo aquí
-    let finalTeamId = teamId;
-    if (!finalTeamId) {
-      for (let division = 1; division <= 5; division++) {
-        const botTeams = await this.findBotTeamsByDivision(division);
-        if (Array.isArray(botTeams) && botTeams.length > 0 && botTeams[0]?.id) {
-          finalTeamId = botTeams[0].id;
-          // Actualizar el equipo bot: isBot=false y nombre=usuario TikTok
-          await this.updateTeamBotAssignment({
-            teamId: botTeams[0].id,
-            isBot: false,
-            name: username
-          });
-          break;
-        }
-      }
-    }
+    // Crear usuario TikTok sin asignar equipo automáticamente
     const [user] = await db.insert(userTable).values({
       username,
       displayName: displayName || null,
@@ -47,7 +31,7 @@ export class UsersService {
       provider: 'tiktok',
       role: 'user', // rol por defecto
       password: '', // sin password local
-      teamId: finalTeamId || null
+      teamId: null
     }).returning();
     return user;
   }
