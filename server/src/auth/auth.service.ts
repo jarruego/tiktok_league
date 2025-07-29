@@ -164,30 +164,12 @@ export class AuthService {
 
       // 3. Tu lógica de usuario existente...
 
+
       let user = await this.usersService.findByUsername(tiktokUser.open_id);
       if (!user) {
-        let assignedTeam: any = undefined;
-        for (let division = 1; division <= 5; division++) {
-          const botTeams = await this.usersService.findBotTeamsByDivision(division);
-          if (Array.isArray(botTeams) && botTeams.length > 0 && botTeams[0]?.id) {
-            assignedTeam = botTeams[0];
-            break;
-          }
-        }
-
         user = await this.usersService.createFromTikTok({
-          username: tiktokUser.open_id,
-          teamId: assignedTeam?.id
+          username: tiktokUser.open_id
         });
-
-        if (assignedTeam?.id) {
-          const newName = tiktokUser.username || tiktokUser.open_id || `Equipo de ${tiktokUser.open_id}`;
-          await this.usersService.updateTeamBotAssignment({
-            teamId: assignedTeam.id,
-            isBot: false,
-            name: newName
-          });
-        }
       }
 
       return this.login(user, { follower_count: tiktokUser.follower_count });
