@@ -75,7 +75,7 @@ export class TeamController {
       return { success: false, message: 'Usuario no autenticado' };
     }
     // Si viene tiktokId, lo pasamos, si no, null
-    const result = await this.teamService.createTeamForUser(user.username, name, tiktokId);
+    const result = await this.teamService.assignTeamForUser(user.username, name, tiktokId);
     return result;
   }
 }

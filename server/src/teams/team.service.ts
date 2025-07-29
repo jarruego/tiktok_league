@@ -2,12 +2,14 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { teamTable, coachTable, userTable } from '../database/schema';
+import * as schema from '../database/schema';
 import { eq } from 'drizzle-orm';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 import { FootballDataTeamResponseDto } from '../players/dto/football-data.dto';
 import { CoachService } from '../coaches/coach.service';
 import { DATABASE_PROVIDER } from '../database/database.module';
+import { UsersService } from '../auth/users.service';
 
 @Injectable()
 export class TeamService {
@@ -15,25 +17,36 @@ export class TeamService {
     @Inject(DATABASE_PROVIDER)
     private readonly databaseService: DatabaseService,
     private readonly coachService: CoachService,
+    private readonly usersService: UsersService,
   ) {}
 
-  // Crea un equipo y lo asigna al usuario autenticado (por username), usando tiktokId si se provee
-  async createTeamForUser(username: string, name: string, tiktokId?: string) {
+  // Asigna el mejor equipo bot disponible al usuario, cambiando el nombre y tiktokId
+  async assignTeamForUser(username: string, name: string, tiktokId?: string) {
     const db = this.databaseService.db;
     // Buscar usuario por username
     const [user] = await db.select().from(userTable).where(eq(userTable.username, username));
     if (!user) {
       return { success: false, message: 'Usuario no encontrado' };
     }
-    // Verificar si ya tiene equipo asignado
     if (user.teamId) {
       return { success: false, message: 'Ya tienes un equipo asignado', teamId: user.teamId };
     }
-    // Crear equipo con tiktokId si viene, si no, con username (legacy)
-    const [team] = await db.insert(teamTable).values({ name, tiktokId: tiktokId || username }).returning();
-    // Asignar equipo al usuario
-    await db.update(userTable).set({ teamId: team.id }).where(eq(userTable.id, user.id));
-    return { success: true, teamId: team.id, team };
+    // Buscar divisiones ordenadas por nivel ascendente (más alta primero)
+    const divisions = await db.select().from(schema.divisionTable).orderBy(schema.divisionTable.level);
+    let assignedTeam: any = null;
+    for (const division of divisions) {
+      const team = await this.usersService.findBestAvailableBotTeamByDivision(division.id);
+      if (team) {
+        await db.update(userTable).set({ teamId: team.id }).where(eq(userTable.id, user.id));
+        await db.update(teamTable).set({ isBot: 0, name, tiktokId: tiktokId || username }).where(eq(teamTable.id, team.id));
+        assignedTeam = team;
+        break;
+      }
+    }
+    if (!assignedTeam) {
+      return { success: false, message: 'No hay equipos disponibles para asignar' };
+    }
+    return { success: true, teamId: assignedTeam.id, team: assignedTeam };
   }
 
   async create(createTeamDto: CreateTeamDto) {

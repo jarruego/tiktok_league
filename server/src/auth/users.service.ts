@@ -35,24 +35,31 @@ export class UsersService {
     }).returning();
     return user;
   }
-  // Busca equipos is_bot=1 en la división dada, ordenados por seguidores descendente
-  async findBotTeamsByDivision(division: number) {
+  // Busca el mejor equipo bot libre en la división dada (más seguidores, no asignado a usuario)
+  async findBestAvailableBotTeamByDivision(division: number) {
     const db = this.databaseService.db;
     // Buscar ligas en la división
     const leagues = await db.select().from(schema.leagueTable).where(eq(schema.leagueTable.divisionId, division));
-    if (!leagues || leagues.length === 0) return [];
+    if (!leagues || leagues.length === 0) return null;
     const leagueIds = leagues.map(l => l.id);
     // Buscar asignaciones de equipos en esas ligas
     const assignments = await db.select().from(schema.teamLeagueAssignmentTable)
       .where(inArray(schema.teamLeagueAssignmentTable.leagueId, leagueIds));
-    if (!assignments || assignments.length === 0) return [];
+    if (!assignments || assignments.length === 0) return null;
     const teamIds = assignments.map(a => a.teamId);
     // Buscar equipos is_bot=1 entre esos teamIds, ordenados por followers descendente
     const teams = await db.select().from(schema.teamTable)
       .where(and(inArray(schema.teamTable.id, teamIds), eq(schema.teamTable.isBot, 1)))
       .orderBy(schema.teamTable.followers);
-    // Orden descendente followers
-    return teams.reverse();
+    // Buscar el primer equipo bot que no esté asignado a ningún usuario
+    for (let i = teams.length - 1; i >= 0; i--) { // reverse: más seguidores primero
+      const team = teams[i];
+      const [userWithTeam] = await db.select().from(schema.userTable).where(eq(schema.userTable.teamId, team.id));
+      if (!userWithTeam) {
+        return team;
+      }
+    }
+    return null;
   }
 
   // Actualiza el equipo: isBot y nombre
