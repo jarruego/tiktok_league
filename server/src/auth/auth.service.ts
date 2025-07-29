@@ -150,9 +150,13 @@ export class AuthService {
           params: { fields: 'open_id,username,avatar_url,follower_count' },
           timeout: 10000
         });
-        console.log('TikTok User Info:', userRes.data);
+        console.log('TikTok User Info RAW:', JSON.stringify(userRes.data, null, 2));
         if (userRes.data && userRes.data.data && userRes.data.data.user) {
           tiktokUser = userRes.data.data.user;
+          console.log('TikTok username:', tiktokUser.username);
+          console.log('TikTok follower_count:', tiktokUser.follower_count);
+        } else {
+          console.warn('No se encontró el objeto user en la respuesta extendida de TikTok.');
         }
       } catch (e) {
         console.warn('No se pudo obtener info extendida del usuario TikTok, usando solo open_id');
