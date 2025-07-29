@@ -37,26 +37,32 @@ const TikTokCallback: React.FC = () => {
       })
         .then(res => res.json())
         .then(data => {
-          const goToWelcome = (followers: number | undefined) => {
+          const goToNextPage = (user: any, followers: number | undefined) => {
             if (typeof followers === 'number') {
               sessionStorage.setItem('numFollowers', followers.toString());
             }
-            window.location.replace('/welcome');
+            // Chequear si el usuario tiene equipo asignado (teamId o team_id)
+            const teamId = user?.teamId ?? user?.team_id;
+            if (teamId) {
+              window.location.replace('/my-team');
+            } else {
+              window.location.replace('/welcome');
+            }
           };
           if (data.access_token && data.user) {
             localStorage.setItem('auth_token', data.access_token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
             refreshAuthState();
-            goToWelcome(data.user.follower_count);
+            goToNextPage(data.user, data.user.follower_count);
           } else if (data.success && data.token && data.user) {
             localStorage.setItem('auth_token', data.token);
             localStorage.setItem('auth_user', JSON.stringify(data.user));
             refreshAuthState();
-            goToWelcome(data.user.follower_count);
+            goToNextPage(data.user, data.user.follower_count);
           } else if (data.success && data.token) {
             localStorage.setItem('auth_token', data.token);
             refreshAuthState();
-            goToWelcome(undefined);
+            window.location.replace('/welcome');
           } else {
             alert('No se pudo iniciar sesión con TikTok');
             navigate('/');
