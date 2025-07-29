@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
+import { TeamModule } from '../teams/team.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -18,7 +19,8 @@ import { GoogleAuthService } from './google.strategy';
         signOptions: { expiresIn: '1d' },
       }),
       inject: [ConfigService],
-    })
+    }),
+    forwardRef(() => TeamModule),
   ],
   providers: [AuthService, UsersService, GoogleAuthService, JwtStrategy],
   controllers: [AuthController],
