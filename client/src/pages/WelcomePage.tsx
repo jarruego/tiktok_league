@@ -17,6 +17,11 @@ const WelcomePage: React.FC = () => {
   try {
     tiktokUser = JSON.parse(localStorage.getItem('auth_user') || 'null');
   } catch {}
+  // DEBUG: Mostrar el usuario cargado y los campos de equipo
+  // eslint-disable-next-line
+  console.log('tiktokUser:', tiktokUser);
+  // eslint-disable-next-line
+  if (tiktokUser) console.log('teamId:', tiktokUser.teamId, 'team_id:', tiktokUser.team_id);
 
   // Nuevo: Si el usuario ya tiene equipo, redirigir a MyTeamPage
   React.useEffect(() => {
