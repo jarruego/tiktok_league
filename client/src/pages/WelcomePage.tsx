@@ -50,8 +50,27 @@ const WelcomePage: React.FC = () => {
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                  const updatedUser = { ...tiktokUser, teamId: data.teamId };
-                  localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+                  // Obtener usuario actualizado del backend
+                  const token = localStorage.getItem('auth_token');
+                  let refreshedUser = null;
+                  try {
+                    const userRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/me`, {
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                      }
+                    });
+                    if (userRes.ok) {
+                      refreshedUser = await userRes.json();
+                    }
+                  } catch {}
+                  if (refreshedUser && refreshedUser.teamId) {
+                    localStorage.setItem('auth_user', JSON.stringify(refreshedUser));
+                  } else {
+                    // Fallback: actualizar solo el teamId
+                    const updatedUser = { ...tiktokUser, teamId: data.teamId };
+                    localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+                  }
                   message.success('¡Equipo creado!');
                   navigate('/mi-equipo');
                 } else {
