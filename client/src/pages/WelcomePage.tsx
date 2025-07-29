@@ -141,7 +141,6 @@ const WelcomePage: React.FC = () => {
                     </Form>
                   )}
                 </>
-            }
             <br />
             ¡Disfruta de la experiencia!
           </p>
