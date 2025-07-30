@@ -39,7 +39,11 @@ export const teamTable = pgTable('teams', {
   
   // Relación con entrenador
   coachId: integer('coach_id').references(() => coachTable.id),
-  
+
+  // Colores personalizados del escudo
+  primaryColor: varchar('primary_color', { length: 10 }), // Color principal (hex)
+  secondaryColor: varchar('secondary_color', { length: 10 }), // Color secundario (hex)
+
   // Timestamps
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
