@@ -95,7 +95,6 @@ export interface MatchFilters {
   seasonId?: number;
   leagueId?: number;
   divisionId?: number;
-  teamId?: number;
   matchday?: number;
   status?: MatchStatus;
   fromDate?: string;
@@ -104,6 +103,7 @@ export interface MatchFilters {
   playoffRound?: string;
   page?: number;
   limit?: number;
+  teamName?: string; // Permitir filtro por nombre de equipo
 }
 
 // Para la vista agrupada por jornadas

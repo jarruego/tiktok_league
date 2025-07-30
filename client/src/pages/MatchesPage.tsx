@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { 
   Card, 
   Table, 
-  Button, 
   Select, 
   message, 
   Space, 
@@ -10,9 +10,7 @@ import {
 } from 'antd';
 import { 
   CalendarOutlined, 
-  TrophyOutlined,
-  ReloadOutlined,
-  ClearOutlined
+  TrophyOutlined
 } from '@ant-design/icons';
 import { LayoutContainer } from '../components/LayoutContainer';
 import LoadingBallAnimation from '../components/LoadingBallAnimation';
@@ -45,13 +43,13 @@ const statusLabels = {
 };
 
 export default function MatchesPage() {
+  const { user } = useAuth();
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
   const [filters, setFilters] = useState<MatchFilters>({});
-  const [teamName, setTeamName] = useState<string>('');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 50,
@@ -79,6 +77,36 @@ export default function MatchesPage() {
       const activeSeason = seasonsData.find(s => s.isActive);
       if (activeSeason) {
         setSelectedSeason(activeSeason.id);
+        // Si el usuario tiene equipo, buscar su división y liga
+        if (user && user.teamId) {
+          // Buscar la liga y división del equipo
+          let foundLeague = null;
+          let foundDivision = null;
+          for (const division of divisionsData) {
+            for (const league of division.leagues) {
+              // Buscar el equipo en la liga
+              const teams = await leagueApi.getTeamsInLeague(league.id, activeSeason.id);
+              if (teams.some(t => t.teamId === user.teamId)) {
+                foundLeague = league;
+                foundDivision = division;
+                break;
+              }
+            }
+            if (foundLeague && foundDivision) break;
+          }
+          if (foundLeague && foundDivision) {
+            // Obtener partidos de esa liga para la temporada
+            const matchesResp = await matchApi.getMatchesBySeason(activeSeason.id, { leagueId: foundLeague.id });
+            // Buscar la próxima jornada con partidos programados o en vivo
+            const nextMatch = matchesResp.matches.find(m => m.status === 'scheduled' || m.status === 'live');
+            const nextMatchday = nextMatch ? nextMatch.matchday : undefined;
+            setFilters({
+              divisionId: foundDivision.id,
+              leagueId: foundLeague.id,
+              matchday: nextMatchday
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading initial data:', error);
@@ -95,17 +123,7 @@ export default function MatchesPage() {
         page: pagination.current,
         limit: pagination.pageSize
       });
-      let filteredMatches = response.matches;
-      if (teamName && teamName.trim() !== '') {
-        const name = teamName.trim().toLowerCase();
-        filteredMatches = filteredMatches.filter(m =>
-          m.homeTeam.name.toLowerCase().includes(name) ||
-          m.homeTeam.shortName?.toLowerCase().includes(name) ||
-          m.awayTeam.name.toLowerCase().includes(name) ||
-          m.awayTeam.shortName?.toLowerCase().includes(name)
-        );
-      }
-      setMatches(filteredMatches);
+      setMatches(response.matches);
       setPagination(prev => ({
         ...prev,
         total: response.pagination.total
@@ -135,10 +153,6 @@ export default function MatchesPage() {
     }
   };
 
-  const clearFilters = () => {
-    setFilters({});
-    setTeamName('');
-  };
 
   // --- useEffect después de las funciones ---
   useEffect(() => {
@@ -154,6 +168,10 @@ export default function MatchesPage() {
 
   useEffect(() => {
     setPagination(prev => ({ ...prev, current: 1 }));
+    // Recargar partidos desde la primera página al cambiar filtros
+    if (selectedSeason) {
+      loadMatches();
+    }
   }, [filters]);
 
   // Mostrar animación de carga solo antes del return principal
@@ -289,25 +307,7 @@ export default function MatchesPage() {
           {/* Filtros */}
           <div style={{ marginBottom: '16px' }}>
             <Space wrap>
-              <input
-                type="text"
-                placeholder="Buscar por equipo"
-                value={teamName}
-                onChange={e => setTeamName(e.target.value)}
-                style={{ width: 200, padding: '4px 8px', borderRadius: 4, border: '1px solid #d9d9d9' }}
-              />
-              <Button 
-                icon={<ReloadOutlined />} 
-                onClick={loadMatches}
-                loading={loading}
-                style={{ padding: '0 8px' }}
-              />
-              <Button 
-                icon={<ClearOutlined />}
-                onClick={clearFilters}
-                disabled={Object.keys(filters).filter(key => filters[key as keyof typeof filters] !== undefined).length === 0}
-                style={{ padding: '0 8px' }}
-              />
+              {/* Eliminado filtro por equipo y botones de buscar/borrar */}
               <Select
                 placeholder="División"
                 style={{ width: 150 }}
@@ -321,22 +321,30 @@ export default function MatchesPage() {
                   </Option>
                 ))}
               </Select>
-              {/* Filtro de liga/grupo dependiente de la división seleccionada */}
-              {filters.divisionId && (
-                <Select
-                  placeholder="Grupo"
-                  style={{ width: 120 }}
-                  value={filters.leagueId}
-                  allowClear
-                  onChange={(value) => setFilters(prev => ({ ...prev, leagueId: value }))}
-                >
-                  {(divisions.find(d => d.id === filters.divisionId)?.leagues || []).map(league => (
-                    <Option key={league.id} value={league.id}>
-                      Grupo {league.groupCode}
-                    </Option>
-                  ))}
-                </Select>
-              )}
+              {/* Filtro de liga/grupo dependiente de la división seleccionada (solo si hay más de un grupo) */}
+              {filters.divisionId &&
+                (() => {
+                  const selectedDivision = divisions.find(d => d.id === filters.divisionId);
+                  if (selectedDivision && selectedDivision.leagues.length > 1) {
+                    return (
+                      <Select
+                        placeholder="Grupo"
+                        style={{ width: 120 }}
+                        value={filters.leagueId}
+                        allowClear
+                        onChange={(value) => setFilters(prev => ({ ...prev, leagueId: value }))}
+                      >
+                        {selectedDivision.leagues.map(league => (
+                          <Option key={league.id} value={league.id}>
+                            Grupo {league.groupCode}
+                          </Option>
+                        ))}
+                      </Select>
+                    );
+                  }
+                  return null;
+                })()
+              }
               <Select
                 placeholder="Jornada"
                 style={{ width: 120 }}
@@ -368,17 +376,17 @@ export default function MatchesPage() {
             loading={loading}
             pagination={{
               current: pagination.current,
-              pageSize: pagination.pageSize,
+              pageSize: 500,
               total: pagination.total,
-              showSizeChanger: true,
-              showQuickJumper: true,
+              showSizeChanger: false,
+              showQuickJumper: false,
               showTotal: (total, range) => 
                 `${range[0]}-${range[1]} de ${total} partidos`,
-              onChange: (page, pageSize) => {
+              onChange: (page) => {
                 setPagination(prev => ({
                   ...prev,
                   current: page,
-                  pageSize: pageSize || 50
+                  pageSize: 500
                 }));
               }
             }}
