@@ -338,11 +338,11 @@ export default function TeamSquadPage() {
                         selectStyle.maxWidth = 60;
                       } else {
                         selectStyle.flex = '1 1 0';
-                        selectStyle.maxWidth = undefined;
+                        selectStyle.maxWidth = 200;
                       }
                     } else {
                       selectStyle.flex = 1;
-                      selectStyle.maxWidth = 120;
+                      selectStyle.maxWidth = 200;
                     }
                     return (
                       <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: selectStyle.flex, maxWidth: selectStyle.maxWidth, minWidth: selectStyle.minWidth }}>
