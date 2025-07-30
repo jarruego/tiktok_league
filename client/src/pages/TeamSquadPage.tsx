@@ -462,13 +462,26 @@ export default function TeamSquadPage() {
                 style={{ flex: 1, fontSize: '15px', padding: '4px 6px', minWidth: 0, appearance: 'auto' }}
               >
                 <option value="">Posición</option>
-                {positionOrder.map((groupKey) => (
-                  <optgroup key={groupKey} label={POSITION_TRANSLATIONS[groupKey] || groupKey}>
-                    {POSITIONS[groupKey as keyof typeof POSITIONS].map((pos: string) => (
-                      <option key={pos} value={pos}>{POSITION_TRANSLATIONS[pos] || pos}</option>
-                    ))}
-                  </optgroup>
-                ))}
+                {positionOrder.map((groupKey) => {
+                  let emoji = '';
+                  switch (groupKey) {
+                    case 'Goalkeeper': emoji = '🟦'; break;
+                    case 'Defence': emoji = '🟩'; break;
+                    case 'Midfield': emoji = '🟨'; break;
+                    case 'Forward': emoji = '🟥'; break;
+                    default: emoji = '⚽';
+                  }
+                  return (
+                    <optgroup
+                      key={groupKey}
+                      label={`${emoji} ${(POSITION_TRANSLATIONS[groupKey] || groupKey).toUpperCase()}`}
+                    >
+                      {POSITIONS[groupKey as keyof typeof POSITIONS].map((pos: string) => (
+                        <option key={pos} value={pos}>{POSITION_TRANSLATIONS[pos] || pos}</option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
               </select>
               <Button
                 type="primary"
@@ -567,7 +580,10 @@ export default function TeamSquadPage() {
                       ] : []
                     }
                   >
-                    <span>{p.name} <Text type="secondary">({POSITION_TRANSLATIONS[p.position] || p.position})</Text></span>
+                    <span>
+                      <span role="img" aria-label="jugador" style={{ fontSize: 20, marginRight: 6 }}>👤</span>
+                      {p.name} <Text type="secondary">({POSITION_TRANSLATIONS[p.position] || p.position})</Text>
+                    </span>
                   </List.Item>
                 )}
               />
