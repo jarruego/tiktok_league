@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Alert, Card, Divider, Layout } from 'antd';
-import { GoogleLoginButton } from './GoogleLoginButton';
+import { Form, Input, Button, Alert, Card, Divider, Layout, Typography } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 const { Content } = Layout;
 
@@ -12,12 +10,10 @@ export const LoginScreen: React.FC = () => {
   const [form] = Form.useForm();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPro, setShowPro] = useState(false);
   const auth = useAuth();
-  // Usar setUser directamente desde el hook useAuth
   const { setUser } = auth;
-  const navigate = useNavigate();
 
-  // Redirigir tras login exitoso (usuario/pass, Google, TikTok)
   React.useEffect(() => {
     if (auth.isAuthenticated && auth.user) {
       if (typeof auth.user.teamId === 'number' && auth.user.teamId) {
@@ -33,7 +29,6 @@ export const LoginScreen: React.FC = () => {
     setError(null);
     try {
       await auth.login(values.username, values.password);
-      // Refrescar usuario desde backend para obtener teamId actualizado
       const token = localStorage.getItem('auth_token');
       if (token) {
         const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/me`, {
@@ -48,7 +43,6 @@ export const LoginScreen: React.FC = () => {
         }
       }
       form.resetFields();
-      // La redirección se maneja en el useEffect
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error de autenticación');
     } finally {
@@ -60,7 +54,6 @@ export const LoginScreen: React.FC = () => {
     const client_id = import.meta.env.VITE_TIKTOK_CLIENT_ID || '';
     const redirect_uri = encodeURIComponent(window.location.origin + '/tiktok-callback');
     const scope = 'user.info.basic';
-    // Generar state seguro usando window.crypto
     const array = new Uint8Array(30);
     const csrfState = Array.from(window.crypto.getRandomValues(array), b => b.toString(36)).join('');
     sessionStorage.setItem('tiktok_csrf_state', csrfState);
@@ -75,93 +68,33 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <Layout style={{ 
-    }}>
-      <Content style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
+    <Layout>
+      <Content style={{
+        display: 'flex',
+        justifyContent: 'center',
         alignItems: 'center',
         padding: '20px',
         height: '100%',
         overflow: 'auto'
       }}>
-        <Card 
-          style={{ 
-            width: '100%', 
+        <Card
+          style={{
+            width: '100%',
             maxWidth: '400px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
             maxHeight: '90vh',
             overflow: 'auto'
           }}
         >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            autoComplete="off"
-          >
-            <Form.Item
-              label="Usuario"
-              name="username"
-              rules={[{ required: true, message: 'Por favor ingresa tu usuario' }]}
-            >
-              <Input
-                size="large"
-                prefix={<UserOutlined />}
-                placeholder="Usuario"
-                disabled={isLoading}
-                autoComplete="username"
-              />
-            </Form.Item>
-
-            <Form.Item
-              label="Contraseña"
-              name="password"
-              rules={[{ required: true, message: 'Por favor ingresa tu contraseña' }]}
-            >
-              <Input.Password
-                size="large"
-                prefix={<LockOutlined />}
-                placeholder="Contraseña"
-                disabled={isLoading}
-                autoComplete="current-password"
-              />
-            </Form.Item>
-
-            {error && (
-              <Form.Item>
-                <Alert
-                  message="Error de Autenticación"
-                  description={error}
-                  type="error"
-                  showIcon
-                  style={{ marginBottom: '16px' }}
-                />
-              </Form.Item>
-            )}
-
-            <Form.Item>
-              <Button 
-                type="primary" 
-                htmlType="submit" 
-                loading={isLoading}
-                size="large"
-                style={{ width: '100%' }}
-                icon={<UserOutlined />}
-              >
-                Iniciar Sesión
-              </Button>
-            </Form.Item>
-          </Form>
-
-          <Divider>o</Divider>
-          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-            <GoogleLoginButton />
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <Typography.Text style={{ fontSize: 16 }}>
+              Para acceder al juego debes iniciar sesión con tu cuenta de TikTok
+            </Typography.Text>
           </div>
-          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-            <Button 
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <Button
               size="large"
-              style={{ 
+              style={{
                 width: '100%',
                 backgroundColor: '#000',
                 borderColor: '#000',
@@ -169,7 +102,8 @@ export const LoginScreen: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px'
+                gap: '8px',
+                fontWeight: 600
               }}
               onClick={handleTikTokLogin}
             >
@@ -177,9 +111,78 @@ export const LoginScreen: React.FC = () => {
               Continuar con TikTok
             </Button>
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <Button type="link" onClick={() => navigate('/register')}>¿No tienes cuenta? Regístrate</Button>
+
+          <Divider plain style={{ margin: '16px 0' }} />
+
+
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <Button type="link" onClick={() => setShowPro(v => !v)} style={{ fontSize: '14px', fontStyle: 'italic', padding: 0 }}>
+              {showPro ? 'Ocultar formulario PRO' : 'Tengo una cuenta PRO'}
+            </Button>
           </div>
+
+          {showPro && (
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              autoComplete="off"
+              style={{ marginTop: 8 }}
+            >
+              <Form.Item
+                label="Usuario"
+                name="username"
+                rules={[{ required: true, message: 'Por favor ingresa tu usuario' }]}
+              >
+                <Input
+                  size="large"
+                  prefix={<UserOutlined />}
+                  placeholder="Usuario"
+                  disabled={isLoading}
+                  autoComplete="username"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Contraseña"
+                name="password"
+                rules={[{ required: true, message: 'Por favor ingresa tu contraseña' }]}
+              >
+                <Input.Password
+                  size="large"
+                  prefix={<LockOutlined />}
+                  placeholder="Contraseña"
+                  disabled={isLoading}
+                  autoComplete="current-password"
+                />
+              </Form.Item>
+
+              {error && (
+                <Form.Item>
+                  <Alert
+                    message="Error de Autenticación"
+                    description={error}
+                    type="error"
+                    showIcon
+                    style={{ marginBottom: '16px' }}
+                  />
+                </Form.Item>
+              )}
+
+              <Form.Item>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={isLoading}
+                  size="large"
+                  style={{ width: '100%' }}
+                  icon={<UserOutlined />}
+                >
+                  Iniciar Sesión
+                </Button>
+              </Form.Item>
+            </Form>
+          )}
         </Card>
       </Content>
       <footer style={{
