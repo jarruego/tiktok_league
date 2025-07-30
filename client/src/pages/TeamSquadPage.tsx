@@ -406,8 +406,12 @@ export default function TeamSquadPage() {
           )}
       {/* Formulario de añadir jugador manual siempre visible si no hay football_data_id */}
       {!hasFootballDataId ? (
-        <div className="manual-add-player" style={{ width: '100%', margin: '24px 0 0 0' }}>
-          <h3 style={{ fontWeight: 600, marginBottom: 8, textAlign: 'center' }}>Jugadores (máx. 30)</h3>
+        <Card
+          className="manual-add-player"
+          style={{ width: '100%', maxWidth: 800, margin: '24px auto 0 auto', background: '#f6fbff', border: '1.5px solid #1890ff', borderRadius: 12, boxShadow: '0 2px 8px rgba(24,144,255,0.07)' }}
+          bodyStyle={{ padding: 16 }}
+        >
+          <h3 style={{ fontWeight: 600, marginBottom: 8, textAlign: 'center', color: '#1890ff' }}>Añadir Jugadores (máx. 30)</h3>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -441,7 +445,7 @@ export default function TeamSquadPage() {
             }}
             style={{ display: 'flex', alignItems: 'center', gap: '2px', width: '100%' }}
           >
-            <div style={{ display: 'flex', width: '100%', gap: '2px' }}>
+            <div style={{ display: 'flex', width: '100%', gap: '5px' }}>
               <input
                 type="text"
                 placeholder="Nombre"
@@ -469,16 +473,31 @@ export default function TeamSquadPage() {
               <Button
                 type="primary"
                 htmlType="submit"
-                icon={<PlusOutlined />}
-                shape="circle"
-                size="small"
-                style={{ background: '#1890ff', borderColor: '#1890ff', color: '#fff', minWidth: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(24,144,255,0.10)' }}
+                icon={<PlusOutlined style={{ fontSize: 18, marginRight: 2 }} />}
+                style={{
+                  background: '#1890ff',
+                  borderColor: '#1890ff',
+                  color: '#fff',
+                  minWidth: 90,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 600,
+                  fontSize: 15,
+                  gap: 1,
+                  boxShadow: '0 2px 6px rgba(24,144,255,0.10)'
+                }}
                 disabled={adding}
-              />
+              >
+                Añadir                
+              </Button>
             </div>
           </form>
-          {error && <div className="error-message">{error}</div>}
-        </div>
+          {error && error !== 'Alineación guardada correctamente.' && (
+            <div className="error-message" style={{ marginTop: 10, textAlign: 'center' }}>{error}</div>
+          )}
+        </Card>
       ) : null}
       
       <Divider style={{ margin: '16px 0' }} />
