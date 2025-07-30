@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LayoutContainer } from '../components/LayoutContainer';
+import LoadingBallAnimation from '../components/LoadingBallAnimation';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -78,9 +79,7 @@ const TikTokCallback: React.FC = () => {
   return (
     <LayoutContainer>
       <div style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
-        <h2 style={{ textAlign: 'center', marginTop: 60 }}>
-          Procesando inicio de sesión con TikTok...
-        </h2>
+        <LoadingBallAnimation text="Procesando inicio de sesión con TikTok..." />
       </div>
     </LayoutContainer>
   );
