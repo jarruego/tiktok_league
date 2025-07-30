@@ -15,6 +15,7 @@ import {
   ClearOutlined
 } from '@ant-design/icons';
 import { LayoutContainer } from '../components/LayoutContainer';
+import LoadingBallAnimation from '../components/LoadingBallAnimation';
 import { matchApi } from '../api/matchApi';
 import { leagueApi } from '../api/leagueApi';
 import type { 
@@ -44,6 +45,7 @@ const statusLabels = {
 };
 
 export default function MatchesPage() {
+
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [divisions, setDivisions] = useState<Division[]>([]);
@@ -65,31 +67,14 @@ export default function MatchesPage() {
     regularMatches: 0
   });
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedSeason) {
-      loadMatches();
-      loadStats();
-    }
-  }, [selectedSeason, filters, pagination.current, pagination.pageSize]);
-
-  // Reset pagination when filters change
-  useEffect(() => {
-    setPagination(prev => ({ ...prev, current: 1 }));
-  }, [filters]);
-
+  // --- Mover funciones aquí antes de los useEffect ---
   const loadInitialData = async () => {
     try {
       const [seasonsData, divisionsData] = await Promise.all([
         leagueApi.getAllSeasons(),
         leagueApi.getDivisionStructure()
       ]);
-      
       setDivisions(divisionsData);
-      
       // Seleccionar temporada activa por defecto
       const activeSeason = seasonsData.find(s => s.isActive);
       if (activeSeason) {
@@ -135,14 +120,11 @@ export default function MatchesPage() {
 
   const loadStats = async () => {
     if (!selectedSeason) return;
-    
     try {
       const seasonStats = await matchApi.getSeasonStats(selectedSeason);
-      
       // Calcular estadísticas de playoffs desde los matches actuales
       const playoffMatches = matches.filter(m => m.isPlayoff).length;
       const regularMatches = matches.filter(m => !m.isPlayoff).length;
-      
       setStats({
         ...seasonStats,
         playoffMatches,
@@ -157,6 +139,27 @@ export default function MatchesPage() {
     setFilters({});
     setTeamName('');
   };
+
+  // --- useEffect después de las funciones ---
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedSeason) {
+      loadMatches();
+      loadStats();
+    }
+  }, [selectedSeason, filters, pagination.current, pagination.pageSize]);
+
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, current: 1 }));
+  }, [filters]);
+
+  // Mostrar animación de carga solo antes del return principal
+  if (loading) {
+    return <LoadingBallAnimation text="Cargando partidos..." />;
+  }
 
 
   const columns: ColumnsType<Match> = [
