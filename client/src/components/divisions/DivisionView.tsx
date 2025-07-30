@@ -131,15 +131,18 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
       title: 'Equipo', 
       dataIndex: 'teamName', 
       key: 'teamName',
-      render: (teamName: string, record: ExtendedTeamInLeague) => (
-        <div 
-          className="clickable-team"
-          onClick={() => handleTeamClick(record.teamId)}
-        >
-          <div className="clickable-team-name" style={{ fontWeight: 500 }}>{teamName}</div>
-          {record.shortName && record.shortName !== teamName }
-        </div>
-      )
+      render: (teamName: string, record: ExtendedTeamInLeague) => {
+        // Solo resaltar visualmente la fila, no el nombre ni icono
+        return (
+          <div 
+            className="clickable-team"
+            onClick={() => handleTeamClick(record.teamId)}
+          >
+            <div className="clickable-team-name" style={{ fontWeight: 500 }}>{teamName}</div>
+            {record.shortName && record.shortName !== teamName }
+          </div>
+        );
+      }
     },
     { 
       title: 'PJ', 
@@ -222,6 +225,8 @@ export default function DivisionView() {
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [systemInitialized, setSystemInitialized] = useState(false);
   const [searchParams] = useSearchParams();
+  // teamId del usuario logueado
+  const loggedTeamId = user?.teamId;
 
   // Cargar datos iniciales, soportando teamId en la query string
   const loadInitialData = async () => {
@@ -482,18 +487,22 @@ export default function DivisionView() {
             style={{ width: '100%' }}
             rowClassName={(record: ExtendedTeamInLeague) => {
               const backendStatus = (record.standing as any)?.status;
-              if (!backendStatus) return '';
-              return `team-row-${backendStatus.toLowerCase()}`;
+              let rowClass = '';
+              if (backendStatus) rowClass = `team-row-${backendStatus.toLowerCase()}`;
+              if (loggedTeamId && record.teamId === loggedTeamId) rowClass += ' team-row-logged';
+              return rowClass.trim();
             }}
             onRow={(record: ExtendedTeamInLeague) => ({
               style: (() => {
                 const backendStatus = (record.standing as any)?.status;
-                if (!backendStatus) return {};
-                const statusDisplay = getStatusDisplay(backendStatus);
-                return {
-                  backgroundColor: statusDisplay.backgroundColor,
-                  borderLeft: `4px solid ${statusDisplay.color}`
-                };
+                let style: React.CSSProperties = {};
+                if (backendStatus) {
+                  const statusDisplay = getStatusDisplay(backendStatus);
+                  style.backgroundColor = statusDisplay.backgroundColor;
+                  style.borderLeft = `4px solid ${statusDisplay.color}`;
+                }
+                // El sombreado real se aplica por CSS en .team-row-logged
+                return style;
               })()
             })}
           />
@@ -502,6 +511,7 @@ export default function DivisionView() {
             {selectedDivision && (
               <Tag color="blue">{teams.length} / {selectedDivision.teamsPerLeague} equipos</Tag>
             )}
+            {/* El tag de "Tu equipo" se elimina porque ya se resalta la fila */}
             <Tag color="purple">{season.name}</Tag>
             {selectedDivision && selectedDivision.level === 1 && (
               <Tag color="purple">🏆 8 plazas de torneo</Tag>

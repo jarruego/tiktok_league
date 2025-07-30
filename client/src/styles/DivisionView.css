@@ -1,3 +1,13 @@
+/* Sombreado y borde para la fila del equipo logueado */
+.team-row-logged {
+  outline: 1px solid #1890ff !important;
+  outline-offset: -3px !important;
+  border-radius: 8px !important;
+  background: #e0f0ff !important;
+  z-index: 2;
+  position: relative;
+  transition: outline 0.2s, background 0.2s;
+}
 /* Estilos específicos para el sistema de divisiones y ligas */
 
 /* Estados de clasificación de equipos */
