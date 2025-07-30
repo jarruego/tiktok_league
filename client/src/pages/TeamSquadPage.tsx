@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import LoadingBallAnimation from '../components/LoadingBallAnimation';
 import { Card, Button, Typography, Divider, List, Modal, Tooltip } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
@@ -264,7 +265,7 @@ export default function TeamSquadPage() {
     }));
   }, [selectedTactic]);
 
-  if (loading) return <div style={{textAlign:'center',marginTop:40}}><Text strong>Cargando...</Text></div>;
+  if (loading) return <LoadingBallAnimation text="Cargando datos de la plantilla..." />;
 
 
 

@@ -1,4 +1,5 @@
 import { Table, Select, Spin, Alert, Typography, Card, Tag } from 'antd';
+import LoadingBallAnimation from '../LoadingBallAnimation';
 import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
 import { matchApi } from '../../api/matchApi';
@@ -382,11 +383,7 @@ export default function DivisionView() {
   }, [selectedLeague, season]);
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px', width: '100%' }}>
-        <Spin size="large" />
-      </div>
-    );
+    return <LoadingBallAnimation text="Cargando datos de la división..." />;
   }
 
   if (!systemInitialized) {

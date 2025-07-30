@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import LoadingBallAnimation from '../components/LoadingBallAnimation';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { leagueApi } from '../api/leagueApi';
@@ -38,8 +39,11 @@ const MyTeamPage: React.FC = () => {
   const [divisionName, setDivisionName] = useState<string | null>(null);
   const [nextMatches, setNextMatches] = useState<Match[]>([]);
   const [lastMatch, setLastMatch] = useState<Match | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
     // Si el usuario no tiene teamId, intenta refrescar desde el backend
     if (!user?.teamId) {
       const token = localStorage.getItem('auth_token');
@@ -55,7 +59,10 @@ const MyTeamPage: React.FC = () => {
             if (data && data.teamId) {
               setUser && setUser(data);
             }
+            setLoading(false);
           });
+      } else {
+        setLoading(false);
       }
       return;
     }
@@ -130,18 +137,22 @@ const MyTeamPage: React.FC = () => {
         .filter((m: any) => m.status === 'finished')
         .sort((a: any, b: any) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
 
-      setNextMatches(nextArr);
-      setLastMatch(last ? {
-        id: last.id,
-        homeTeam: last.homeTeam?.name ?? last.homeTeam ?? '',
-        awayTeam: last.awayTeam?.name ?? last.awayTeam ?? '',
-        homeCrest: last.homeTeam?.crest ?? '',
-        awayCrest: last.awayTeam?.crest ?? '',
-        homeGoals: last.homeGoals,
-        awayGoals: last.awayGoals,
-        date: last.scheduledDate
-      } : null);
+      if (!cancelled) {
+        setNextMatches(nextArr);
+        setLastMatch(last ? {
+          id: last.id,
+          homeTeam: last.homeTeam?.name ?? last.homeTeam ?? '',
+          awayTeam: last.awayTeam?.name ?? last.awayTeam ?? '',
+          homeCrest: last.homeTeam?.crest ?? '',
+          awayCrest: last.awayTeam?.crest ?? '',
+          homeGoals: last.homeGoals,
+          awayGoals: last.awayGoals,
+          date: last.scheduledDate
+        } : null);
+        setLoading(false);
+      }
     });
+    return () => { cancelled = true; };
   }, [user, setUser]);
 
   useEffect(() => {
@@ -150,6 +161,10 @@ const MyTeamPage: React.FC = () => {
     }
   }, [user, navigate]);
 
+
+  if (loading) {
+    return <LoadingBallAnimation text="Cargando datos..." />;
+  }
   if (!user?.teamId) {
     return null;
   }
