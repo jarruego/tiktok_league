@@ -159,6 +159,7 @@ export class MatchController {
         teamId: matchPlayerStatsTable.teamId,
         goals: matchPlayerStatsTable.goals,
         assists: matchPlayerStatsTable.assists,
+        goalMinutes: matchPlayerStatsTable.goalMinutes,
         playerName: playerTable.name
       })
       .from(matchPlayerStatsTable)

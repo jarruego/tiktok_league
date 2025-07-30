@@ -225,33 +225,41 @@ export class MatchSimulationService {
         return;
       }
 
-      // Probabilidades por posición
-      const probGol = { 'DEL': 0.7, 'MED': 0.25, 'DEF': 0.05 };
-      const probAsist = { 'DEL': 0.4, 'MED': 0.4, 'DEF': 0.2 };
+      // Probabilidades por posición (ajustadas: GK nunca, DEF muy poco, MED poco, DEL mucho)
+      const probGol = { 'GK': 0, 'DEF': 0.02, 'MED': 0.25, 'DEL': 0.73 };
+      const probAsist = { 'GK': 0, 'DEF': 0.10, 'MED': 0.45, 'DEL': 0.45 };
 
       // Inicializar stats
-      const stats: Record<number, { goals: number, assists: number }> = {};
-      jugadores.forEach(j => { stats[j.playerId] = { goals: 0, assists: 0 }; });
+      const stats: Record<number, { goals: number, assists: number, goalMinutes: number[] }> = {};
+      jugadores.forEach(j => { stats[j.playerId] = { goals: 0, assists: 0, goalMinutes: [] }; });
 
-      // Asignar goles
+      // Asignar goles y minutos
+      const minutosDisponibles = Array.from({ length: 90 }, (_, i) => i + 1);
       for (let i = 0; i < goles; i++) {
-        // Filtrar por probabilidad
-        const candidatos = jugadores.filter(j => Math.random() < (probGol[j.position] || 0.1));
-        const elegibles = candidatos.length > 0 ? candidatos : jugadores;
+        // Filtrar por probabilidad y excluir porteros
+        const candidatos = jugadores.filter(j => j.position !== 'GK' && Math.random() < (probGol[j.position] || 0.1));
+        // Si no hay candidatos, usar todos menos porteros
+        const elegibles = candidatos.length > 0 ? candidatos : jugadores.filter(j => j.position !== 'GK');
+        // Si solo hay porteros, no asignar el gol
+        if (elegibles.length === 0) continue;
         const goleador = elegibles[Math.floor(Math.random() * elegibles.length)];
         stats[goleador.playerId].goals++;
+        // Asignar minuto aleatorio no repetido
+        const idx = Math.floor(Math.random() * minutosDisponibles.length);
+        const minuto = minutosDisponibles.splice(idx, 1)[0];
+        stats[goleador.playerId].goalMinutes.push(minuto);
       }
 
       // Asignar asistencias
       for (let i = 0; i < goles; i++) {
         // El goleador de este gol
-        const posiblesGoleadores = jugadores.filter(j => stats[j.playerId].goals > 0);
+        const posiblesGoleadores = jugadores.filter(j => stats[j.playerId].goals > 0 && j.position !== 'GK');
         if (posiblesGoleadores.length === 0) break;
         const goleador = posiblesGoleadores[Math.floor(Math.random() * posiblesGoleadores.length)];
         stats[goleador.playerId].goals--;
-        // Elegir asistente (no puede ser el mismo)
-        const asistentes = jugadores.filter(j => j.playerId !== goleador.playerId && Math.random() < (probAsist[j.position] || 0.1));
-        const elegiblesAsist = asistentes.length > 0 ? asistentes : jugadores.filter(j => j.playerId !== goleador.playerId);
+        // Elegir asistente (no puede ser el mismo ni portero)
+        const asistentes = jugadores.filter(j => j.playerId !== goleador.playerId && j.position !== 'GK' && Math.random() < (probAsist[j.position] || 0.1));
+        const elegiblesAsist = asistentes.length > 0 ? asistentes : jugadores.filter(j => j.playerId !== goleador.playerId && j.position !== 'GK');
         if (elegiblesAsist.length > 0) {
           const asistente = elegiblesAsist[Math.floor(Math.random() * elegiblesAsist.length)];
           stats[asistente.playerId].assists++;
@@ -265,7 +273,7 @@ export class MatchSimulationService {
 
       // Guardar en la base de datos
       for (const jugador of jugadores) {
-        const { goals, assists } = stats[jugador.playerId];
+        const { goals, assists, goalMinutes } = stats[jugador.playerId];
         if (goals > 0 || assists > 0) {
           try {
             await db.insert(matchPlayerStatsTable).values({
@@ -273,9 +281,10 @@ export class MatchSimulationService {
               playerId: jugador.playerId,
               teamId,
               goals,
-              assists
+              assists,
+              goalMinutes
             });
-            console.log(`[STATS] Guardado stats para jugador ${jugador.playerId} (equipo ${teamId}): goles=${goals}, asistencias=${assists}`);
+            console.log(`[STATS] Guardado stats para jugador ${jugador.playerId} (equipo ${teamId}): goles=${goals}, asistencias=${assists}, minutos=${goalMinutes}`);
           } catch (err) {
             console.error(`[STATS] Error guardando stats para jugador ${jugador.playerId} (equipo ${teamId}):`, err);
           }

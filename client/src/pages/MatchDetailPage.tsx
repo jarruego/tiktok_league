@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, Table, Row, Col, Typography, Spin, Divider } from 'antd';
+import { Card, Table, Row, Col, Typography, Spin } from 'antd';
 
 const { Title } = Typography;
 
 import type { Match } from '../types/match.types';
 import type { ColumnsType } from 'antd/es/table';
 
+
 interface PlayerStat {
   playerId: number;
   playerName: string;
   goals: number;
   assists: number;
+  goalMinutes?: number[];
 }
 
 const columns: ColumnsType<PlayerStat> = [
@@ -25,6 +27,16 @@ const columns: ColumnsType<PlayerStat> = [
     dataIndex: 'goals',
     key: 'goals',
     align: 'center' as const,
+    render: (goles: number, record: PlayerStat) => (
+      <span>
+        {goles}
+        {record.goalMinutes && record.goalMinutes.length > 0 && (
+          <span style={{ color: '#888', fontSize: 12, marginLeft: 4 }}>
+            ({record.goalMinutes.sort((a, b) => a - b).join("', ")}")
+          </span>
+        )}
+      </span>
+    ),
   },
   {
     title: 'Asistencias',
@@ -63,42 +75,62 @@ export default function MatchDetailPage() {
   if (!match) return <div>No se encontró el partido.</div>;
 
   return (
-    <div style={{ width: '100vw', minHeight: '100vh', background: '#fff' }}>
-      <Row style={{ width: '100%' }} gutter={0}>
-        <Col xs={24} sm={12} style={{ padding: 0 }}>
-          <Card bordered={false} style={{ borderRadius: 0, boxShadow: 'none' }}>
-            <Title level={3} style={{ margin: 0 }}>{match.homeTeam.name}</Title>
-            <Title level={1} style={{ margin: 0 }}>{match.homeGoals}</Title>
-            <Table
-              columns={columns}
-              dataSource={stats.home}
-              pagination={false}
-              rowKey="playerId"
-              size="small"
-              style={{ width: '100%' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} style={{ padding: 0 }}>
-          <Card bordered={false} style={{ borderRadius: 0, boxShadow: 'none' }}>
-            <Title level={3} style={{ margin: 0 }}>{match.awayTeam.name}</Title>
-            <Title level={1} style={{ margin: 0 }}>{match.awayGoals}</Title>
-            <Table
-              columns={columns}
-              dataSource={stats.away}
-              pagination={false}
-              rowKey="playerId"
-              size="small"
-              style={{ width: '100%' }}
-            />
+    <div style={{ width: '100vw', minHeight: '100vh', background: 'linear-gradient(135deg, #f5f6fa 60%, #e6e9f0 100%)', padding: 24 }}>
+      <Row gutter={0} justify="center" align="top" style={{ marginBottom: 24, width: '100%' }}>
+        <Col xs={24} style={{ width: '100%' }}>
+          <Card bordered style={{ borderRadius: 12, background: '#f0f7ff', boxShadow: '0 2px 8px #d6e4ff', width: '100%' }}>
+            <Row align="middle" justify="space-between" style={{ width: '100%' }}>
+              <Col xs={8} style={{ textAlign: 'center' }}>
+                {match.homeTeam.crest && (
+                  <img src={match.homeTeam.crest} alt="escudo local" style={{ width: 48, height: 48, objectFit: 'contain', marginBottom: 4 }} />
+                )}
+                <div style={{ fontWeight: 600, color: '#1e90ff', fontSize: 18 }}>{match.homeTeam.name}</div>
+              </Col>
+              <Col xs={8} style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: 48, fontWeight: 900, color: '#222', letterSpacing: 2 }}>
+                  {match.homeGoals ?? '-'}<span style={{ color: '#888', fontWeight: 400, fontSize: 32 }}> - </span>{match.awayGoals ?? '-'}
+                </span>
+              </Col>
+              <Col xs={8} style={{ textAlign: 'center' }}>
+                {match.awayTeam.crest && (
+                  <img src={match.awayTeam.crest} alt="escudo visitante" style={{ width: 48, height: 48, objectFit: 'contain', marginBottom: 4 }} />
+                )}
+                <div style={{ fontWeight: 600, color: '#d72660', fontSize: 18 }}>{match.awayTeam.name}</div>
+              </Col>
+            </Row>
+            <Row gutter={24} style={{ marginTop: 16 }}>
+              <Col xs={24} sm={12}>
+                <Table
+                  columns={columns}
+                  dataSource={stats.home}
+                  pagination={false}
+                  rowKey="playerId"
+                  size="small"
+                  style={{ width: '100%' }}
+                />
+              </Col>
+              <Col xs={24} sm={12}>
+                <Table
+                  columns={columns}
+                  dataSource={stats.away}
+                  pagination={false}
+                  rowKey="playerId"
+                  size="small"
+                  style={{ width: '100%' }}
+                />
+              </Col>
+            </Row>
           </Card>
         </Col>
       </Row>
-      <Divider />
-      <div style={{ minHeight: 120, width: '100%' }}>
-        <Title level={4}>Crónica del partido</Title>
-        <div style={{ color: '#aaa' }}>[Aquí irá la crónica próximamente]</div>
-      </div>
+      <Row justify="center">
+        <Col xs={24} sm={20} md={12}>
+          <Card bordered style={{ borderRadius: 12, background: '#f9fafc', boxShadow: '0 2px 8px #e6e9f0' }}>
+            <Title level={4} style={{ color: '#555' }}>Crónica del partido</Title>
+            <div style={{ color: '#aaa', minHeight: 60 }}>[Aquí irá la crónica próximamente]</div>
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 }

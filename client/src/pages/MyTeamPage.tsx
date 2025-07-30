@@ -39,6 +39,7 @@ const MyTeamPage: React.FC = () => {
   const [divisionName, setDivisionName] = useState<string | null>(null);
   const [nextMatches, setNextMatches] = useState<Match[]>([]);
   const [lastMatch, setLastMatch] = useState<Match | null>(null);
+  const [finishedMatches, setFinishedMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -133,21 +134,33 @@ const MyTeamPage: React.FC = () => {
           awayGoals: next.awayGoals,
           date: next.scheduledDate
         }));
-      const last = matches
+      const finishedArr = matches
         .filter((m: any) => m.status === 'finished')
-        .sort((a: any, b: any) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())[0];
+        .sort((a: any, b: any) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
+        .map((fin: any) => ({
+          id: fin.id,
+          homeTeam: fin.homeTeam?.name ?? fin.homeTeam ?? '',
+          awayTeam: fin.awayTeam?.name ?? fin.awayTeam ?? '',
+          homeCrest: fin.homeTeam?.crest ?? '',
+          awayCrest: fin.awayTeam?.crest ?? '',
+          homeGoals: fin.homeGoals,
+          awayGoals: fin.awayGoals,
+          date: fin.scheduledDate
+        }));
+      const last = finishedArr[0];
 
       if (!cancelled) {
         setNextMatches(nextArr);
+        setFinishedMatches(finishedArr);
         setLastMatch(last ? {
           id: last.id,
-          homeTeam: last.homeTeam?.name ?? last.homeTeam ?? '',
-          awayTeam: last.awayTeam?.name ?? last.awayTeam ?? '',
-          homeCrest: last.homeTeam?.crest ?? '',
-          awayCrest: last.awayTeam?.crest ?? '',
+          homeTeam: last.homeTeam,
+          awayTeam: last.awayTeam,
+          homeCrest: last.homeCrest,
+          awayCrest: last.awayCrest,
           homeGoals: last.homeGoals,
           awayGoals: last.awayGoals,
-          date: last.scheduledDate
+          date: last.date
         } : null);
         setLoading(false);
       }
@@ -236,7 +249,20 @@ const MyTeamPage: React.FC = () => {
         boxShadow: '0 2px 12px 0 rgba(30,144,255,0.07)',
         transition: 'box-shadow 0.2s',
       }}>
-        <h3 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: 0.5 }}>Último partido</h3>
+        <h3 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 8 }}>
+          Último partido
+          <a
+            href="#partidos-finalizados"
+            style={{ fontSize: 13, fontWeight: 400, color: '#1e90ff', textDecoration: 'underline', marginLeft: 6 }}
+            onClick={e => {
+              e.preventDefault();
+              const el = document.getElementById('partidos-finalizados');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            (Ver todos)
+          </a>
+        </h3>
         {lastMatch ? (
           <div
             style={{ width: '100%', cursor: 'pointer' }}
@@ -267,15 +293,18 @@ const MyTeamPage: React.FC = () => {
         )}
       </div>
       {/* Card: Próximos partidos */}
-      <div style={{
-        padding: '10px',
-        width: '95%',
-        margin: '10px auto', 
-        overflowX: 'hidden',
-        border: '1px solid #eee',
-        borderRadius: 8,
-        background: '#fff',
-      }}>
+      <div
+        id="partidos-finalizados"
+        style={{
+          padding: '10px',
+          width: '95%',
+          margin: '10px auto',
+          overflowX: 'hidden',
+          border: '1px solid #eee',
+          borderRadius: 8,
+          background: '#fff',
+        }}
+      >
         <h3 style={{ margin: 0, fontSize: 24, marginBottom: 6, textAlign: 'center' }}>Próximos partidos</h3>
         {nextMatches.length > 0 ? (
           <div
@@ -296,9 +325,10 @@ const MyTeamPage: React.FC = () => {
                 key={match.id}
                 className="card"
                 style={{
+                  cursor: 'pointer',
                   minWidth: 'min(100%, 280px)',
                   width: '100%',
-                  maxWidth: 'calc(33% - 10px)', // 3 por fila en escritorio
+                  maxWidth: 'calc(33% - 10px)',
                   flex: '1 1 320px',
                   padding: '8px 4px',
                   border: '1px solid #eee',
@@ -310,6 +340,7 @@ const MyTeamPage: React.FC = () => {
                   alignItems: 'stretch',
                   boxSizing: 'border-box',
                 }}
+                onClick={() => navigate(`/match/${match.id}`)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
@@ -359,6 +390,79 @@ const MyTeamPage: React.FC = () => {
             }
           }
         `}</style>
+      </div>
+
+      {/* Card: Partidos Finalizados */}
+      <div style={{
+        padding: '10px',
+        width: '95%',
+        margin: '10px auto',
+        overflowX: 'hidden',
+        border: '1px solid #eee',
+        borderRadius: 8,
+        background: '#fff',
+      }}>
+        <h3 style={{ margin: 0, fontSize: 24, marginBottom: 6, textAlign: 'center' }}>Partidos Finalizados</h3>
+        {finishedMatches.length > 0 ? (
+          <div
+            style={{
+              padding: '0px 10px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 10,
+              justifyContent: 'flex-start',
+              width: '100%',
+              boxSizing: 'border-box',
+              marginLeft: 0,
+              marginRight: 0,
+            }}
+          >
+            {finishedMatches.map((match) => (
+              <div
+                key={match.id}
+                className="card"
+                style={{ cursor: 'pointer', ...{
+                  minWidth: 'min(100%, 280px)',
+                  width: '100%',
+                  maxWidth: 'calc(33% - 10px)',
+                  flex: '1 1 320px',
+                  padding: '8px 4px',
+                  border: '1px solid #eee',
+                  borderRadius: 8,
+                  background: '#fff',
+                  marginBottom: 6,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  boxSizing: 'border-box',
+                } }}
+                onClick={() => navigate(`/match/${match.id}`)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
+                    {match.homeCrest && <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                    <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.homeTeam}</span>
+                  </div>
+                  <span style={{ fontWeight: 700, fontSize: 16, margin: '0 8px', minWidth: 28, textAlign: 'center' }}>
+                    {typeof match.homeGoals === 'number' && typeof match.awayGoals === 'number'
+                      ? `${match.homeGoals} - ${match.awayGoals}`
+                      : 'vs'}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
+                    <span style={{ fontWeight: 600, fontSize: 15, marginRight: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.awayTeam}</span>
+                    {match.awayCrest && <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
+                  {new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', color: '#888', fontSize: 16 }}>No hay partidos finalizados.</div>
+        )}
+        {/* Reutiliza el mismo CSS responsivo que la card anterior */}
       </div>
     </div>
   );

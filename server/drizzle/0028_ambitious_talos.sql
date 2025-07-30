@@ -1,0 +1,1 @@
+ALTER TABLE "match_player_stats" ADD COLUMN "goal_minutes" jsonb DEFAULT '[]'::jsonb;

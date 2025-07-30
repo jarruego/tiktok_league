@@ -1,4 +1,6 @@
-import { pgTable, serial, integer } from 'drizzle-orm/pg-core';
+
+import { pgTable, serial, integer, jsonb } from 'drizzle-orm/pg-core';
+
 
 export const matchPlayerStatsTable = pgTable('match_player_stats', {
   id: serial('id').primaryKey(),
@@ -7,6 +9,7 @@ export const matchPlayerStatsTable = pgTable('match_player_stats', {
   teamId: integer('team_id').notNull(),
   goals: integer('goals').notNull().default(0),
   assists: integer('assists').notNull().default(0),
+  goalMinutes: jsonb('goal_minutes').$type<number[]>().default([]), // array de minutos de los goles marcados
   // Puedes añadir más campos según lo que quieras registrar
 });
 
