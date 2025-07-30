@@ -1,9 +1,33 @@
-import type { Division, Season, TeamInLeague } from '../types/league.types';
+ import type { Division, Season, TeamInLeague } from '../types/league.types';
 import { authService } from './authApi';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const leagueApi = {
+  /**
+   * Actualiza el nombre de un equipo
+   * @param teamId ID del equipo
+   * @param newName Nuevo nombre
+   */
+  async updateTeamName(teamId: number, newName: string) {
+    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}/name`, {
+      method: 'PATCH',
+      headers: {
+        ...authService.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: newName }),
+    });
+    if (!response.ok) {
+      let errorMsg = `Error ${response.status}: ${response.statusText}`;
+      try {
+        const err = await response.json();
+        errorMsg = err.userMessage || err.message || errorMsg;
+      } catch {}
+      throw new Error(errorMsg);
+    }
+    return response.json();
+  },
   // Eliminar jugador manualmente (solo equipos sin football_data_id)
   async deletePlayer(playerId: number) {
     const response = await fetch(`${API_BASE_URL}/api/players/${playerId}`, {

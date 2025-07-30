@@ -26,7 +26,7 @@ export default function MatchesPage() {
   const [filters, setFilters] = useState<MatchFilters>({});
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 50,
+    pageSize: 100,
     total: 0
   });
   const [stats, setStats] = useState({
@@ -314,7 +314,7 @@ export default function MatchesPage() {
             loading={loading}
             pagination={{
               current: pagination.current,
-              pageSize: 20,
+              pageSize: 100,
               total: pagination.total,
               showSizeChanger: false,
               showQuickJumper: false,
@@ -323,7 +323,7 @@ export default function MatchesPage() {
                 setPagination(prev => ({
                   ...prev,
                   current: page,
-                  pageSize: 20
+                  pageSize: 100
                 }));
               }
             }}

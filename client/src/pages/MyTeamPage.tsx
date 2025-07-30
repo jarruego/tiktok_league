@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Modal, Input, message } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import LoadingBallAnimation from '../components/LoadingBallAnimation';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +37,9 @@ const MyTeamPage: React.FC = () => {
   const setUser = (auth && typeof (auth as any).setUser === 'function') ? (auth as any).setUser : undefined;
   const navigate = useNavigate();
   const [team, setTeam] = useState<Team | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
   const [league, setLeague] = useState<League | null>(null);
   const [divisionName, setDivisionName] = useState<string | null>(null);
   const [nextMatches, setNextMatches] = useState<Match[]>([]);
@@ -199,8 +204,52 @@ const MyTeamPage: React.FC = () => {
           {team?.logoUrl && (
             <img src={team.logoUrl} alt="Escudo" style={{ width: 56, height: 56, marginRight: 16, background: '#fff' }} />
           )}
-          <h2 style={{ fontSize: 26, margin: 0, fontWeight: 800, color: '#1e90ff', letterSpacing: 0.5 }}>{team?.name || 'Mi Equipo'}</h2>
+          <h2 style={{ fontSize: 26, margin: 0, fontWeight: 800, color: '#1e90ff', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {team?.name || 'Mi Equipo'}
+            {team && (
+              <EditOutlined
+                style={{ color: '#888', fontSize: 20, marginLeft: 8, cursor: 'pointer' }}
+                title="Editar nombre del equipo"
+                onClick={() => {
+                  setEditName(team.name);
+                  setEditModalOpen(true);
+                }}
+              />
+            )}
+          </h2>
         </div>
+      {/* Modal para editar nombre del equipo */}
+      <Modal
+        title="Editar nombre del equipo"
+        open={editModalOpen}
+        onCancel={() => setEditModalOpen(false)}
+        onOk={async () => {
+          setEditLoading(true);
+          try {
+            // Llama a la API para actualizar el nombre del equipo
+            // Se asume un endpoint: leagueApi.updateTeamName(teamId, nuevoNombre)
+            if (!team) throw new Error('No hay equipo');
+            await leagueApi.updateTeamName(team.id, editName);
+            setTeam(prev => prev ? { ...prev, name: editName } : prev);
+            message.success('Nombre actualizado correctamente');
+            setEditModalOpen(false);
+          } catch (err) {
+            message.error('Error al actualizar el nombre');
+          } finally {
+            setEditLoading(false);
+          }
+        }}
+        okText="Guardar"
+        cancelText="Cancelar"
+        confirmLoading={editLoading}
+      >
+        <Input
+          value={editName}
+          onChange={e => setEditName(e.target.value)}
+          maxLength={30}
+          placeholder="Nuevo nombre del equipo"
+        />
+      </Modal>
         {/* Card: Liga y posición destacada y enlazable */}
         {league && divisionName ? (
           <a
@@ -294,7 +343,6 @@ const MyTeamPage: React.FC = () => {
       </div>
       {/* Card: Próximos partidos */}
       <div
-        id="partidos-finalizados"
         style={{
           padding: '10px',
           width: '95%',
@@ -402,9 +450,9 @@ const MyTeamPage: React.FC = () => {
         borderRadius: 8,
         background: '#fff',
       }}>
-        <h3 style={{ margin: 0, fontSize: 24, marginBottom: 6, textAlign: 'center' }}>Partidos Finalizados</h3>
+        <h3 id="partidos-finalizados" style={{ margin: 0, fontSize: 24, marginBottom: 6, textAlign: 'center' }}>Partidos Finalizados</h3>
         {finishedMatches.length > 0 ? (
-          <div
+          <div            
             style={{
               padding: '0px 10px',
               display: 'flex',

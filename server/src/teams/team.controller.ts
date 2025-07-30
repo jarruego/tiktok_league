@@ -1,3 +1,4 @@
+
 import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { TeamService } from  './team.service';
@@ -77,5 +78,12 @@ export class TeamController {
     // Si viene tiktokId, lo pasamos, si no, null
     const result = await this.teamService.assignTeamForUser(user.username, name, tiktokId);
     return result;
+  }
+
+    // Endpoint para actualizar solo el nombre del equipo
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/name')
+  async updateTeamName(@Param('id') id: string, @Body('name') name: string) {
+    return this.teamService.updateTeamName(Number(id), name);
   }
 }

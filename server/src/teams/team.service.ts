@@ -272,4 +272,18 @@ export class TeamService {
       coach: team.coach?.id ? team.coach : null
     }));
   }
+
+    // Actualizar solo el nombre del equipo
+  async updateTeamName(id: number, name: string) {
+    const db = this.databaseService.db;
+    const [team] = await db
+      .update(teamTable)
+      .set({ name, updatedAt: new Date() })
+      .where(eq(teamTable.id, id))
+      .returning();
+    if (!team) {
+      throw new Error('Equipo no encontrado');
+    }
+    return { message: 'Nombre actualizado correctamente', team };
+  }
 }
