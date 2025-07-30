@@ -1,4 +1,4 @@
-import { Table, Select, Spin, Alert, Typography, Card, Tag } from 'antd';
+import { Table, Select, Alert, Typography, Card, Tag } from 'antd';
 import LoadingBallAnimation from '../LoadingBallAnimation';
 import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
