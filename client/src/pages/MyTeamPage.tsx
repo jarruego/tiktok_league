@@ -238,7 +238,11 @@ const MyTeamPage: React.FC = () => {
       }}>
         <h3 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: 0.5 }}>Último partido</h3>
         {lastMatch ? (
-          <div style={{ width: '100%' }}>
+          <div
+            style={{ width: '100%', cursor: 'pointer' }}
+            onClick={() => navigate(`/match/${lastMatch.id}`)}
+            title="Ver detalle del partido"
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, minHeight: 60, margin: '18px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
                 {lastMatch.homeCrest && <img src={lastMatch.homeCrest} alt="Escudo local" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff' }} />}

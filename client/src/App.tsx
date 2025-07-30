@@ -13,6 +13,7 @@ import AccountPage from './pages/AccountPage';
 import ConfigPage from './pages/ConfigPage';
 import LeaguesPage from './pages/LeaguesPage';
 import MatchesPage from './pages/MatchesPage';
+import MatchDetailPage from './pages/MatchDetailPage';
 import MainHeader from './components/MainHeader';
 import WelcomePage from './pages/WelcomePage';
 import HomePage from './pages/HomePage';
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/welcome" element={<WelcomePage />} />
             <Route path="/team/:id" element={<AuthGuard><TeamDetail /></AuthGuard>} />
             <Route path="/matches" element={<AuthGuard><MatchesPage /></AuthGuard>} />
+            <Route path="/match/:matchId" element={<AuthGuard><MatchDetailPage /></AuthGuard>} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/tiktok-callback" element={<TikTokCallback />} />

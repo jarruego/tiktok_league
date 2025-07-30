@@ -9,7 +9,9 @@ import {
   leagueTable,
   divisionTable,
   teamLeagueAssignmentTable,
-  MatchStatus 
+  MatchStatus,
+  lineupTable,
+  matchPlayerStatsTable
 } from '../database/schema';
 import { eq, and, sql, inArray, gte, lte } from 'drizzle-orm';
 import { DATABASE_PROVIDER } from '../database/database.module';
@@ -18,6 +20,7 @@ interface TeamWithFollowers {
   id: number;
   name: string;
   followers: number;
+  isBot: boolean;
 }
 
 export interface MatchSimulationResult {
@@ -169,25 +172,120 @@ export class MatchSimulationService {
       db.select().from(teamTable).where(eq(teamTable.id, match.awayTeamId)).then(result => result[0])
     ]);
 
+
     if (!homeTeam || !awayTeam) {
       this.logger.error(`❌ Equipos no encontrados - Home: ${!!homeTeam}, Away: ${!!awayTeam}`);
       throw new NotFoundException('Uno o ambos equipos no encontrados');
     }
+
 
     // Calcular resultado usando el algoritmo especificado (considerando si es playoff)
     const simulationResult = this.calculateMatchResult(
       {
         id: homeTeam.id,
         name: homeTeam.name,
-        followers: homeTeam.followers
+        followers: homeTeam.followers,
+        isBot: !!homeTeam.isBot
       },
       {
         id: awayTeam.id,
         name: awayTeam.name,
-        followers: awayTeam.followers
+        followers: awayTeam.followers,
+        isBot: !!awayTeam.isBot
       },
       match.isPlayoff || false // Pasar información de si es playoff
     );
+
+    // --- ASIGNACIÓN DE GOLES Y ASISTENCIAS SI HAY ALINEACIÓN ---
+    // Helper para asignar goles/asistencias a un equipo
+    async function asignarEstadisticasEquipo(teamId: number, goles: number, db: any, matchId: number) {
+      // Buscar alineación
+      const [alineacion] = await db.select().from(lineupTable).where(eq(lineupTable.teamId, teamId));
+      if (!alineacion) {
+        console.log(`[STATS] No se encontró alineación para el equipo ${teamId}`);
+        return;
+      }
+      console.log(`[STATS] Alineación encontrada para el equipo ${teamId}:`, alineacion);
+
+      // Convertir el objeto lineup a un array plano de jugadores con posición
+      let jugadores: Array<{ playerId: number, position: string }> = [];
+      if (alineacion.lineup && typeof alineacion.lineup === 'object') {
+        for (const [pos, arr] of Object.entries(alineacion.lineup)) {
+          if (Array.isArray(arr)) {
+            for (const pid of arr) {
+              if (pid && !isNaN(Number(pid))) {
+                jugadores.push({ playerId: Number(pid), position: pos.substring(0,3).toUpperCase() });
+              }
+            }
+          }
+        }
+      }
+      if (jugadores.length === 0) {
+        console.log(`[STATS] La alineación del equipo ${teamId} no contiene jugadores válidos. Valor:`, alineacion.lineup);
+        return;
+      }
+
+      // Probabilidades por posición
+      const probGol = { 'DEL': 0.7, 'MED': 0.25, 'DEF': 0.05 };
+      const probAsist = { 'DEL': 0.4, 'MED': 0.4, 'DEF': 0.2 };
+
+      // Inicializar stats
+      const stats: Record<number, { goals: number, assists: number }> = {};
+      jugadores.forEach(j => { stats[j.playerId] = { goals: 0, assists: 0 }; });
+
+      // Asignar goles
+      for (let i = 0; i < goles; i++) {
+        // Filtrar por probabilidad
+        const candidatos = jugadores.filter(j => Math.random() < (probGol[j.position] || 0.1));
+        const elegibles = candidatos.length > 0 ? candidatos : jugadores;
+        const goleador = elegibles[Math.floor(Math.random() * elegibles.length)];
+        stats[goleador.playerId].goals++;
+      }
+
+      // Asignar asistencias
+      for (let i = 0; i < goles; i++) {
+        // El goleador de este gol
+        const posiblesGoleadores = jugadores.filter(j => stats[j.playerId].goals > 0);
+        if (posiblesGoleadores.length === 0) break;
+        const goleador = posiblesGoleadores[Math.floor(Math.random() * posiblesGoleadores.length)];
+        stats[goleador.playerId].goals--;
+        // Elegir asistente (no puede ser el mismo)
+        const asistentes = jugadores.filter(j => j.playerId !== goleador.playerId && Math.random() < (probAsist[j.position] || 0.1));
+        const elegiblesAsist = asistentes.length > 0 ? asistentes : jugadores.filter(j => j.playerId !== goleador.playerId);
+        if (elegiblesAsist.length > 0) {
+          const asistente = elegiblesAsist[Math.floor(Math.random() * elegiblesAsist.length)];
+          stats[asistente.playerId].assists++;
+        }
+        // Devolver el gol al goleador para el siguiente ciclo
+        stats[goleador.playerId].goals++;
+      }
+
+      // Mostrar stats generados antes de guardar
+      console.log(`[STATS] Stats generados para el equipo ${teamId} en el partido ${matchId}:`, stats);
+
+      // Guardar en la base de datos
+      for (const jugador of jugadores) {
+        const { goals, assists } = stats[jugador.playerId];
+        if (goals > 0 || assists > 0) {
+          try {
+            await db.insert(matchPlayerStatsTable).values({
+              matchId,
+              playerId: jugador.playerId,
+              teamId,
+              goals,
+              assists
+            });
+            console.log(`[STATS] Guardado stats para jugador ${jugador.playerId} (equipo ${teamId}): goles=${goals}, asistencias=${assists}`);
+          } catch (err) {
+            console.error(`[STATS] Error guardando stats para jugador ${jugador.playerId} (equipo ${teamId}):`, err);
+          }
+        }
+      }
+    }
+
+    // Asignar para local y visitante
+    await asignarEstadisticasEquipo(homeTeam.id, simulationResult.homeGoals, db, matchId);
+    await asignarEstadisticasEquipo(awayTeam.id, simulationResult.awayGoals, db, matchId);
 
     // Actualizar el partido en la base de datos
     await db
@@ -229,29 +327,36 @@ export class MatchSimulationService {
     awayTeam: TeamWithFollowers, 
     isPlayoff: boolean = false
   ) {
+    // Si uno es bot y el otro no, el humano gana 1-5 a 0
+    if (homeTeam.isBot !== awayTeam.isBot) {
+      const humanIsHome = !homeTeam.isBot;
+      const goals = Math.floor(Math.random() * 5) + 1; // 1 a 5
+      return {
+        homeGoals: humanIsHome ? goals : 0,
+        awayGoals: humanIsHome ? 0 : goals,
+        algorithmDetails: {
+          homeTeamFollowers: homeTeam.followers,
+          awayTeamFollowers: awayTeam.followers,
+          followersDifference: homeTeam.followers - awayTeam.followers,
+          randomEvents: 0,
+          followerBasedEvents: 0
+        }
+      };
+    }
+
+    // Algoritmo normal si ambos son bots o ambos humanos
     const followersDifference = homeTeam.followers - awayTeam.followers;
-    
-    // Calcular ventaja porcentual basada en seguidores
     const totalFollowers = homeTeam.followers + awayTeam.followers;
     const homeAdvantage = totalFollowers > 0 ? (homeTeam.followers / totalFollowers) : 0.5;
-    
-    // Normalizar la ventaja para que no sea excesiva (entre 0.2 y 0.8)
     const normalizedHomeAdvantage = 0.2 + (homeAdvantage * 0.6);
-    
-    // Generar eventos de gol
     let homeGoals = 0;
     let awayGoals = 0;
     let randomEvents = 0;
     let followerBasedEvents = 0;
-    
-    // Simular entre 0 y 6 eventos de gol total (realista)
     const totalEvents = Math.floor(Math.random() * 7); // 0-6 goles en total
-    
     for (let i = 0; i < totalEvents; i++) {
       const random = Math.random();
-      
       if (random < 0.25) {
-        // 25% completamente aleatorio
         randomEvents++;
         if (Math.random() < 0.5) {
           homeGoals++;
@@ -259,7 +364,6 @@ export class MatchSimulationService {
           awayGoals++;
         }
       } else {
-        // 75% basado en diferencia de seguidores
         followerBasedEvents++;
         if (Math.random() < normalizedHomeAdvantage) {
           homeGoals++;
@@ -268,22 +372,16 @@ export class MatchSimulationService {
         }
       }
     }
-    
-    // Aplicar factor de casa (ligera ventaja al equipo local)
-    if (Math.random() < 0.15 && totalEvents > 0) { // 15% chance de gol extra en casa
+    if (Math.random() < 0.15 && totalEvents > 0) {
       homeGoals++;
     }
-
-    // Si es playoff y hay empate, forzar un ganador
     if (isPlayoff && homeGoals === awayGoals) {
-      // Usar la ventaja de seguidores para determinar el ganador
       if (Math.random() < normalizedHomeAdvantage) {
         homeGoals++;
       } else {
         awayGoals++;
       }
     }
-
     return {
       homeGoals,
       awayGoals,

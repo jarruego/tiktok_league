@@ -1,3 +1,4 @@
+
 import { 
   Controller, 
   Get, 
@@ -9,8 +10,11 @@ import {
   Query, 
   UseGuards,
   ParseIntPipe,
-  ValidationPipe
+  ValidationPipe,
+  NotFoundException
 } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
+import { matchPlayerStatsTable, playerTable, matchTable, teamTable, leagueTable, divisionTable } from '../database/schema';
 import { MatchService } from './match.service';
 import { MatchSimulationService, MatchSimulationResult } from './match-simulation.service';
 import { StandingsService } from '../standings/standings.service';
@@ -93,42 +97,85 @@ export class MatchController {
   /**
    * Obtener un partido específico
    */
-  @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.matchService.findOne(id);
-  }
+
+
+// ...resto de la clase...
 
   /**
-   * Actualizar un partido
+   * Detalle de partido: resultado y estadísticas de jugadores (goles y asistencias)
    */
-  @UseGuards(JwtAuthGuard)
-  @Patch(':id')
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateMatchDto: UpdateMatchDto
-  ) {
-    return this.matchService.update(id, updateMatchDto);
-  }
+  @Get(':id/detail')
+  async getMatchDetail(@Param('id', ParseIntPipe) id: number) {
+    // Obtener partido con info de equipos (igual que en findMany)
+    const db = this.matchService['databaseService'].db;
+    const [matchRow] = await db
+      .select({
+        id: matchTable.id,
+        matchday: matchTable.matchday,
+        scheduledDate: matchTable.scheduledDate,
+        status: matchTable.status,
+        homeGoals: matchTable.homeGoals,
+        awayGoals: matchTable.awayGoals,
+        notes: matchTable.notes,
+        isPlayoff: matchTable.isPlayoff,
+        playoffRound: matchTable.playoffRound,
+        homeTeamId: matchTable.homeTeamId,
+        awayTeamId: matchTable.awayTeamId,
+        leagueId: matchTable.leagueId
+      })
+      .from(matchTable)
+      .where(eq(matchTable.id, id));
 
-  /**
-   * Eliminar un partido
-   */
-  @UseGuards(JwtAuthGuard)
-  @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number) {
-    return this.matchService.remove(id);
-  }
+    if (!matchRow) throw new NotFoundException('Partido no encontrado');
 
-  /**
-   * Eliminar todos los partidos de una temporada
-   * Útil para regenerar el calendario
-   */
-  @UseGuards(JwtAuthGuard)
-  @Delete('season/:seasonId')
-  async removeAllBySeason(@Param('seasonId', ParseIntPipe) seasonId: number) {
-    return this.matchService.removeAllBySeason(seasonId);
-  }
+    // Obtener info de equipos
+    const [homeTeam, awayTeam] = await Promise.all([
+      db.select({ id: teamTable.id, name: teamTable.name, shortName: teamTable.shortName, crest: teamTable.crest })
+        .from(teamTable).where(eq(teamTable.id, matchRow.homeTeamId)),
+      db.select({ id: teamTable.id, name: teamTable.name, shortName: teamTable.shortName, crest: teamTable.crest })
+        .from(teamTable).where(eq(teamTable.id, matchRow.awayTeamId))
+    ]);
 
+    // Obtener info de liga y división
+    const [league] = await db.select({ id: leagueTable.id, name: leagueTable.name, groupCode: leagueTable.groupCode, divisionId: leagueTable.divisionId })
+      .from(leagueTable).where(eq(leagueTable.id, matchRow.leagueId));
+    const [division] = league
+      ? await db.select({ id: divisionTable.id, name: divisionTable.name, level: divisionTable.level })
+          .from(divisionTable).where(eq(divisionTable.id, league.divisionId))
+      : [null];
+
+    const match = {
+      ...matchRow,
+      homeTeam: homeTeam[0] || { id: matchRow.homeTeamId, name: 'Unknown', shortName: null, crest: null },
+      awayTeam: awayTeam[0] || { id: matchRow.awayTeamId, name: 'Unknown', shortName: null, crest: null },
+      league: league || { id: matchRow.leagueId, name: 'Unknown', groupCode: '', divisionId: null },
+      division: division || { id: null, name: '', level: null }
+    };
+
+    // Obtener stats de jugadores para este partido
+    const stats = await db
+      .select({
+        playerId: matchPlayerStatsTable.playerId,
+        teamId: matchPlayerStatsTable.teamId,
+        goals: matchPlayerStatsTable.goals,
+        assists: matchPlayerStatsTable.assists,
+        playerName: playerTable.name
+      })
+      .from(matchPlayerStatsTable)
+      .innerJoin(playerTable, eq(matchPlayerStatsTable.playerId, playerTable.id))
+      .where(eq(matchPlayerStatsTable.matchId, id));
+
+    // Separar por equipo local y visitante
+    const homeStats = stats.filter(s => s.teamId === match.homeTeam.id);
+    const awayStats = stats.filter(s => s.teamId === match.awayTeam.id);
+
+    // Formato compatible con el frontend
+    return {
+      match,
+      homeStats,
+      awayStats
+    };
+  }
   // ==========================================
   // ENDPOINTS DE SIMULACIÓN DE PARTIDOS
   // ==========================================
@@ -195,7 +242,7 @@ export class MatchController {
     @Param('seasonId', ParseIntPipe) seasonId: number
   ) {
     return this.standingsService.getLeagueStandings(seasonId, leagueId);
-  }
+}
 
   /**
    * Obtener todas las clasificaciones de una temporada

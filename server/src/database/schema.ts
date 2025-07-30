@@ -1,4 +1,5 @@
 import { teamTable } from './tables/team.table';
+import { matchPlayerStatsTable } from './tables/match-player-stats.table';
 import { userTable } from './tables/user.table';
 import { playerTable } from './tables/player.table';
 import { coachTable } from './tables/coach.table';
@@ -10,12 +11,11 @@ import { teamLeagueAssignmentTable, AssignmentReason } from './tables/team-leagu
 import { matchTable, MatchStatus } from './tables/match.table';
 import { standingsTable } from './tables/standings.table';
 import { lineupTable } from './tables/lineup.table';
-
-export { 
-  teamTable, 
-  userTable, 
-  playerTable, 
-  coachTable, 
+export {
+  teamTable,
+  userTable,
+  playerTable,
+  coachTable,
   footballDataCacheTable,
   divisionTable,
   leagueTable,
@@ -24,6 +24,7 @@ export {
   matchTable,
   standingsTable,
   lineupTable,
+  matchPlayerStatsTable,
   AssignmentReason,
   MatchStatus
 };
