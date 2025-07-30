@@ -104,6 +104,7 @@ export interface MatchFilters {
   page?: number;
   limit?: number;
   teamName?: string; // Permitir filtro por nombre de equipo
+  teamId?: number; // Permitir filtro por ID de equipo
 }
 
 // Para la vista agrupada por jornadas
