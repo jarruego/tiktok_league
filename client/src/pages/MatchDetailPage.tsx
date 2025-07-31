@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, Table, Row, Col, Typography, Spin } from 'antd';
+import TeamCrestSvg from '../components/TeamCrestSvg';
+import type { TeamCommon } from '../types/team.types';
 
 const { Title } = Typography;
 
-import type { Match } from '../types/match.types';
+// import type { Match } from '../types/match.types';
 import type { ColumnsType } from 'antd/es/table';
 
+// Asegúrate de que el tipo Match use TeamInfo
+interface Match {
+  id: number;
+  homeTeam: TeamCommon;
+  awayTeam: TeamCommon;
+  homeGoals?: number;
+  awayGoals?: number;
+  // ...otros campos...
+}
 
 interface PlayerStat {
   playerId: number;
@@ -46,7 +57,6 @@ const columns: ColumnsType<PlayerStat> = [
   },
 ];
 
-
 export default function MatchDetailPage() {
   const { matchId } = useParams();
   const [loading, setLoading] = useState(true);
@@ -81,8 +91,16 @@ export default function MatchDetailPage() {
           <Card bordered style={{ borderRadius: 12, background: '#f0f7ff', boxShadow: '0 2px 8px #d6e4ff', width: '100%' }}>
             <Row align="middle" justify="space-between" style={{ width: '100%' }}>
               <Col xs={8} style={{ textAlign: 'center' }}>
-                {match.homeTeam.crest && (
+                {match.homeTeam.crest ? (
                   <img src={match.homeTeam.crest} alt="escudo local" style={{ width: 48, height: 48, objectFit: 'contain', marginBottom: 4 }} />
+                ) : (
+                  <TeamCrestSvg
+                    size={48}
+                    teamId={match.homeTeam.id}
+                    primaryColor={match.homeTeam.primaryColor}
+                    secondaryColor={match.homeTeam.secondaryColor}
+                    name={match.homeTeam.name}
+                  />
                 )}
                 <div style={{ fontWeight: 600, color: '#1e90ff', fontSize: 18 }}>{match.homeTeam.name}</div>
               </Col>
@@ -92,8 +110,16 @@ export default function MatchDetailPage() {
                 </span>
               </Col>
               <Col xs={8} style={{ textAlign: 'center' }}>
-                {match.awayTeam.crest && (
+                {match.awayTeam.crest ? (
                   <img src={match.awayTeam.crest} alt="escudo visitante" style={{ width: 48, height: 48, objectFit: 'contain', marginBottom: 4 }} />
+                ) : (
+                  <TeamCrestSvg
+                    size={48}
+                    teamId={match.awayTeam.id}
+                    primaryColor={match.awayTeam.primaryColor}
+                    secondaryColor={match.awayTeam.secondaryColor}
+                    name={match.awayTeam.name}
+                  />
                 )}
                 <div style={{ fontWeight: 600, color: '#d72660', fontSize: 18 }}>{match.awayTeam.name}</div>
               </Col>

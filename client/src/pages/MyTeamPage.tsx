@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Input, message } from 'antd';
+import ColorPicker from '../components/ColorPicker';
 import { EditOutlined } from '@ant-design/icons';
 import LoadingBallAnimation from '../components/LoadingBallAnimation';
+import TeamCrestSvg from '../components/TeamCrestSvg';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { leagueApi } from '../api/leagueApi';
 import { matchApi } from '../api/matchApi';
+import type { TeamCommon } from '../types/team.types';
 
-interface Team {
-  id: number;
-  name: string;
+interface TeamForMyTeamPage extends TeamCommon {
   logoUrl?: string;
 }
+
 interface League {
   id: number;
   name: string;
@@ -21,11 +23,17 @@ interface Match {
   id: number;
   homeTeam: string;
   awayTeam: string;
+  homeTeamId?: number;
+  awayTeamId?: number;
   homeGoals?: number;
   awayGoals?: number;
   date: string;
   homeCrest?: string;
   awayCrest?: string;
+  homePrimaryColor?: string;
+  homeSecondaryColor?: string;
+  awayPrimaryColor?: string;
+  awaySecondaryColor?: string;
 }
 
 
@@ -36,9 +44,11 @@ const MyTeamPage: React.FC = () => {
   // Solo usar setUser si existe en el contexto
   const setUser = (auth && typeof (auth as any).setUser === 'function') ? (auth as any).setUser : undefined;
   const navigate = useNavigate();
-  const [team, setTeam] = useState<Team | null>(null);
+  const [team, setTeam] = useState<TeamForMyTeamPage | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editPrimaryColor, setEditPrimaryColor] = useState<string>('#1e90ff');
+  const [editSecondaryColor, setEditSecondaryColor] = useState<string>('#222222');
   const [editLoading, setEditLoading] = useState(false);
   const [league, setLeague] = useState<League | null>(null);
   const [divisionName, setDivisionName] = useState<string | null>(null);
@@ -99,7 +109,10 @@ const MyTeamPage: React.FC = () => {
       setTeam(foundTeam ? {
         id: foundTeam.teamId,
         name: foundTeam.teamName,
-        logoUrl: foundTeam.crest
+        logoUrl: foundTeam.crest,
+        primaryColor: foundTeam.primaryColor,
+        secondaryColor: foundTeam.secondaryColor,
+        shortName: foundTeam.shortName ?? '',
       } : null);
 
       // Obtener posición real desde standings
@@ -133,8 +146,14 @@ const MyTeamPage: React.FC = () => {
           id: next.id,
           homeTeam: next.homeTeam?.name ?? next.homeTeam ?? '',
           awayTeam: next.awayTeam?.name ?? next.awayTeam ?? '',
+          homeTeamId: next.homeTeam?.id ?? undefined,
+          awayTeamId: next.awayTeam?.id ?? undefined,
           homeCrest: next.homeTeam?.crest ?? '',
           awayCrest: next.awayTeam?.crest ?? '',
+          homePrimaryColor: next.homeTeam?.primaryColor ?? undefined,
+          homeSecondaryColor: next.homeTeam?.secondaryColor ?? undefined,
+          awayPrimaryColor: next.awayTeam?.primaryColor ?? undefined,
+          awaySecondaryColor: next.awayTeam?.secondaryColor ?? undefined,
           homeGoals: next.homeGoals,
           awayGoals: next.awayGoals,
           date: next.scheduledDate
@@ -146,8 +165,14 @@ const MyTeamPage: React.FC = () => {
           id: fin.id,
           homeTeam: fin.homeTeam?.name ?? fin.homeTeam ?? '',
           awayTeam: fin.awayTeam?.name ?? fin.awayTeam ?? '',
+          homeTeamId: fin.homeTeam?.id ?? undefined,
+          awayTeamId: fin.awayTeam?.id ?? undefined,
           homeCrest: fin.homeTeam?.crest ?? '',
           awayCrest: fin.awayTeam?.crest ?? '',
+          homePrimaryColor: fin.homeTeam?.primaryColor ?? undefined,
+          homeSecondaryColor: fin.homeTeam?.secondaryColor ?? undefined,
+          awayPrimaryColor: fin.awayTeam?.primaryColor ?? undefined,
+          awaySecondaryColor: fin.awayTeam?.secondaryColor ?? undefined,
           homeGoals: fin.homeGoals,
           awayGoals: fin.awayGoals,
           date: fin.scheduledDate
@@ -161,8 +186,14 @@ const MyTeamPage: React.FC = () => {
           id: last.id,
           homeTeam: last.homeTeam,
           awayTeam: last.awayTeam,
+          homeTeamId: last.homeTeamId,
+          awayTeamId: last.awayTeamId,
           homeCrest: last.homeCrest,
           awayCrest: last.awayCrest,
+          homePrimaryColor: last.homePrimaryColor,
+          homeSecondaryColor: last.homeSecondaryColor,
+          awayPrimaryColor: last.awayPrimaryColor,
+          awaySecondaryColor: last.awaySecondaryColor,
           homeGoals: last.homeGoals,
           awayGoals: last.awayGoals,
           date: last.date
@@ -201,8 +232,10 @@ const MyTeamPage: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          {team?.logoUrl && (
+          {team?.logoUrl ? (
             <img src={team.logoUrl} alt="Escudo" style={{ width: 56, height: 56, marginRight: 16, background: '#fff' }} />
+          ) : (
+            <TeamCrestSvg size={56} teamId={team?.id} primaryColor={team?.primaryColor} secondaryColor={team?.secondaryColor} name={team?.name || ''} />
           )}
           <h2 style={{ fontSize: 26, margin: 0, fontWeight: 800, color: '#1e90ff', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 8 }}>
             {team?.name || 'Mi Equipo'}
@@ -212,6 +245,8 @@ const MyTeamPage: React.FC = () => {
                 title="Editar nombre del equipo"
                 onClick={() => {
                   setEditName(team.name);
+                  setEditPrimaryColor(team.primaryColor || '#1e90ff');
+                  setEditSecondaryColor(team.secondaryColor || '#222222');
                   setEditModalOpen(true);
                 }}
               />
@@ -220,21 +255,24 @@ const MyTeamPage: React.FC = () => {
         </div>
       {/* Modal para editar nombre del equipo */}
       <Modal
-        title="Editar nombre del equipo"
+        title="Editar nombre y colores del equipo"
         open={editModalOpen}
         onCancel={() => setEditModalOpen(false)}
         onOk={async () => {
           setEditLoading(true);
           try {
-            // Llama a la API para actualizar el nombre del equipo
-            // Se asume un endpoint: leagueApi.updateTeamName(teamId, nuevoNombre)
             if (!team) throw new Error('No hay equipo');
-            await leagueApi.updateTeamName(team.id, editName);
-            setTeam(prev => prev ? { ...prev, name: editName } : prev);
-            message.success('Nombre actualizado correctamente');
+            // Nuevo endpoint: leagueApi.updateTeamDetails(team.id, { name, primaryColor, secondaryColor })
+            await leagueApi.updateTeamDetails(team.id, {
+              name: editName,
+              primaryColor: editPrimaryColor,
+              secondaryColor: editSecondaryColor,
+            });
+            setTeam(prev => prev ? { ...prev, name: editName, primaryColor: editPrimaryColor, secondaryColor: editSecondaryColor } : prev);
+            message.success('Datos actualizados correctamente');
             setEditModalOpen(false);
           } catch (err) {
-            message.error('Error al actualizar el nombre');
+            message.error('Error al actualizar el equipo');
           } finally {
             setEditLoading(false);
           }
@@ -248,6 +286,17 @@ const MyTeamPage: React.FC = () => {
           onChange={e => setEditName(e.target.value)}
           maxLength={30}
           placeholder="Nuevo nombre del equipo"
+          style={{ marginBottom: 16 }}
+        />
+        <ColorPicker
+          label="Color principal"
+          value={editPrimaryColor}
+          onChange={setEditPrimaryColor}
+        />
+        <ColorPicker
+          label="Color secundario"
+          value={editSecondaryColor}
+          onChange={setEditSecondaryColor}
         />
       </Modal>
         {/* Card: Liga y posición destacada y enlazable */}
@@ -320,7 +369,17 @@ const MyTeamPage: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, minHeight: 60, margin: '18px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
-                {lastMatch.homeCrest && <img src={lastMatch.homeCrest} alt="Escudo local" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff' }} />}
+                {lastMatch.homeCrest ? (
+                  <img src={lastMatch.homeCrest} alt="Escudo local" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff' }} />
+                ) : (
+                  <TeamCrestSvg
+                    size={44}
+                    teamId={lastMatch.homeTeamId}
+                    primaryColor={lastMatch.homePrimaryColor}
+                    secondaryColor={lastMatch.homeSecondaryColor}
+                    name={lastMatch.homeTeam}
+                  />
+                )}
                 <span style={{ fontWeight: 700, fontSize: 20, marginLeft: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#222' }}>{lastMatch.homeTeam}</span>
               </div>
               <span style={{ fontWeight: 900, fontSize: 28, margin: '0 16px', minWidth: 48, textAlign: 'center', color: '#1e90ff' }}>
@@ -330,7 +389,17 @@ const MyTeamPage: React.FC = () => {
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
                 <span style={{ fontWeight: 700, fontSize: 20, marginRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#222' }}>{lastMatch.awayTeam}</span>
-                {lastMatch.awayCrest && <img src={lastMatch.awayCrest} alt="Escudo visitante" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff' }} />}
+                {lastMatch.awayCrest ? (
+                  <img src={lastMatch.awayCrest} alt="Escudo visitante" style={{ width: 44, height: 44, objectFit: 'contain', background: '#fff' }} />
+                ) : (
+                  <TeamCrestSvg
+                    size={44}
+                    teamId={lastMatch.awayTeamId}
+                    primaryColor={lastMatch.awayPrimaryColor}
+                    secondaryColor={lastMatch.awaySecondaryColor}
+                    name={lastMatch.awayTeam}
+                  />
+                )}
               </div>
             </div>
             <div style={{ textAlign: 'center', marginTop: 8, color: '#1e90ff', fontSize: 15, fontWeight: 600, letterSpacing: 0.2 }}>
@@ -392,13 +461,21 @@ const MyTeamPage: React.FC = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
-                    {match.homeCrest && <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                    {match.homeCrest ? (
+                      <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
+                    ) : (
+                      <TeamCrestSvg size={32} teamId={match.homeTeamId} primaryColor={match.homePrimaryColor} secondaryColor={match.homeSecondaryColor} name={match.homeTeam} />
+                    )}
                     <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.homeTeam}</span>
                   </div>
                   <span style={{ fontWeight: 700, fontSize: 16, margin: '0 8px', minWidth: 28, textAlign: 'center' }}>vs</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
                     <span style={{ fontWeight: 600, fontSize: 15, marginRight: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.awayTeam}</span>
-                    {match.awayCrest && <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                    {match.awayCrest ? (
+                      <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
+                    ) : (
+                      <TeamCrestSvg size={32} teamId={match.awayTeamId} primaryColor={match.awayPrimaryColor} secondaryColor={match.awaySecondaryColor} name={match.awayTeam} />
+                    )}
                   </div>
                 </div>
                 <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
@@ -488,7 +565,17 @@ const MyTeamPage: React.FC = () => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
-                    {match.homeCrest && <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                    {match.homeCrest ? (
+                      <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
+                    ) : (
+                      <TeamCrestSvg
+                        size={32}
+                        teamId={match.homeTeamId}
+                        primaryColor={match.homePrimaryColor}
+                        secondaryColor={match.homeSecondaryColor}
+                        name={match.homeTeam}
+                      />
+                    )}
                     <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.homeTeam}</span>
                   </div>
                   <span style={{ fontWeight: 700, fontSize: 16, margin: '0 8px', minWidth: 28, textAlign: 'center' }}>
@@ -498,7 +585,17 @@ const MyTeamPage: React.FC = () => {
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
                     <span style={{ fontWeight: 600, fontSize: 15, marginRight: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.awayTeam}</span>
-                    {match.awayCrest && <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />}
+                    {match.awayCrest ? (
+                      <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
+                    ) : (
+                      <TeamCrestSvg
+                        size={32}
+                        teamId={match.awayTeamId}
+                        primaryColor={match.awayPrimaryColor}
+                        secondaryColor={match.awaySecondaryColor}
+                        name={match.awayTeam}
+                      />
+                    )}
                   </div>
                 </div>
                 <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>

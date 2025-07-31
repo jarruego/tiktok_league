@@ -2,6 +2,13 @@ import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsUrl } from 'class-valid
 
 export class CreateTeamDto {
   @IsString()
+  @IsOptional()
+  primaryColor?: string;
+
+  @IsString()
+  @IsOptional()
+  secondaryColor?: string;
+  @IsString()
   @IsNotEmpty()
   name: string;
 

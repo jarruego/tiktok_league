@@ -418,6 +418,8 @@ export class MatchService {
         homeTeamName: teamTable.name,
         homeTeamShortName: teamTable.shortName,
         homeTeamCrest: teamTable.crest,
+        homeTeamPrimaryColor: teamTable.primaryColor,
+        homeTeamSecondaryColor: teamTable.secondaryColor,
         // Información del equipo visitante será obtenida posteriormente
         awayTeamId: matchTable.awayTeamId,
         // Información de liga
@@ -445,7 +447,9 @@ export class MatchService {
         id: teamTable.id,
         name: teamTable.name,
         shortName: teamTable.shortName,
-        crest: teamTable.crest
+        crest: teamTable.crest,
+        primaryColor: teamTable.primaryColor,
+        secondaryColor: teamTable.secondaryColor
       })
       .from(teamTable)
       .where(or(...awayTeamIds.map(id => eq(teamTable.id, id)))) : [];
@@ -467,14 +471,32 @@ export class MatchService {
         id: match.homeTeamId,
         name: match.homeTeamName,
         shortName: match.homeTeamShortName,
-        crest: match.homeTeamCrest
+        crest: match.homeTeamCrest,
+        primaryColor: match.homeTeamPrimaryColor,
+        secondaryColor: match.homeTeamSecondaryColor
       },
-      awayTeam: awayTeamsMap.get(match.awayTeamId) || {
-        id: match.awayTeamId,
-        name: 'Unknown',
-        shortName: null,
-        crest: null
-      },
+      awayTeam: (() => {
+        const away = awayTeamsMap.get(match.awayTeamId);
+        if (away) {
+          return {
+            id: away.id,
+            name: away.name,
+            shortName: away.shortName,
+            crest: away.crest,
+            primaryColor: away.primaryColor,
+            secondaryColor: away.secondaryColor
+          };
+        } else {
+          return {
+            id: match.awayTeamId,
+            name: 'Unknown',
+            shortName: null,
+            crest: null,
+            primaryColor: null,
+            secondaryColor: null
+          };
+        }
+      })(),
       league: {
         id: match.leagueId,
         name: match.leagueName,

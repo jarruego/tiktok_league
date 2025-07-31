@@ -1,9 +1,31 @@
- import type { Division, Season, TeamInLeague } from '../types/league.types';
+import type { Division, Season, TeamInLeague } from '../types/league.types';
 import { authService } from './authApi';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const leagueApi = {
+  /**
+   * Actualiza nombre y colores del equipo
+   */
+  async updateTeamDetails(teamId: number, data: { name: string; primaryColor: string; secondaryColor: string }) {
+    const response = await fetch(`${API_BASE_URL}/api/teams/${teamId}`, {
+      method: 'PATCH',
+      headers: {
+        ...authService.getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      let errorMsg = `Error ${response.status}: ${response.statusText}`;
+      try {
+        const err = await response.json();
+        errorMsg = err.userMessage || err.message || errorMsg;
+      } catch {}
+      throw new Error(errorMsg);
+    }
+    return response.json();
+  },
   /**
    * Actualiza el nombre de un equipo
    * @param teamId ID del equipo

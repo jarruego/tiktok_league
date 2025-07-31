@@ -653,7 +653,9 @@ export class LeagueSystemService {
         crest: teamTable.crest,
         tiktokFollowers: teamTable.followers,
         followersAtAssignment: teamLeagueAssignmentTable.tiktokFollowersAtAssignment,
-        assignmentReason: teamLeagueAssignmentTable.assignmentReason
+        assignmentReason: teamLeagueAssignmentTable.assignmentReason,
+        primaryColor: teamTable.primaryColor,
+        secondaryColor: teamTable.secondaryColor
       })
       .from(teamLeagueAssignmentTable)
       .innerJoin(teamTable, eq(teamLeagueAssignmentTable.teamId, teamTable.id))

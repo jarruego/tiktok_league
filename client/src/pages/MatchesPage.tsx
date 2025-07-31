@@ -8,13 +8,27 @@ import LoadingBallAnimation from '../components/LoadingBallAnimation';
 import { matchApi } from '../api/matchApi';
 import { leagueApi } from '../api/leagueApi';
 import dayjs from 'dayjs';
-import type { Match, MatchFilters } from '../types/match.types';
+import type { MatchFilters } from '../types/match.types';
 import type { Division } from '../types/league.types';
 import type { ColumnsType } from 'antd/es/table';
+import TeamCrestSvg from '../components/TeamCrestSvg';
+import type { TeamCommon } from '../types/team.types';
 
 const { Option } = Select;
 
-
+// Asegúrate de que el tipo Match use TeamCommon
+interface Match {
+  id: number;
+  homeTeam: TeamCommon;
+  awayTeam: TeamCommon;
+  homeGoals?: number;
+  awayGoals?: number;
+  isPlayoff?: boolean;
+  matchday?: number;
+  scheduledDate?: string;
+  playoffRound?: string;
+  // ...otros campos...
+}
 
 export default function MatchesPage() {
   const { user } = useAuth();
@@ -168,7 +182,7 @@ export default function MatchesPage() {
         }
         return matchday;
       },
-      sorter: (a, b) => a.matchday - b.matchday,
+      sorter: (a, b) => (a.matchday ?? 0) - (b.matchday ?? 0),
       responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
     },
     {
@@ -193,12 +207,20 @@ export default function MatchesPage() {
           gap: 4,
           width: '100%'
         }}>
-          {/* Local */}
-          {record.homeTeam.crest && (
+          {/* Home team escudo */}
+          {record.homeTeam.crest ? (
             <img
               src={record.homeTeam.crest}
               alt=""
               style={{ width: 18, height: 18, marginRight: 2, verticalAlign: 'middle' }}
+            />
+          ) : (
+            <TeamCrestSvg
+              size={18}
+              teamId={record.homeTeam.id}
+              primaryColor={record.homeTeam.primaryColor}
+              secondaryColor={record.homeTeam.secondaryColor}
+              name={record.homeTeam.name}
             />
           )}
           <span style={{ fontWeight: 500, fontSize: 13, color: '#1e90ff', maxWidth: 80, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -214,11 +236,19 @@ export default function MatchesPage() {
           <span style={{ fontWeight: 500, fontSize: 13, color: '#d72660', maxWidth: 80, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {record.awayTeam.shortName || record.awayTeam.name}
           </span>
-          {record.awayTeam.crest && (
+          {record.awayTeam.crest ? (
             <img
               src={record.awayTeam.crest}
               alt=""
               style={{ width: 18, height: 18, marginLeft: 2, verticalAlign: 'middle' }}
+            />
+          ) : (
+            <TeamCrestSvg
+              size={18}
+              teamId={record.awayTeam.id}
+              primaryColor={record.awayTeam.primaryColor}
+              secondaryColor={record.awayTeam.secondaryColor}
+              name={record.awayTeam.name}
             />
           )}
         </div>

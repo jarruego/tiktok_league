@@ -130,9 +130,21 @@ export class TeamService {
 
   async update(id: number, updateTeamDto: UpdateTeamDto) {
     const db = this.databaseService.db;
+    // Solo permitir actualizar campos válidos
+    const allowedFields: (keyof UpdateTeamDto)[] = [
+      'name', 'primaryColor', 'secondaryColor', 'shortName', 'tla', 'crest', 'venue', 'founded', 'website', 'clubColors',
+      'areaId', 'areaName', 'areaCode', 'areaFlag', 'coachId', 'displayName', 'followers', 'following', 'likes', 'description', 'profileUrl', 'avatarUrl', 'footballDataId', 'competitionId'
+    ];
+    const updateData: Partial<UpdateTeamDto> = {};
+    for (const key of allowedFields) {
+      if (key in updateTeamDto) {
+        (updateData as any)[key] = (updateTeamDto as any)[key];
+      }
+    }
+    (updateData as any).updatedAt = new Date();
     const [team] = await db
       .update(teamTable)
-      .set(updateTeamDto)
+      .set(updateData)
       .where(eq(teamTable.id, id))
       .returning();
     if (!team) throw new NotFoundException('Team not found');

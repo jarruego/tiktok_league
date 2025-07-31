@@ -6,11 +6,13 @@ import { matchApi } from '../../api/matchApi';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import type { Division, Season, ExtendedTeamInLeague } from '../../types/league.types';
+import type { Division, Season } from '../../types/league.types';
+import type { TeamCommon } from '../../types/team.types';
 import type { ColumnsType } from 'antd/es/table';
 import { formatNumber } from '../../utils/formatters';
 import '../../styles/common.css';
 import '../../styles/DivisionView.css';
+import TeamCrestSvg from '../TeamCrestSvg';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -121,9 +123,13 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
               style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
             />
           ) : (
-            <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Text type="secondary">?</Text>
-            </div>
+            <TeamCrestSvg
+              size={32}
+              teamId={record.teamId}
+              primaryColor={record.primaryColor}
+              secondaryColor={record.secondaryColor}
+              name={record.teamName}
+            />
           )}
         </div>
       )
@@ -213,6 +219,16 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
     },
   ];
 };
+
+interface ExtendedTeamInLeague extends TeamCommon {
+  teamId: number;
+  teamName: string;
+  tiktokFollowers: number;
+  followersAtAssignment: number;
+  standing?: any;
+  position?: number;
+  // ...otros campos específicos...
+}
 
 export default function DivisionView() {
   const navigate = useNavigate();
@@ -337,12 +353,21 @@ export default function DivisionView() {
         return b.followersAtAssignment - a.followersAtAssignment;
       });
       
-      // Mantener las posiciones que vienen de la API
-      const finalTeams = sortedTeams.map((team, index) => ({
+      // Mantener las posiciones que vienen de la API y asegurar todos los campos de ExtendedTeamInLeague
+      const finalTeams: ExtendedTeamInLeague[] = sortedTeams.map((team, index) => ({
         ...team,
-        position: team.standing?.position || index + 1
-      })) as ExtendedTeamInLeague[];
-      
+        teamId: team.teamId,
+        teamName: team.teamName,
+        tiktokFollowers: team.tiktokFollowers ?? 0,
+        followersAtAssignment: team.followersAtAssignment ?? 0,
+        standing: team.standing,
+        position: team.standing?.position || index + 1,
+        // TeamCommon fields
+        id: team.teamId,
+        name: team.teamName,
+        crest: team.crest ?? '',
+        shortName: team.shortName ?? '',
+      }));
       setTeams(finalTeams);
     } catch (error) {
       console.error('Error cargando equipos:', error);

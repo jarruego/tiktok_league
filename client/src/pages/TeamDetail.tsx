@@ -6,42 +6,36 @@ import type { ColumnsType } from 'antd/es/table';
 import { formatNumber, formatFecha, calculateAge } from '../utils/formatters';
 import { LayoutContainer } from '../components/LayoutContainer';
 import { AdminGuard } from '../components/AdminGuard';
+import TeamCrestSvg from '../components/TeamCrestSvg';
+import type { TeamCommon } from '../types/team.types';
 
-interface Team {
-  id: number;
-  name: string;
+interface TeamDetail extends TeamCommon {
   tiktokId: string;
-  displayName?: string;
   followers: number;
   following?: number;
   likes?: number;
   description?: string;
   profileUrl?: string;
-  avatarUrl?: string;
-  lastScrapedAt?: string;
-  // Campos de Football-Data.org
-  footballDataId?: number;
-  competitionId?: number;
-  shortName?: string;
-  tla?: string;
-  crest?: string;
-  venue?: string;
-  founded?: number;
-  clubColors?: string;
   website?: string;
-  // Información del área/país
-  areaId?: number;
-  areaName?: string;
-  areaCode?: string;
+  displayName?: string;
   areaFlag?: string;
+  areaCode?: string;
+  areaName?: string;
   createdAt?: string;
   updatedAt?: string;
+  lastScrapedAt?: string;
   coach?: {
     id: number;
     name: string;
     nationality?: string;
     footballDataId?: number;
   };
+  footballDataId?: number;
+  competitionId?: number;
+  venue?: string;
+  founded?: number;
+  clubColors?: string;
+  tla?: string;
 }
 
 interface Player {
@@ -104,7 +98,7 @@ const playersColumns: ColumnsType<Player> = [
 export default function TeamDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [team, setTeam] = useState<Team | null>(null);
+  const [team, setTeam] = useState<TeamDetail | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [playersLoading, setPlayersLoading] = useState(true);
@@ -175,13 +169,23 @@ export default function TeamDetail() {
 
       <Card style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px' }}>
-          <Avatar 
-            size={80} 
-            src={team.crest || team.avatarUrl} 
-            style={{ backgroundColor: '#f0f0f0' }}
-          >
-            {(team.displayName || team.name).charAt(0).toUpperCase()}
-          </Avatar>
+          {team.crest || team.avatarUrl ? (
+            <Avatar 
+              size={80} 
+              src={team.crest || team.avatarUrl} 
+              style={{ backgroundColor: '#f0f0f0' }}
+            >
+              {(team.displayName || team.name).charAt(0).toUpperCase()}
+            </Avatar>
+          ) : (
+            <TeamCrestSvg
+              size={80}
+              teamId={team.id}
+              primaryColor={team.primaryColor}
+              secondaryColor={team.secondaryColor}
+              name={team.name}
+            />
+          )}
           <div>
             <h1 style={{ margin: 0, fontSize: '28px' }}>
               {team.name}
