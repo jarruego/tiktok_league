@@ -52,6 +52,7 @@ export default function MatchesPage() {
     playoffMatches: 0,
     regularMatches: 0
   });
+  const [initialized, setInitialized] = useState(false);
 
   // --- Mover funciones aquí antes de los useEffect ---
   const loadInitialData = async () => {
@@ -67,12 +68,10 @@ export default function MatchesPage() {
         setSelectedSeason(activeSeason.id);
         // Si el usuario tiene equipo, buscar su división y liga
         if (user && user.teamId) {
-          // Buscar la liga y división del equipo
           let foundLeague = null;
           let foundDivision = null;
           for (const division of divisionsData) {
             for (const league of division.leagues) {
-              // Buscar el equipo en la liga
               const teams = await leagueApi.getTeamsInLeague(league.id, activeSeason.id);
               if (teams.some(t => t.teamId === user.teamId)) {
                 foundLeague = league;
@@ -83,22 +82,26 @@ export default function MatchesPage() {
             if (foundLeague && foundDivision) break;
           }
           if (foundLeague && foundDivision) {
-            // Obtener partidos de esa liga para la temporada
             const matchesResp = await matchApi.getMatchesBySeason(activeSeason.id, { leagueId: foundLeague.id });
-            // Buscar la próxima jornada con partidos programados o en vivo
             const nextMatch = matchesResp.matches.find(m => m.status === 'scheduled' || m.status === 'live');
             const nextMatchday = nextMatch ? nextMatch.matchday : undefined;
+            // Solo setea los filtros una vez, y marca como inicializado
             setFilters({
               divisionId: foundDivision.id,
               leagueId: foundLeague.id,
               matchday: nextMatchday
             });
+            setInitialized(true);
+            return;
           }
         }
       }
+      // Si no hay equipo o no se encuentra, marca como inicializado igualmente
+      setInitialized(true);
     } catch (error) {
       console.error('Error loading initial data:', error);
       message.error('Error cargando datos iniciales');
+      setInitialized(true);
     }
   };
 
@@ -145,25 +148,27 @@ export default function MatchesPage() {
   // --- useEffect después de las funciones ---
   useEffect(() => {
     loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (selectedSeason) {
+    if (selectedSeason && initialized) {
       loadMatches();
       loadStats();
     }
-  }, [selectedSeason, filters, pagination.current, pagination.pageSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSeason, filters, pagination.current, pagination.pageSize, initialized]);
 
   useEffect(() => {
     setPagination(prev => ({ ...prev, current: 1 }));
-    // Recargar partidos desde la primera página al cambiar filtros
-    if (selectedSeason) {
+    if (selectedSeason && initialized) {
       loadMatches();
     }
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, initialized]);
 
   // Mostrar animación de carga solo antes del return principal
-  if (loading) {
+  if (loading || !initialized) {
     return <LoadingBallAnimation text="Cargando partidos..." />;
   }
 

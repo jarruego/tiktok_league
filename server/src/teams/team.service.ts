@@ -88,6 +88,8 @@ export class TeamService {
         footballDataId: teamTable.footballDataId,
         competitionId: teamTable.competitionId,
         clubColors: teamTable.clubColors,
+        primaryColor: teamTable.primaryColor,
+        secondaryColor: teamTable.secondaryColor,
         // Información del área/país
         areaId: teamTable.areaId,
         areaName: teamTable.areaName,

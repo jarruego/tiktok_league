@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import TeamShirtSvg from '../components/TeamShirtSvg';
 import LoadingBallAnimation from '../components/LoadingBallAnimation';
 import { Card, Button, Typography, Divider, List, Modal, Tooltip } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -134,10 +135,12 @@ export default function TeamSquadPage() {
       Goalkeeper: Array(counts.Goalkeeper).fill(''),
       Defence: Array(counts.Defence).fill(''),
       Midfield: Array(counts.Midfield).fill(''),
-      Forward: Array(counts.Forward).fill(''), // Solo 3
+      Forward: Array(counts.Forward).fill(''),
     };
   });
   const [error, setError] = useState('');
+  // State for team object (with colors)
+  const [team, setTeam] = useState<any>(null);
   // Ocultar mensajes de alineación tras 5 segundos
   useEffect(() => {
     if (
@@ -160,12 +163,26 @@ export default function TeamSquadPage() {
       if (!teamId) {
         setPlayers([]);
         setGrouped({});
+        setTeam(null);
         setLoading(false);
         return;
       }
+      // Fetch players
       const data = await leagueApi.getPlayersByTeam(teamId);
       setPlayers(data);
       setGrouped(groupPlayers(data));
+      // Fetch team object (with colors)
+      try {
+        const response = await fetch(`/api/teams/${teamId}`);
+        if (!response.ok) {
+          setTeam(null);
+        } else {
+          const teamObj = await response.json();
+          setTeam(teamObj);
+        }
+      } catch {
+        setTeam(null);
+      }
       // Cargar alineación guardada
       const lineup = await leagueApi.getLineup(teamId);
       if (lineup) {
@@ -346,8 +363,17 @@ export default function TeamSquadPage() {
                       selectStyle.maxWidth = 200;
                     }
                     return (
-                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: selectStyle.flex, maxWidth: selectStyle.maxWidth, minWidth: selectStyle.minWidth }}>
-                        <span role="img" aria-label="camiseta" style={{ fontSize: isMobile ? 44 : 56, marginBottom: 2 }}>👕</span>
+                      <div
+                        key={idx}
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: selectStyle.flex, maxWidth: selectStyle.maxWidth, minWidth: selectStyle.minWidth }}
+                      >
+                        <TeamShirtSvg
+                          size={isMobile ? 44 : 56}
+                          teamId={user?.teamId ?? undefined}
+                          primaryColor={team?.primaryColor}
+                          secondaryColor={team?.secondaryColor}
+                          team={team}
+                        />
                         <select
                           value={val}
                           onChange={e => handleSelect(groupKey as keyof Lineup, idx, e.target.value)}

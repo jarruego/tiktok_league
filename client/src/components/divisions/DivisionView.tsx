@@ -303,14 +303,11 @@ export default function DivisionView() {
             }
           }
 
-          // Si se encontró la liga del equipo, seleccionarla; si no, División 1 por defecto
-          const divisionToSelect = foundDivision || divisionStructure.find(d => d.level === 1) || divisionStructure[0];
+          // Solo actualiza ambos a la vez para evitar renders intermedios
+          let divisionToSelect = foundDivision || divisionStructure.find(d => d.level === 1) || divisionStructure[0];
+          let leagueToSelect = foundLeague ? foundLeague.id : (divisionToSelect.leagues.length > 0 ? divisionToSelect.leagues[0].id : null);
           setSelectedDivision(divisionToSelect);
-          if (foundLeague) {
-            setSelectedLeague(foundLeague.id);
-          } else if (divisionToSelect.leagues.length > 0) {
-            setSelectedLeague(divisionToSelect.leagues[0].id);
-          }
+          setSelectedLeague(leagueToSelect);
           setSystemInitialized(true);
         }
       } catch (error) {
@@ -410,14 +407,20 @@ export default function DivisionView() {
 
   // Efectos
   useEffect(() => {
-    loadInitialData();
+    // Solo cargar si no hay división y liga seleccionadas
+    if (!selectedDivision && !selectedLeague) {
+      loadInitialData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (selectedLeague && season) {
+    // Solo cargar equipos si ambos están definidos y el sistema está inicializado
+    if (selectedLeague && season && systemInitialized) {
       loadTeamsInLeague(selectedLeague, season.id);
     }
-  }, [selectedLeague, season]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLeague, season, systemInitialized]);
 
   if (loading) {
     return <LoadingBallAnimation text="Cargando datos de la división..." />;
@@ -509,7 +512,7 @@ export default function DivisionView() {
 
       {/* Tabla de equipos */}
       {selectedLeagueData && (
-        <Card style={{ marginTop: 0, width: '100%' }} styles={{ body: { width: '100%' } }}>
+        <Card style={{ marginTop: 0, width: '100%', padding: 2 }} bodyStyle={{ padding: 2, width: '100%' }}>
           <Table
             columns={createColumns(navigate)}
             dataSource={teams}
