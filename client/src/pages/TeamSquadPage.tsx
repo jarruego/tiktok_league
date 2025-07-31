@@ -305,12 +305,12 @@ export default function TeamSquadPage() {
       </div>
       {/* Card verde simulando campo de fútbol */}
       <Card
-        bodyStyle={{
+        styles={{ body: {
           background: 'linear-gradient(180deg, #43a047 0%, #388e3c 100%)',
           padding: '10px 10px',
           borderRadius: 0,
           minHeight: 180,
-        }}
+        }}}
         style={{
           margin: '0 0 16px 0',
           width: '100%',
@@ -436,7 +436,7 @@ export default function TeamSquadPage() {
         <Card
           className="manual-add-player"
           style={{ width: '100%', maxWidth: 800, margin: '24px auto 0 auto', background: '#f6fbff', border: '1.5px solid #1890ff', borderRadius: 12, boxShadow: '0 2px 8px rgba(24,144,255,0.07)' }}
-          bodyStyle={{ padding: 16 }}
+          styles={{ body: { padding: 16 } }}
         >
           <h3 style={{ fontWeight: 600, marginBottom: 8, textAlign: 'center', color: '#1890ff' }}>Añadir Jugadores (máx. 30)</h3>
           <form
@@ -574,20 +574,22 @@ export default function TeamSquadPage() {
                 border: '1px solid #e0e0e0',
                 padding: 0,
               }}
-              headStyle={{
-                background:
-                  pos === 'Goalkeeper' ? '#1976d2' :
-                  pos === 'Defence' ? '#388e3c' :
-                  pos === 'Midfield' ? '#fbc02d' :
-                  pos === 'Forward' ? '#d81b60' : '#333',
-                borderRadius: '10px 10px 0 0',
-                fontWeight: 600,
-                textAlign: 'center',
-                fontSize: '15px',
-                color: '#fff',
-                padding: '4px 0',
+              styles={{
+                header: {
+                  background:
+                    pos === 'Goalkeeper' ? '#1976d2' :
+                    pos === 'Defence' ? '#388e3c' :
+                    pos === 'Midfield' ? '#fbc02d' :
+                    pos === 'Forward' ? '#d81b60' : '#333',
+                  borderRadius: '10px 10px 0 0',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                  fontSize: '15px',
+                  color: '#fff',
+                  padding: '4px 0',
+                },
+                body: { padding: '4px 0' }
               }}
-              bodyStyle={{ padding: '4px 0' }}
             >
               <List
                 size="small"

@@ -81,13 +81,13 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ fontWeight: 500, fontSize: 16, width: 28, minWidth: 28, maxWidth: 28, textAlign: 'center', display: 'inline-block', letterSpacing: '1px' }}>{posValue}</span>
             {statusDisplay && (
-              <Popover
-                content={statusExplanations[backendStatus] || 'Sin información'}
-                title={statusDisplay.badge.replace(/^[^\w]+/, '')}
-                trigger="click"
-                overlayInnerStyle={{ background: '#222', color: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0008', fontSize: 15, fontWeight: 500, padding: 14 }}
-                overlayClassName="dark-popover"
-              >
+                <Popover
+                  content={statusExplanations[backendStatus] || 'Sin información'}
+                  title={statusDisplay.badge.replace(/^[^\w]+/, '')}
+                  trigger="click"
+                  styles={{ body: { background: '#222', color: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0008', fontSize: 15, fontWeight: 500, padding: 14 } }}
+                  overlayClassName="dark-popover"
+                >
                 <Tag color={statusDisplay.color} style={{
                   margin: 0,
                   minWidth: window.innerWidth <= 640 ? 28 : 75,

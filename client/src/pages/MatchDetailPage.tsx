@@ -88,7 +88,7 @@ export default function MatchDetailPage() {
     <div style={{ width: '100vw', minHeight: '100vh', background: 'linear-gradient(135deg, #f5f6fa 60%, #e6e9f0 100%)', padding: 24 }}>
       <Row gutter={0} justify="center" align="top" style={{ marginBottom: 24, width: '100%' }}>
         <Col xs={24} style={{ width: '100%' }}>
-          <Card bordered style={{ borderRadius: 12, background: '#f0f7ff', boxShadow: '0 2px 8px #d6e4ff', width: '100%' }}>
+          <Card variant="outlined" style={{ borderRadius: 12, background: '#f0f7ff', boxShadow: '0 2px 8px #d6e4ff', width: '100%' }}>
             <Row align="middle" justify="space-between" style={{ width: '100%' }}>
               <Col xs={8} style={{ textAlign: 'center' }}>
                 {match.homeTeam.crest ? (
@@ -151,7 +151,7 @@ export default function MatchDetailPage() {
       </Row>
       <Row justify="center">
         <Col xs={24} sm={20} md={12}>
-          <Card bordered style={{ borderRadius: 12, background: '#f9fafc', boxShadow: '0 2px 8px #e6e9f0' }}>
+          <Card variant="outlined" style={{ borderRadius: 12, background: '#f9fafc', boxShadow: '0 2px 8px #e6e9f0' }}>
             <Title level={4} style={{ color: '#555' }}>Crónica del partido</Title>
             <div style={{ color: '#aaa', minHeight: 60 }}>[Aquí irá la crónica próximamente]</div>
           </Card>

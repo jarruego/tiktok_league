@@ -269,7 +269,7 @@ export default function MatchesPage() {
   return (
     <LayoutContainer>
       <div style={{ padding: 0, margin: '10px 0' }}>
-        <Card style={{ margin: 0, padding: 0, boxShadow: 'none', border: 'none' }} bodyStyle={{ padding: 0, margin: 0 }}>
+        <Card style={{ margin: 0, padding: 0, boxShadow: 'none', border: 'none' }} styles={{ body: { padding: 0, margin: 0 } }}>
           <div style={{ padding: '10px 5px' }}>
             <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: 24 }}>
               <CalendarOutlined />
@@ -325,7 +325,7 @@ export default function MatchesPage() {
                 allowClear
                 onChange={(value) => setFilters(prev => ({ ...prev, matchday: value }))}
                 optionLabelProp="label"
-                dropdownMatchSelectWidth={false}
+                popupMatchSelectWidth={false}
               >
                 {Array.from({ length: 38 }, (_, i) => i + 1).map(matchday => (
                   <Option key={matchday} value={matchday} label={`J${matchday}`}>
