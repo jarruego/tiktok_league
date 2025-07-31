@@ -281,23 +281,36 @@ const MyTeamPage: React.FC = () => {
         cancelText="Cancelar"
         confirmLoading={editLoading}
       >
-        <Input
-          value={editName}
-          onChange={e => setEditName(e.target.value)}
-          maxLength={30}
-          placeholder="Nuevo nombre del equipo"
-          style={{ marginBottom: 16 }}
-        />
-        <ColorPicker
-          label="Color principal"
-          value={editPrimaryColor}
-          onChange={setEditPrimaryColor}
-        />
-        <ColorPicker
-          label="Color secundario"
-          value={editSecondaryColor}
-          onChange={setEditSecondaryColor}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <div style={{ minWidth: 56, minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <TeamCrestSvg
+              size={56}
+              teamId={team?.id}
+              primaryColor={editPrimaryColor}
+              secondaryColor={editSecondaryColor}
+              name={editName || team?.name || ''}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <Input
+              value={editName}
+              onChange={e => setEditName(e.target.value)}
+              maxLength={30}
+              placeholder="Nuevo nombre del equipo"
+              style={{ marginBottom: 16 }}
+            />
+            <ColorPicker
+              label="Color principal"
+              value={editPrimaryColor}
+              onChange={setEditPrimaryColor}
+            />
+            <ColorPicker
+              label="Color secundario"
+              value={editSecondaryColor}
+              onChange={setEditSecondaryColor}
+            />
+          </div>
+        </div>
       </Modal>
         {/* Card: Liga y posición destacada y enlazable */}
         {league && divisionName ? (

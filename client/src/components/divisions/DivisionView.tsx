@@ -90,9 +90,9 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
               >
                 <Tag color={statusDisplay.color} style={{
                   margin: 0,
-                  minWidth: 75,
-                  maxWidth: 75,
-                  width: 75,
+                  minWidth: window.innerWidth <= 640 ? 28 : 75,
+                  maxWidth: window.innerWidth <= 640 ? 28 : 75,
+                  width: window.innerWidth <= 640 ? 28 : 75,
                   minHeight: window.innerWidth <= 640 ? 28 : undefined,
                   height: window.innerWidth <= 640 ? 28 : undefined,
                   display: 'flex',
