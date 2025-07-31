@@ -170,31 +170,6 @@ export default function MatchesPage() {
 
   const columns: ColumnsType<Match> = [
     {
-      title: 'J.',
-      dataIndex: 'matchday',
-      key: 'matchday',
-      width: 50,
-      render: (matchday: number, record) => {
-        if (record.isPlayoff) {
-          return (
-            <span style={{ color: '#d72660', fontWeight: 700 }}>PO</span>
-          );
-        }
-        return matchday;
-      },
-      sorter: (a, b) => (a.matchday ?? 0) - (b.matchday ?? 0),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-    },
-    {
-      title: 'Fecha',
-      dataIndex: 'scheduledDate',
-      key: 'scheduledDate',
-      width: 100,
-      render: (date: string) => dayjs(date).format('DD/MM'),
-      sorter: (a, b) => dayjs(a.scheduledDate).unix() - dayjs(b.scheduledDate).unix(),
-      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
-    },
-    {
       title: 'Partido',
       key: 'partido',
       align: 'left',
@@ -204,7 +179,7 @@ export default function MatchesPage() {
           alignItems: 'center',
           flexWrap: 'wrap',
           justifyContent: 'flex-start',
-          gap: 4,
+          gap: 2,
           width: '100%'
         }}>
           {/* Home team escudo */}
@@ -223,17 +198,17 @@ export default function MatchesPage() {
               name={record.homeTeam.name}
             />
           )}
-          <span style={{ fontWeight: 500, fontSize: 13, color: '#1e90ff', maxWidth: 80, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontWeight: 500, fontSize: 13, color: '#1e90ff' }}>
             {record.homeTeam.shortName || record.homeTeam.name}
           </span>
           {/* Resultado */}
-          <span style={{ fontWeight: 700, fontSize: 15, margin: '0 6px', minWidth: 36, textAlign: 'center', color: '#222', display: 'inline-block' }}>
+          <span style={{ fontWeight: 700, fontSize: 15, margin: '0 3px', minWidth: 36, textAlign: 'center', color: '#222', display: 'inline-block' }}>
             {record.homeGoals !== null && record.awayGoals !== null
               ? `${record.homeGoals} - ${record.awayGoals}`
               : <span style={{ color: '#999', fontWeight: 400 }}>vs</span>}
           </span>
           {/* Visitante */}
-          <span style={{ fontWeight: 500, fontSize: 13, color: '#d72660', maxWidth: 80, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontWeight: 500, fontSize: 13, color: '#d72660' }}>
             {record.awayTeam.shortName || record.awayTeam.name}
           </span>
           {record.awayTeam.crest ? (
@@ -255,21 +230,52 @@ export default function MatchesPage() {
       ),
       responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
     },
+    {
+      title: 'Jornada',
+      key: 'jornada',
+      width: 110,
+      render: (_, record) => {
+        if (record.isPlayoff && record.playoffRound) {
+          // Playoff: muestra ronda y fecha
+          const dateStr = record.scheduledDate ? dayjs(record.scheduledDate).format('DD/MM') : '';
+          return (
+            <span style={{ color: '#d72660', fontWeight: 700 }}>
+              {record.playoffRound} {dateStr && `(${dateStr})`}
+            </span>
+          );
+        }
+        const matchday = record.matchday ?? '-';
+        const dateStr = record.scheduledDate ? dayjs(record.scheduledDate).format('DD/MM') : '';
+        return (
+          <span>
+            {matchday} {dateStr && `(${dateStr})`}
+          </span>
+        );
+      },
+      sorter: (a, b) => {
+        // Ordena por matchday, luego por fecha
+        const mdA = a.matchday ?? 0;
+        const mdB = b.matchday ?? 0;
+        if (mdA !== mdB) return mdA - mdB;
+        return dayjs(a.scheduledDate).unix() - dayjs(b.scheduledDate).unix();
+      },
+      responsive: ['xs', 'sm', 'md', 'lg', 'xl'],
+    },
   ];
 
   return (
     <LayoutContainer>
-      <div style={{ padding: '0' }}>
-        <Card style={{ margin: 0 }}>
-          <div style={{ marginBottom: '24px' }}>
-            <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ padding: 0, margin: '10px 0' }}>
+        <Card style={{ margin: 0, padding: 0, boxShadow: 'none', border: 'none' }} bodyStyle={{ padding: 0, margin: 0 }}>
+          <div style={{ padding: '10px 5px' }}>
+            <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: 24 }}>
               <CalendarOutlined />
               Calendario
             </h1>
           </div>
 
           {/* Filtros */}
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ padding: '5px' }}>
             <Space wrap>
               {/* Eliminado filtro por equipo y botones de buscar/borrar */}
               <Select

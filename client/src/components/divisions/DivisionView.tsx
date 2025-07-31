@@ -59,17 +59,17 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
   const handleTeamClick = (teamId: number) => navigate(`/team/${teamId}`);
   
   return [
-    { 
-      title: 'Posición', 
-      dataIndex: 'position', 
-      key: 'position', 
-      width: 100,
+    {
+      title: 'Pos.',
+      dataIndex: 'position',
+      key: 'position',
+      width: 38,
       render: (position: number, record: ExtendedTeamInLeague) => {
         const backendStatus = (record.standing as any)?.status;
         const statusDisplay = backendStatus ? getStatusDisplay(backendStatus) : null;
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontWeight: 500 }}>{record.standing?.position || position || '-'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontWeight: 500, fontSize: 16 }}>{record.standing?.position || position || '-'}</span>
             {statusDisplay && (
               <Tag color={statusDisplay.color} style={{
                 margin: 0,
@@ -105,51 +105,39 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
         );
       },
     },
-    { 
-      title: 'Escudo', 
-      dataIndex: 'crest', 
-      key: 'crest',
-      width: 60,
-      render: (crest: string, record: ExtendedTeamInLeague) => (
-        <div 
-          className="clickable-crest"
-          style={{ display: 'flex', justifyContent: 'center' }}
+    {
+      title: 'Equipo',
+      key: 'team',
+      width: 180,
+      render: (_: any, record: ExtendedTeamInLeague) => (
+        <div
+          className="clickable-team"
           onClick={() => handleTeamClick(record.teamId)}
+          style={{ display: 'flex', alignItems: 'center', minWidth: 180 }}
         >
-          {(crest || record.standing?.team?.crest) ? (
-            <img 
-              src={crest || record.standing?.team?.crest || ''} 
-              alt={record.teamName} 
-              style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
-            />
-          ) : (
-            <TeamCrestSvg
-              size={32}
-              teamId={record.teamId}
-              primaryColor={record.primaryColor}
-              secondaryColor={record.secondaryColor}
-              name={record.teamName}
-            />
+          <span style={{ display: 'flex', alignItems: 'center', marginRight: 10 }}>
+            {record.crest ? (
+              <img
+                src={record.crest}
+                alt={record.teamName}
+                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              <TeamCrestSvg
+                size={32}
+                teamId={record.teamId}
+                primaryColor={record.primaryColor}
+                secondaryColor={record.secondaryColor}
+                name={record.teamName}
+              />
+            )}
+          </span>
+          <span className="clickable-team-name" style={{ fontWeight: 500 }}>{record.teamName}</span>
+          {record.shortName && record.shortName !== record.teamName && (
+            <span style={{ marginLeft: 6, color: '#888', fontSize: 13 }}>({record.shortName})</span>
           )}
         </div>
       )
-    },
-    { 
-      title: 'Equipo', 
-      dataIndex: 'teamName', 
-      key: 'teamName',
-      render: (teamName: string, record: ExtendedTeamInLeague) => {
-        // Solo resaltar visualmente la fila, no el nombre ni icono
-        return (
-          <div 
-            className="clickable-team"
-            onClick={() => handleTeamClick(record.teamId)}
-          >
-            <div className="clickable-team-name" style={{ fontWeight: 500 }}>{teamName}</div>
-            {record.shortName && record.shortName !== teamName }
-          </div>
-        );
-      }
     },
     { 
       title: 'PJ', 
