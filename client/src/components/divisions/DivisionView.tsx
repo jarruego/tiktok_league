@@ -1,4 +1,4 @@
-import { Table, Select, Alert, Typography, Card, Tag } from 'antd';
+import { Table, Select, Alert, Typography, Card, Tag, Popover } from 'antd';
 import LoadingBallAnimation from '../LoadingBallAnimation';
 import { useNavigate } from 'react-router-dom';
 import { leagueApi } from '../../api/leagueApi';
@@ -14,6 +14,15 @@ import '../../styles/common.css';
 import '../../styles/DivisionView.css';
 import TeamCrestSvg from '../TeamCrestSvg';
 
+// Explicaciones para los estados de la tabla
+const statusExplanations: Record<string, string> = {
+  PROMOTES: 'El equipo asciende de división por su posición en la tabla.',
+  PLAYOFF: 'El equipo jugará un playoff para intentar ascender de división.',
+  RELEGATES: 'El equipo desciende de división por su posición en la tabla.',
+  TOURNAMENT: 'El equipo obtiene plaza para el torneo especial de la temporada.',
+  SAFE: 'El equipo mantiene la categoría, sin ascenso ni descenso.',
+};
+
 const { Text } = Typography;
 const { Option } = Select;
 
@@ -23,7 +32,7 @@ const getStatusDisplay = (status: string): { color: string; badge: string; backg
     case 'PROMOTES':
       return {
         color: '#52c41a',
-        badge: '⬆️ Asciende',
+        badge: '⬆️ Ascenso',
         backgroundColor: '#f6ffed'
       };
     case 'PLAYOFF':
@@ -35,7 +44,7 @@ const getStatusDisplay = (status: string): { color: string; badge: string; backg
     case 'RELEGATES':
       return {
         color: '#ff4d4f',
-        badge: '⬇️ Desciende',
+        badge: '⬇️ Descenso',
         backgroundColor: '#fff2f0'
       };
     case 'TOURNAMENT':
@@ -67,39 +76,54 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
       render: (position: number, record: ExtendedTeamInLeague) => {
         const backendStatus = (record.standing as any)?.status;
         const statusDisplay = backendStatus ? getStatusDisplay(backendStatus) : null;
+        const posValue = record.standing?.position || position || '-';
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ fontWeight: 500, fontSize: 16 }}>{record.standing?.position || position || '-'}</span>
+            <span style={{ fontWeight: 500, fontSize: 16, width: 28, minWidth: 28, maxWidth: 28, textAlign: 'center', display: 'inline-block', letterSpacing: '1px' }}>{posValue}</span>
             {statusDisplay && (
-              <Tag color={statusDisplay.color} style={{
-                margin: 0,
-                minWidth: window.innerWidth <= 640 ? 28 : undefined,
-                minHeight: window.innerWidth <= 640 ? 28 : undefined,
-                width: window.innerWidth <= 640 ? 28 : undefined,
-                height: window.innerWidth <= 640 ? 28 : undefined,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: window.innerWidth <= 640 ? '0px 12px' : '0 8px',
-                fontSize: window.innerWidth <= 640 ? 20 : 14,
-                borderRadius: window.innerWidth <= 640 ? 6 : undefined,
-                boxSizing: 'border-box',
-              }}>
-                {window.innerWidth <= 640
-                  ? (() => {
-                      // Extraer emoji, si no existe, usar alternativa
-                      const match = statusDisplay.badge.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\u{238C}-\u{2454}\u{20D0}-\u{20FF}]+)\s?/u);
-                      if (match && match[1]) return match[1];
-                      // Alternativas unicode si el emoji no se detecta
-                      if (backendStatus === 'PROMOTES') return '\u2191'; // ↑
-                      if (backendStatus === 'RELEGATES') return '\u2193'; // ↓
-                      if (backendStatus === 'PLAYOFF') return '\u25B6'; // ▶
-                      if (backendStatus === 'TOURNAMENT') return '\u2605'; // ★
-                      if (backendStatus === 'SAFE') return '\u2713'; // ✓
-                      return '';
-                    })()
-                  : statusDisplay.badge}
-              </Tag>
+              <Popover
+                content={statusExplanations[backendStatus] || 'Sin información'}
+                title={statusDisplay.badge.replace(/^[^\w]+/, '')}
+                trigger="click"
+                overlayInnerStyle={{ background: '#222', color: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0008', fontSize: 15, fontWeight: 500, padding: 14 }}
+                overlayClassName="dark-popover"
+              >
+                <Tag color={statusDisplay.color} style={{
+                  margin: 0,
+                  minWidth: 75,
+                  maxWidth: 75,
+                  width: 75,
+                  minHeight: window.innerWidth <= 640 ? 28 : undefined,
+                  height: window.innerWidth <= 640 ? 28 : undefined,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
+                  fontSize: window.innerWidth <= 640 ? 18 : 12,
+                  borderRadius: window.innerWidth <= 640 ? 6 : undefined,
+                  boxSizing: 'border-box',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                }}>
+                  {window.innerWidth <= 640
+                    ? (() => {
+                        // Extraer emoji, si no existe, usar alternativa
+                        const match = statusDisplay.badge.match(/^([\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\u{238C}-\u{2454}\u{20D0}-\u{20FF}]+)\s?/u);
+                        if (match && match[1]) return match[1];
+                        // Alternativas unicode si el emoji no se detecta
+                        if (backendStatus === 'PROMOTES') return '\u2191'; // ↑
+                        if (backendStatus === 'RELEGATES') return '\u2193'; // ↓
+                        if (backendStatus === 'PLAYOFF') return '\u25B6'; // ▶
+                        if (backendStatus === 'TOURNAMENT') return '\u2605'; // ★
+                        if (backendStatus === 'SAFE') return '\u2713'; // ✓
+                        return '';
+                      })()
+                    : statusDisplay.badge}
+                </Tag>
+              </Popover>
             )}
           </div>
         );
@@ -485,7 +509,7 @@ export default function DivisionView() {
 
       {/* Tabla de equipos */}
       {selectedLeagueData && (
-        <Card style={{ marginTop: 0, width: '100%' }} styles={{ body: { padding: 0, width: '100%' } }}>
+        <Card style={{ marginTop: 0, width: '100%' }} styles={{ body: { width: '100%' } }}>
           <Table
             columns={createColumns(navigate)}
             dataSource={teams}
@@ -517,7 +541,7 @@ export default function DivisionView() {
             })}
           />
           {/* Etiquetas informativas de la liga debajo de la tabla */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, width: '100%', marginTop: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, width: '100%', marginTop: 0,padding: '15px 0' }}>
             {selectedDivision && (
               <Tag color="blue">{teams.length} / {selectedDivision.teamsPerLeague} equipos</Tag>
             )}
