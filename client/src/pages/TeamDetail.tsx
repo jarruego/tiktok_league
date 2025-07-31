@@ -118,8 +118,7 @@ export default function TeamDetail() {
         setTeam(data);
         setLoading(false);
       })
-      .catch(error => {
-        console.error('Error fetching team:', error);
+      .catch(() => {
         message.error('Error al cargar los datos del equipo');
         setLoading(false);
       });
@@ -131,8 +130,7 @@ export default function TeamDetail() {
         setPlayers(data);
         setPlayersLoading(false);
       })
-      .catch(error => {
-        console.error('Error fetching players:', error);
+      .catch(() => {
         message.error('Error al cargar los jugadores');
         setPlayersLoading(false);
       });

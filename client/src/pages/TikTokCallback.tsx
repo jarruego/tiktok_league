@@ -19,13 +19,11 @@ const TikTokCallback: React.FC = () => {
     const expectedState = sessionStorage.getItem('tiktok_csrf_state');
 
     if (error) {
-      alert('Error en el login con TikTok: ' + error);
       navigate('/');
       return;
     }
 
     if (!state || state !== expectedState) {
-      alert('Error de seguridad: el parámetro state no coincide (posible CSRF)');
       navigate('/');
       return;
     }
@@ -65,12 +63,10 @@ const TikTokCallback: React.FC = () => {
             refreshAuthState();
             window.location.replace('/welcome');
           } else {
-            alert('No se pudo iniciar sesión con TikTok');
             navigate('/');
           }
         })
         .catch(() => {
-          alert('Error al conectar con el backend');
           navigate('/');
         });
     }

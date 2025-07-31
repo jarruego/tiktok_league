@@ -6,7 +6,7 @@ import type { TeamCommon } from '../types/team.types';
 
 const { Title } = Typography;
 
-// import type { Match } from '../types/match.types';
+// ...existing code...
 import type { ColumnsType } from 'antd/es/table';
 
 // Asegúrate de que el tipo Match use TeamInfo

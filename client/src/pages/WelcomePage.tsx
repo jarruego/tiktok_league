@@ -57,17 +57,15 @@ const WelcomePage: React.FC = () => {
                 if (res.ok && data.success) {
                   // Obtener usuario actualizado del backend
                   let refreshedUser = null;
-                  try {
-                    const userRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/me`, {
-                      headers: {
-                        'Content-Type': 'application/json',
-                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                      }
-                    });
-                    if (userRes.ok) {
-                      refreshedUser = await userRes.json();
+                  const userRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/me`, {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(token ? { 'Authorization': `Bearer ${token}` } : {} )
                     }
-                  } catch {}
+                  });
+                  if (userRes.ok) {
+                    refreshedUser = await userRes.json();
+                  }
                   if (refreshedUser && refreshedUser.teamId) {
                     localStorage.setItem('auth_user', JSON.stringify(refreshedUser));
                     if (setUser) setUser(refreshedUser);

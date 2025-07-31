@@ -53,23 +53,6 @@ const TeamShirtSvg: React.FC<TeamShirtSvgProps> = ({
   if (!color1) color1 = '#1e90ff';
   if (!color2) color2 = '#222222';
 
-  // Debug: log color resolution
-  if (typeof window !== 'undefined') {
-    // eslint-disable-next-line no-console
-    console.log('[TeamShirtSvg]', {
-      team,
-      teamKeys: team ? Object.keys(team) : undefined,
-      teamPrimaryColor: team?.primaryColor,
-      teamSecondaryColor: team?.secondaryColor,
-      teamRaw: JSON.stringify(team),
-      primaryColor,
-      secondaryColor,
-      resolvedId,
-      color1,
-      color2
-    });
-  }
-
   return (
     <svg width={size} height={size} viewBox="0 -7.72 127.24603 127.24603" xmlns="http://www.w3.org/2000/svg">
       <g>

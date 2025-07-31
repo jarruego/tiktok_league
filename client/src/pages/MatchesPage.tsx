@@ -99,7 +99,6 @@ export default function MatchesPage() {
       // Si no hay equipo o no se encuentra, marca como inicializado igualmente
       setInitialized(true);
     } catch (error) {
-      console.error('Error loading initial data:', error);
       message.error('Error cargando datos iniciales');
       setInitialized(true);
     }
@@ -120,7 +119,6 @@ export default function MatchesPage() {
         total: response.pagination.total
       }));
     } catch (error) {
-      console.error('Error loading matches:', error);
       message.error('Error cargando partidos');
     } finally {
       setLoading(false);
@@ -140,7 +138,7 @@ export default function MatchesPage() {
         regularMatches
       });
     } catch (error) {
-      console.error('Error loading stats:', error);
+      // Error loading stats
     }
   };
 

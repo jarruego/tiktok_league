@@ -4,6 +4,7 @@ import ColorPicker from '../components/ColorPicker';
 import { EditOutlined } from '@ant-design/icons';
 import LoadingBallAnimation from '../components/LoadingBallAnimation';
 import TeamCrestSvg from '../components/TeamCrestSvg';
+import TeamShirtSvg from '../components/TeamShirtSvg';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { leagueApi } from '../api/leagueApi';
@@ -35,7 +36,6 @@ interface Match {
   awayPrimaryColor?: string;
   awaySecondaryColor?: string;
 }
-
 
 const MyTeamPage: React.FC = () => {
   // Asegura que setUser existe en el contexto
@@ -210,6 +210,19 @@ const MyTeamPage: React.FC = () => {
     }
   }, [user, navigate]);
 
+  // Helper para obtener colores actuales del equipo del usuario
+  const getTeamColors = (teamId: number | undefined, fallbackPrimary: string | undefined, fallbackSecondary: string | undefined) => {
+    if (!teamId || !user?.teamId) return { primary: fallbackPrimary, secondary: fallbackSecondary };
+    // Si la modal está abierta y el equipo es el del usuario, usar los colores editados
+    if (teamId === user.teamId && editModalOpen) {
+      return { primary: editPrimaryColor, secondary: editSecondaryColor };
+    }
+    // Si el equipo es el del usuario, usar los colores actualizados en el estado
+    if (teamId === user.teamId && team) {
+      return { primary: team.primaryColor, secondary: team.secondaryColor };
+    }
+    return { primary: fallbackPrimary, secondary: fallbackSecondary };
+  };
 
   if (loading) {
     return <LoadingBallAnimation text="Cargando datos..." />;
@@ -217,6 +230,10 @@ const MyTeamPage: React.FC = () => {
   if (!user?.teamId) {
     return null;
   }
+
+  // Colores para el último partido (debe estar aquí para usarse en el render)
+  const lastHomeColors = lastMatch ? getTeamColors(lastMatch.homeTeamId, lastMatch.homePrimaryColor, lastMatch.homeSecondaryColor) : { primary: undefined, secondary: undefined };
+  const lastAwayColors = lastMatch ? getTeamColors(lastMatch.awayTeamId, lastMatch.awayPrimaryColor, lastMatch.awaySecondaryColor) : { primary: undefined, secondary: undefined };
 
   return (
     <div style={{ width: '100vw', minHeight: '100vh', boxSizing: 'border-box', background: '#fafbfc', padding: 0, margin: 0 }}>
@@ -291,7 +308,7 @@ const MyTeamPage: React.FC = () => {
               name={editName || team?.name || ''}
             />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
             <Input
               value={editName}
               onChange={e => setEditName(e.target.value)}
@@ -308,6 +325,16 @@ const MyTeamPage: React.FC = () => {
               label="Color secundario"
               value={editSecondaryColor}
               onChange={setEditSecondaryColor}
+            />
+          </div>
+          <div style={{ minWidth: 56, minHeight: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/* Camiseta SVG a la derecha */}
+            <TeamShirtSvg
+              size={56}
+              teamId={team?.id}
+              primaryColor={editPrimaryColor}
+              secondaryColor={editSecondaryColor}
+              team={{ id: team?.id, primaryColor: editPrimaryColor, secondaryColor: editSecondaryColor }}
             />
           </div>
         </div>
@@ -388,8 +415,8 @@ const MyTeamPage: React.FC = () => {
                   <TeamCrestSvg
                     size={44}
                     teamId={lastMatch.homeTeamId}
-                    primaryColor={lastMatch.homePrimaryColor}
-                    secondaryColor={lastMatch.homeSecondaryColor}
+                    primaryColor={lastHomeColors.primary}
+                    secondaryColor={lastHomeColors.secondary}
                     name={lastMatch.homeTeam}
                   />
                 )}
@@ -408,8 +435,8 @@ const MyTeamPage: React.FC = () => {
                   <TeamCrestSvg
                     size={44}
                     teamId={lastMatch.awayTeamId}
-                    primaryColor={lastMatch.awayPrimaryColor}
-                    secondaryColor={lastMatch.awaySecondaryColor}
+                    primaryColor={lastAwayColors.primary}
+                    secondaryColor={lastAwayColors.secondary}
                     name={lastMatch.awayTeam}
                   />
                 )}
@@ -450,52 +477,56 @@ const MyTeamPage: React.FC = () => {
               marginRight: 0,
             }}
           >
-            {nextMatches.map((match) => (
-              <div
-                key={match.id}
-                className="card"
-                style={{
-                  cursor: 'pointer',
-                  minWidth: 'min(100%, 280px)',
-                  width: '100%',
-                  maxWidth: 'calc(33% - 10px)',
-                  flex: '1 1 320px',
-                  padding: '8px 4px',
-                  border: '1px solid #eee',
-                  borderRadius: 8,
-                  background: '#fff',
-                  marginBottom: 6,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'stretch',
-                  boxSizing: 'border-box',
-                }}
-                onClick={() => navigate(`/match/${match.id}`)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
-                    {match.homeCrest ? (
-                      <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
-                    ) : (
-                      <TeamCrestSvg size={32} teamId={match.homeTeamId} primaryColor={match.homePrimaryColor} secondaryColor={match.homeSecondaryColor} name={match.homeTeam} />
-                    )}
-                    <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.homeTeam}</span>
+            {nextMatches.map((match) => {
+              const homeColors = getTeamColors(match.homeTeamId, match.homePrimaryColor, match.homeSecondaryColor);
+              const awayColors = getTeamColors(match.awayTeamId, match.awayPrimaryColor, match.awaySecondaryColor);
+              return (
+                <div
+                  key={match.id}
+                  className="card"
+                  style={{
+                    cursor: 'pointer',
+                    minWidth: 'min(100%, 280px)',
+                    width: '100%',
+                    maxWidth: 'calc(33% - 10px)',
+                    flex: '1 1 320px',
+                    padding: '8px 4px',
+                    border: '1px solid #eee',
+                    borderRadius: 8,
+                    background: '#fff',
+                    marginBottom: 6,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    boxSizing: 'border-box',
+                  }}
+                  onClick={() => navigate(`/match/${match.id}`)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
+                      {match.homeCrest ? (
+                        <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
+                      ) : (
+                        <TeamCrestSvg size={32} teamId={match.homeTeamId} primaryColor={homeColors.primary} secondaryColor={homeColors.secondary} name={match.homeTeam} />
+                      )}
+                      <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.homeTeam}</span>
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: 16, margin: '0 8px', minWidth: 28, textAlign: 'center' }}>vs</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
+                      <span style={{ fontWeight: 600, fontSize: 15, marginRight: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.awayTeam}</span>
+                      {match.awayCrest ? (
+                        <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
+                      ) : (
+                        <TeamCrestSvg size={32} teamId={match.awayTeamId} primaryColor={awayColors.primary} secondaryColor={awayColors.secondary} name={match.awayTeam} />
+                      )}
+                    </div>
                   </div>
-                  <span style={{ fontWeight: 700, fontSize: 16, margin: '0 8px', minWidth: 28, textAlign: 'center' }}>vs</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
-                    <span style={{ fontWeight: 600, fontSize: 15, marginRight: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.awayTeam}</span>
-                    {match.awayCrest ? (
-                      <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
-                    ) : (
-                      <TeamCrestSvg size={32} teamId={match.awayTeamId} primaryColor={match.awayPrimaryColor} secondaryColor={match.awaySecondaryColor} name={match.awayTeam} />
-                    )}
+                  <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
+                    {new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
                   </div>
                 </div>
-                <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
-                  {new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div style={{ textAlign: 'center', color: 'red', fontSize: 18 }}>No quedan partidos por jugar.</div>
@@ -555,67 +586,71 @@ const MyTeamPage: React.FC = () => {
               marginRight: 0,
             }}
           >
-            {finishedMatches.map((match) => (
-              <div
-                key={match.id}
-                className="card"
-                style={{ cursor: 'pointer', ...{
-                  minWidth: 'min(100%, 280px)',
-                  width: '100%',
-                  maxWidth: 'calc(33% - 10px)',
-                  flex: '1 1 320px',
-                  padding: '8px 4px',
-                  border: '1px solid #eee',
-                  borderRadius: 8,
-                  background: '#fff',
-                  marginBottom: 6,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'stretch',
-                  boxSizing: 'border-box',
-                } }}
-                onClick={() => navigate(`/match/${match.id}`)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
-                    {match.homeCrest ? (
-                      <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
-                    ) : (
-                      <TeamCrestSvg
-                        size={32}
-                        teamId={match.homeTeamId}
-                        primaryColor={match.homePrimaryColor}
-                        secondaryColor={match.homeSecondaryColor}
-                        name={match.homeTeam}
-                      />
-                    )}
-                    <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.homeTeam}</span>
+            {finishedMatches.map((match) => {
+              const homeColors = getTeamColors(match.homeTeamId, match.homePrimaryColor, match.homeSecondaryColor);
+              const awayColors = getTeamColors(match.awayTeamId, match.awayPrimaryColor, match.awaySecondaryColor);
+              return (
+                <div
+                  key={match.id}
+                  className="card"
+                  style={{ cursor: 'pointer',
+                    minWidth: 'min(100%, 280px)',
+                    width: '100%',
+                    maxWidth: 'calc(33% - 10px)',
+                    flex: '1 1 320px',
+                    padding: '8px 4px',
+                    border: '1px solid #eee',
+                    borderRadius: 8,
+                    background: '#fff',
+                    marginBottom: 6,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    boxSizing: 'border-box',
+                  }}
+                  onClick={() => navigate(`/match/${match.id}`)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 }}>
+                      {match.homeCrest ? (
+                        <img src={match.homeCrest} alt="Escudo local" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
+                      ) : (
+                        <TeamCrestSvg
+                          size={32}
+                          teamId={match.homeTeamId}
+                          primaryColor={homeColors.primary}
+                          secondaryColor={homeColors.secondary}
+                          name={match.homeTeam}
+                        />
+                      )}
+                      <span style={{ fontWeight: 600, fontSize: 15, marginLeft: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.homeTeam}</span>
+                    </div>
+                    <span style={{ fontWeight: 700, fontSize: 16, margin: '0 8px', minWidth: 28, textAlign: 'center' }}>
+                      {typeof match.homeGoals === 'number' && typeof match.awayGoals === 'number'
+                        ? `${match.homeGoals} - ${match.awayGoals}`
+                        : 'vs'}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
+                      <span style={{ fontWeight: 600, fontSize: 15, marginRight: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.awayTeam}</span>
+                      {match.awayCrest ? (
+                        <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
+                      ) : (
+                        <TeamCrestSvg
+                          size={32}
+                          teamId={match.awayTeamId}
+                          primaryColor={awayColors.primary}
+                          secondaryColor={awayColors.secondary}
+                          name={match.awayTeam}
+                        />
+                      )}
+                    </div>
                   </div>
-                  <span style={{ fontWeight: 700, fontSize: 16, margin: '0 8px', minWidth: 28, textAlign: 'center' }}>
-                    {typeof match.homeGoals === 'number' && typeof match.awayGoals === 'number'
-                      ? `${match.homeGoals} - ${match.awayGoals}`
-                      : 'vs'}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-start', minWidth: 0 }}>
-                    <span style={{ fontWeight: 600, fontSize: 15, marginRight: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{match.awayTeam}</span>
-                    {match.awayCrest ? (
-                      <img src={match.awayCrest} alt="Escudo visitante" style={{ width: 32, height: 32, objectFit: 'contain', background: '#fff', borderRadius: 4, border: '1px solid #eee' }} />
-                    ) : (
-                      <TeamCrestSvg
-                        size={32}
-                        teamId={match.awayTeamId}
-                        primaryColor={match.awayPrimaryColor}
-                        secondaryColor={match.awaySecondaryColor}
-                        name={match.awayTeam}
-                      />
-                    )}
+                  <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
+                    {new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
                   </div>
                 </div>
-                <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
-                  {new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div style={{ textAlign: 'center', color: '#888', fontSize: 16 }}>No hay partidos finalizados.</div>

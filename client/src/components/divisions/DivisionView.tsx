@@ -268,7 +268,7 @@ export default function DivisionView() {
         activeSeason = await leagueApi.getActiveSeason();
         setSeason(activeSeason);
       } catch (error) {
-        console.log('No hay temporada activa, el sistema puede no estar inicializado');
+        // No hay temporada activa, el sistema puede no estar inicializado
       }
 
       // Intentar obtener la estructura de divisiones
@@ -311,13 +311,12 @@ export default function DivisionView() {
           setSystemInitialized(true);
         }
       } catch (error) {
-        console.log('Sistema de ligas no inicializado');
+        // Sistema de ligas no inicializado
         setSystemInitialized(false);
       }
 
     } catch (error) {
-      console.error('Error cargando datos iniciales:', error);
-      // message.error('Error cargando los datos del sistema de ligas');
+      // Error cargando datos iniciales
     } finally {
       setLoading(false);
     }
@@ -330,8 +329,7 @@ export default function DivisionView() {
       // Cargar equipos y clasificaciones en paralelo
       const [teamsData, standingsData] = await Promise.all([
         leagueApi.getTeamsInLeague(leagueId, seasonId),
-        matchApi.getLeagueStandings(leagueId, seasonId).catch((error) => {
-          console.error('Error cargando clasificaciones:', error);
+        matchApi.getLeagueStandings(leagueId, seasonId).catch(() => {
           return [];
         })
       ]);
@@ -379,8 +377,6 @@ export default function DivisionView() {
       }));
       setTeams(finalTeams);
     } catch (error) {
-      console.error('Error cargando equipos:', error);
-      // message.error('Error cargando los equipos de la liga');
       setTeams([]);
     } finally {
       setTeamsLoading(false);

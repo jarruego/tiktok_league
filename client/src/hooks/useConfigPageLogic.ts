@@ -48,14 +48,11 @@ export function useConfigPageLogic() {
   const checkSeasonCompletionStatus = async () => {
     if (!activeSeason) return;
     
-    console.log('[DEBUG] Verificando estado de temporada:', activeSeason.id);
     setCheckingSeasonComplete(true);
     try {
       const status = await checkActiveSeasonComplete();
-      console.log('[DEBUG] Estado recibido:', status);
       setSeasonComplete(status);
     } catch (error) {
-      console.error('[DEBUG] Error checking season completion:', error);
       setSeasonComplete(null);
     } finally {
       setCheckingSeasonComplete(false);
@@ -64,23 +61,19 @@ export function useConfigPageLogic() {
   
   // Crear nueva temporada
   const handleCreateNewSeason = async (newSeasonName?: string) => {
-    console.log('[DEBUG] Iniciando creación de nueva temporada:', { newSeasonName, seasonComplete: seasonComplete?.readyForNewSeason });
     
     if (!seasonComplete?.readyForNewSeason) {
       const errorMsg = 'La temporada actual no está lista para crear una nueva';
-      console.error('[DEBUG]', errorMsg);
       message.error(errorMsg);
       return;
     }
     
     setCreatingNewSeason(true);
     try {
-      console.log('[DEBUG] Llamando a createNewSeasonFromCompleted...');
       const result = await createNewSeasonFromCompleted({
         newSeasonName
       });
       
-      console.log('[DEBUG] Resultado recibido:', result);
       
       if (result.success) {
         message.success(result.message);
@@ -92,7 +85,6 @@ export function useConfigPageLogic() {
         // Generar automáticamente el calendario de partidos para la nueva temporada
         if (result.newSeasonId) {
           try {
-            console.log('[DEBUG] Generando calendario automáticamente para la nueva temporada...');
             
             // Usar valores por defecto: 7 días entre jornadas, sin fecha de inicio específica
             const generateData = {
@@ -101,11 +93,9 @@ export function useConfigPageLogic() {
             };
             
             const matchResult = await matchApi.generateMatches(generateData);
-            console.log('[DEBUG] Partidos generados:', matchResult);
             
             message.success(`Nueva temporada creada con ${matchResult.totalMatches} partidos generados automáticamente`);
           } catch (matchError: any) {
-            console.error('[DEBUG] Error generando partidos automáticamente:', matchError);
             message.warning(`Temporada creada exitosamente, pero hubo un error generando el calendario: ${matchError.message}`);
           }
         } else {
@@ -121,7 +111,6 @@ export function useConfigPageLogic() {
         // Recargar estadísticas después de generar partidos
         await loadActiveSeasonAndStats();
       } else {
-        console.error('[DEBUG] Resultado sin éxito:', result);
         message.error('Error creando nueva temporada');
       }
     } catch (error: any) {
