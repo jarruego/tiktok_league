@@ -157,9 +157,6 @@ const createColumns = (navigate: any): ColumnsType<ExtendedTeamInLeague> => {
             )}
           </span>
           <span className="clickable-team-name" style={{ fontWeight: 500 }}>{record.teamName}</span>
-          {record.shortName && record.shortName !== record.teamName && (
-            <span style={{ marginLeft: 6, color: '#888', fontSize: 13 }}>({record.shortName})</span>
-          )}
         </div>
       )
     },
