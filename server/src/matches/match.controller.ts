@@ -128,11 +128,25 @@ export class MatchController {
 
     if (!matchRow) throw new NotFoundException('Partido no encontrado');
 
-    // Obtener info de equipos
+    // Obtener info de equipos (incluyendo colores personalizados)
     const [homeTeam, awayTeam] = await Promise.all([
-      db.select({ id: teamTable.id, name: teamTable.name, shortName: teamTable.shortName, crest: teamTable.crest })
+      db.select({
+        id: teamTable.id,
+        name: teamTable.name,
+        shortName: teamTable.shortName,
+        crest: teamTable.crest,
+        primaryColor: teamTable.primaryColor,
+        secondaryColor: teamTable.secondaryColor
+      })
         .from(teamTable).where(eq(teamTable.id, matchRow.homeTeamId)),
-      db.select({ id: teamTable.id, name: teamTable.name, shortName: teamTable.shortName, crest: teamTable.crest })
+      db.select({
+        id: teamTable.id,
+        name: teamTable.name,
+        shortName: teamTable.shortName,
+        crest: teamTable.crest,
+        primaryColor: teamTable.primaryColor,
+        secondaryColor: teamTable.secondaryColor
+      })
         .from(teamTable).where(eq(teamTable.id, matchRow.awayTeamId))
     ]);
 
@@ -146,8 +160,8 @@ export class MatchController {
 
     const match = {
       ...matchRow,
-      homeTeam: homeTeam[0] || { id: matchRow.homeTeamId, name: 'Unknown', shortName: null, crest: null },
-      awayTeam: awayTeam[0] || { id: matchRow.awayTeamId, name: 'Unknown', shortName: null, crest: null },
+      homeTeam: homeTeam[0] || { id: matchRow.homeTeamId, name: 'Unknown', shortName: null, crest: null, primaryColor: null, secondaryColor: null },
+      awayTeam: awayTeam[0] || { id: matchRow.awayTeamId, name: 'Unknown', shortName: null, crest: null, primaryColor: null, secondaryColor: null },
       league: league || { id: matchRow.leagueId, name: 'Unknown', groupCode: '', divisionId: null },
       division: division || { id: null, name: '', level: null }
     };
