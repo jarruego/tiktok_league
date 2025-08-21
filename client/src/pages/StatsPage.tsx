@@ -146,7 +146,7 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {scorers.slice(0, 15).map((p, i) => (
+                {scorers.slice(0, 20).map((p, i) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
                     <td style={{ padding: 8 }}>{p.team}</td>
@@ -168,7 +168,7 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {assists.slice(0, 15).map((p, i) => (
+                {assists.slice(0, 20).map((p, i) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
                     <td style={{ padding: 8 }}>{p.team}</td>
@@ -196,7 +196,7 @@ export default function StatsPage() {
                   allStats
                     .map(p => ({ ...p, total: (p.goals || 0) + (p.assists || 0) }))
                     .sort((a, b) => b.total - a.total || b.goals - a.goals)
-                    .slice(0, 15)
+                    .slice(0, 20)
                     .map((p, i) => (
                       <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                         <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
