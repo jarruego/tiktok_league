@@ -97,7 +97,7 @@ export class StatsService {
       .where(whereClause)
       .groupBy(matchPlayerStatsTable.playerId)
       .orderBy(desc(sql`SUM(${matchPlayerStatsTable.goals})`))
-      .limit(10);
+      .limit(20);
 
     // Obtener nombres y equipos
     const playerIds = result.map(r => r.id);
@@ -154,7 +154,7 @@ export class StatsService {
       .where(whereClause)
       .groupBy(matchPlayerStatsTable.playerId)
       .orderBy(desc(sql`SUM(${matchPlayerStatsTable.assists})`))
-      .limit(10);
+      .limit(20);
 
     // Obtener nombres y equipos
     const playerIds = result.map(r => r.id);
