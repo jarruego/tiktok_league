@@ -15,6 +15,7 @@ export default function StatsPage() {
   const { user } = useAuth();
   const [scorers, setScorers] = useState<PlayerStat[]>([]);
   const [assists, setAssists] = useState<PlayerStat[]>([]);
+  // G+A se calcula en render
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [divisions, setDivisions] = useState<Division[]>([]);
@@ -140,7 +141,7 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {scorers.map((p, i) => (
+                {scorers.slice(0, 15).map((p, i) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
                     <td style={{ padding: 8 }}>{p.team}</td>
@@ -161,13 +162,56 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {assists.map((p, i) => (
+                {assists.slice(0, 15).map((p, i) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
                     <td style={{ padding: 8 }}>{p.team}</td>
                     <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.value}</td>
                   </tr>
                 ))}
+          <section>
+            <h3 style={{ fontSize: 20, margin: '8px 0' }}>📊 Clasificación G+A (Goles + Asistencias)</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 16 }}>
+              <thead>
+                <tr style={{ background: '#f7f7f7' }}>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Jugador</th>
+                  <th style={{ textAlign: 'left', padding: 8 }}>Equipo</th>
+                  <th style={{ textAlign: 'right', padding: 8 }}>G+A</th>
+                  <th style={{ textAlign: 'right', padding: 8 }}>Goles</th>
+                  <th style={{ textAlign: 'right', padding: 8 }}>Asistencias</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  // Unir por id, sumar goles+asistencias
+                  const gaMap = new Map<number, { id: number, name: string, team: string, goals: number, assists: number, total: number }>();
+                  scorers.forEach(s => {
+                    gaMap.set(s.id, { id: s.id, name: s.name, team: s.team, goals: s.value, assists: 0, total: s.value });
+                  });
+                  assists.forEach(a => {
+                    if (gaMap.has(a.id)) {
+                      const entry = gaMap.get(a.id)!;
+                      entry.assists = a.value;
+                      entry.total = entry.goals + a.value;
+                    } else {
+                      gaMap.set(a.id, { id: a.id, name: a.name, team: a.team, goals: 0, assists: a.value, total: a.value });
+                    }
+                  });
+                  const gaArr = Array.from(gaMap.values());
+                  gaArr.sort((a, b) => b.total - a.total || b.goals - a.goals);
+                  return gaArr.slice(0, 15).map((p, i) => (
+                    <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
+                      <td style={{ padding: 8 }}>{p.team}</td>
+                      <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.total}</td>
+                      <td style={{ padding: 8, textAlign: 'right' }}>{p.goals}</td>
+                      <td style={{ padding: 8, textAlign: 'right' }}>{p.assists}</td>
+                    </tr>
+                  ));
+                })()}
+              </tbody>
+            </table>
+          </section>
               </tbody>
             </table>
           </section>
