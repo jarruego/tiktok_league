@@ -14,6 +14,7 @@ import { MatchModule } from './matches/match.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { LineupModule } from './lineup/lineup.module';
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { LineupModule } from './lineup/lineup.module';
     FootballDataModule,
     TiktokScraperModule,
     MatchModule,
-    LineupModule
+    LineupModule,
+    StatsModule
   ],
   controllers: [AppController],
   providers: [AppService],

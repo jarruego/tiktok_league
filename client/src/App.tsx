@@ -18,6 +18,7 @@ import MainHeader from './components/MainHeader';
 import WelcomePage from './pages/WelcomePage';
 import HomePage from './pages/HomePage';
 import { LoginScreen } from './components/LoginScreen';
+import StatsPage from './pages/StatsPage';
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="/leagues" element={<AdminGuard><LeaguesPage /></AdminGuard>} />
             <Route path="/divisions" element={<AuthGuard><DivisionView /></AuthGuard>} />
             <Route path="/login" element={<LoginScreen />} />
+            <Route path="/stats" element={<AuthGuard><StatsPage /></AuthGuard>} />
           </Routes>
         </main>
       </div>

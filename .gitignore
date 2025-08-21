@@ -1,3 +1,5 @@
+# Ignorar script de generación de alineaciones
+server/scripts/dev/generate-lineups.ts
 # VS Code workspace files
 *.code-workspace
 foodball.code-workspace
