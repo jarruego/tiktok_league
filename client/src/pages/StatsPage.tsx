@@ -15,6 +15,7 @@ export default function StatsPage() {
   const { user } = useAuth();
   const [scorers, setScorers] = useState<PlayerStat[]>([]);
   const [assists, setAssists] = useState<PlayerStat[]>([]);
+  const [allStats, setAllStats] = useState<Array<{ id: number; name: string; team: string; goals: number; assists: number; }>>([]);
   // G+A se calcula en render
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,21 +78,25 @@ export default function StatsPage() {
       setLoading(true);
       setError(null);
       try {
-        const [scorersRes, assistsRes] = await Promise.all([
+        const [scorersRes, assistsRes, allStatsRes] = await Promise.all([
           fetch(`/api/stats/top-scorers?leagueId=${selectedLeague}`),
           fetch(`/api/stats/top-assists?leagueId=${selectedLeague}`),
+          fetch(`/api/stats/all-stats?leagueId=${selectedLeague}`),
         ]);
-        if (!scorersRes.ok || !assistsRes.ok) {
+        if (!scorersRes.ok || !assistsRes.ok || !allStatsRes.ok) {
           throw new Error('Error al cargar estadísticas');
         }
         const scorersData = await scorersRes.json();
         const assistsData = await assistsRes.json();
+        const allStatsData = await allStatsRes.json();
         setScorers(Array.isArray(scorersData) ? scorersData : []);
         setAssists(Array.isArray(assistsData) ? assistsData : []);
+        setAllStats(Array.isArray(allStatsData) ? allStatsData : []);
       } catch (e: any) {
         setError(e.message || 'Error desconocido');
         setScorers([]);
         setAssists([]);
+        setAllStats([]);
       }
       setLoading(false);
     }
@@ -151,7 +156,8 @@ export default function StatsPage() {
               </tbody>
             </table>
           </section>
-          <section>
+
+          <section style={{ marginBottom: 24 }}>
             <h3 style={{ fontSize: 20, margin: '8px 0' }}>🎯 Máximos asistentes</h3>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 16 }}>
               <thead>
@@ -169,6 +175,10 @@ export default function StatsPage() {
                     <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.value}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </section>
+
           <section>
             <h3 style={{ fontSize: 20, margin: '8px 0' }}>📊 Clasificación G+A (Goles + Asistencias)</h3>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 16 }}>
@@ -182,36 +192,23 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  // Unir por id, sumar goles+asistencias
-                  const gaMap = new Map<number, { id: number, name: string, team: string, goals: number, assists: number, total: number }>();
-                  scorers.forEach(s => {
-                    gaMap.set(s.id, { id: s.id, name: s.name, team: s.team, goals: s.value, assists: 0, total: s.value });
-                  });
-                  assists.forEach(a => {
-                    if (gaMap.has(a.id)) {
-                      const entry = gaMap.get(a.id)!;
-                      entry.assists = a.value;
-                      entry.total = entry.goals + a.value;
-                    } else {
-                      gaMap.set(a.id, { id: a.id, name: a.name, team: a.team, goals: 0, assists: a.value, total: a.value });
-                    }
-                  });
-                  const gaArr = Array.from(gaMap.values());
-                  gaArr.sort((a, b) => b.total - a.total || b.goals - a.goals);
-                  return gaArr.slice(0, 15).map((p, i) => (
-                    <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
-                      <td style={{ padding: 8 }}>{p.team}</td>
-                      <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.total}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{p.goals}</td>
-                      <td style={{ padding: 8, textAlign: 'right' }}>{p.assists}</td>
-                    </tr>
-                  ));
-                })()}
-              </tbody>
-            </table>
-          </section>
+                {allStats.length > 0 ? (
+                  allStats
+                    .map(p => ({ ...p, total: (p.goals || 0) + (p.assists || 0) }))
+                    .sort((a, b) => b.total - a.total || b.goals - a.goals)
+                    .slice(0, 15)
+                    .map((p, i) => (
+                      <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
+                        <td style={{ padding: 8 }}>{p.team}</td>
+                        <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.total}</td>
+                        <td style={{ padding: 8, textAlign: 'right' }}>{p.goals}</td>
+                        <td style={{ padding: 8, textAlign: 'right' }}>{p.assists}</td>
+                      </tr>
+                    ))
+                ) : (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 16 }}>Sin datos</td></tr>
+                )}
               </tbody>
             </table>
           </section>

@@ -14,4 +14,9 @@ export class StatsController {
   getTopAssists(@Query('leagueId') leagueId?: string, @Query('divisionId') divisionId?: string) {
     return this.statsService.getTopAssists({ leagueId, divisionId });
   }
+
+  @Get('all-stats')
+  getAllStats(@Query('leagueId') leagueId?: string, @Query('divisionId') divisionId?: string) {
+    return this.statsService.getAllStats({ leagueId, divisionId });
+  }
 }
