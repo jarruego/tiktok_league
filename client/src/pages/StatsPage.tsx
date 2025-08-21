@@ -148,7 +148,9 @@ export default function StatsPage() {
               <tbody>
                 {scorers.slice(0, 20).map((p, i) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
+                    <td style={{ padding: 8 }}>
+                      {i+1}. <a href={`/player/${p.id}`} style={{ color: '#1976d2', cursor: 'pointer', textDecoration: 'underline' }}>{p.name}</a>
+                    </td>
                     <td style={{ padding: 8 }}>{p.team}</td>
                     <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.value}</td>
                   </tr>
@@ -170,7 +172,9 @@ export default function StatsPage() {
               <tbody>
                 {assists.slice(0, 20).map((p, i) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
+                    <td style={{ padding: 8 }}>
+                      {i+1}. <a href={`/player/${p.id}`} style={{ color: '#1976d2', cursor: 'pointer', textDecoration: 'underline' }}>{p.name}</a>
+                    </td>
                     <td style={{ padding: 8 }}>{p.team}</td>
                     <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.value}</td>
                   </tr>
@@ -199,7 +203,9 @@ export default function StatsPage() {
                     .slice(0, 20)
                     .map((p, i) => (
                       <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: 8 }}>{i+1}. {p.name}</td>
+                        <td style={{ padding: 8 }}>
+                          {i+1}. <a href={`/player/${p.id}`} style={{ color: '#1976d2', cursor: 'pointer', textDecoration: 'underline' }}>{p.name}</a>
+                        </td>
                         <td style={{ padding: 8 }}>{p.team}</td>
                         <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.total}</td>
                         <td style={{ padding: 8, textAlign: 'right' }}>{p.goals}</td>

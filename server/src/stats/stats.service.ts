@@ -1,5 +1,6 @@
 
 
+
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { matchPlayerStatsTable } from '../database/tables/match-player-stats.table';
@@ -186,5 +187,49 @@ export class StatsService {
         value: Number(r.value),
       };
     });
+  }
+
+  async getPlayerStats(playerId: number) {
+    const db = this.databaseService.getDb();
+    const result = await db
+      .select({
+        goals: sql`SUM(${matchPlayerStatsTable.goals})`.as('goals'),
+        assists: sql`SUM(${matchPlayerStatsTable.assists})`.as('assists'),
+      })
+      .from(matchPlayerStatsTable)
+      .where(sql`${matchPlayerStatsTable.playerId} = ${playerId}`);
+    if (result.length === 0) {
+      return { goals: 0, assists: 0 };
+    }
+    return {
+      goals: Number(result[0].goals) || 0,
+      assists: Number(result[0].assists) || 0,
+    };
+  }
+  async getPlayerProgress(playerId: number) {
+    const db = this.databaseService.getDb();
+    // Suponemos que matchTable tiene un campo 'matchday' o 'jornada'
+    const result = await db
+      .select({
+        matchday: matchTable.matchday,
+        goals: matchPlayerStatsTable.goals,
+        assists: matchPlayerStatsTable.assists,
+      })
+      .from(matchPlayerStatsTable)
+      .innerJoin(matchTable, sql`${matchPlayerStatsTable.matchId} = ${matchTable.id}`)
+      .where(sql`${matchPlayerStatsTable.playerId} = ${playerId}`)
+      .orderBy(matchTable.matchday);
+    // Agrupar por jornada (por si hay más de un partido por jornada)
+    const progress: Record<number, { goals: number, assists: number }> = {};
+    for (const row of result) {
+      const md = Number(row.matchday);
+      if (!progress[md]) progress[md] = { goals: 0, assists: 0 };
+      progress[md].goals += Number(row.goals) || 0;
+      progress[md].assists += Number(row.assists) || 0;
+    }
+    // Convertir a array ordenado por jornada
+    return Object.entries(progress)
+      .map(([matchday, stats]) => ({ matchday: Number(matchday), ...stats }))
+      .sort((a, b) => a.matchday - b.matchday);
   }
 }

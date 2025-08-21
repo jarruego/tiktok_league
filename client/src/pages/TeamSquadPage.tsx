@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import TeamShirtSvg from '../components/TeamShirtSvg';
 import LoadingBallAnimation from '../components/LoadingBallAnimation';
 import { Card, Button, Typography, Divider, List, Modal, Tooltip } from 'antd';
@@ -85,6 +86,7 @@ function groupPlayers(players: Player[]): Record<string, Player[]> {
 }
 
 export default function TeamSquadPage() {
+  const navigate = useNavigate();
   // Estado para el esquema táctico seleccionado
   const defaultTactic = TACTICS.find(t => t.label === '4-3-3') || TACTICS[0];
   const [selectedTactic, setSelectedTactic] = useState(defaultTactic);
@@ -596,7 +598,7 @@ export default function TeamSquadPage() {
                 dataSource={Array.isArray(grouped[pos]) ? grouped[pos] : []}
                 renderItem={(p: Player) => (
                   <List.Item
-                    style={{ padding: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                    style={{ padding: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
                     actions={
                       !hasFootballDataId ? [
                         <Button
@@ -604,10 +606,11 @@ export default function TeamSquadPage() {
                           danger
                           icon={<DeleteOutlined />}
                           size="small"
-                          onClick={() => { setPlayerToDelete(p); setShowDeleteModal(true); }}
+                          onClick={e => { e.stopPropagation(); setPlayerToDelete(p); setShowDeleteModal(true); }}
                         />
                       ] : []
                     }
+                    onClick={() => navigate(`/player/${p.id}`)}
                   >
                     <span>
                       <span role="img" aria-label="jugador" style={{ fontSize: 20, marginRight: 6 }}>👤</span>

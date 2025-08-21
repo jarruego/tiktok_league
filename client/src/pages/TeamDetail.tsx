@@ -65,6 +65,17 @@ const playersColumns: ColumnsType<Player> = [
     dataIndex: 'name',
     key: 'name',
     sorter: (a, b) => a.name.localeCompare(b.name),
+    render: (text: string, record: Player) => (
+      <a
+        style={{ color: '#1976d2', cursor: 'pointer' }}
+        onClick={e => {
+          e.preventDefault();
+          window.open(`/player/${record.id}`, '_self');
+        }}
+      >
+        {text}
+      </a>
+    ),
   },
   {
     title: 'Posición',
