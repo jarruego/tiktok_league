@@ -29,6 +29,7 @@ interface Match {
   homeGoals?: number;
   awayGoals?: number;
   date: string;
+  matchday?: number;
   homeCrest?: string;
   awayCrest?: string;
   homePrimaryColor?: string;
@@ -156,7 +157,8 @@ const MyTeamPage: React.FC = () => {
           awaySecondaryColor: next.awayTeam?.secondaryColor ?? undefined,
           homeGoals: next.homeGoals,
           awayGoals: next.awayGoals,
-          date: next.scheduledDate
+          date: next.scheduledDate,
+          matchday: next.matchday
         }));
       const finishedArr = matches
         .filter((m: any) => m.status === 'finished')
@@ -175,7 +177,8 @@ const MyTeamPage: React.FC = () => {
           awaySecondaryColor: fin.awayTeam?.secondaryColor ?? undefined,
           homeGoals: fin.homeGoals,
           awayGoals: fin.awayGoals,
-          date: fin.scheduledDate
+          date: fin.scheduledDate,
+          matchday: fin.matchday
         }));
       const last = finishedArr[0];
 
@@ -196,7 +199,8 @@ const MyTeamPage: React.FC = () => {
           awaySecondaryColor: last.awaySecondaryColor,
           homeGoals: last.homeGoals,
           awayGoals: last.awayGoals,
-          date: last.date
+          date: last.date,
+          matchday: last.matchday
         } : null);
         setLoading(false);
       }
@@ -443,7 +447,13 @@ const MyTeamPage: React.FC = () => {
               </div>
             </div>
             <div style={{ textAlign: 'center', marginTop: 8, color: '#1e90ff', fontSize: 15, fontWeight: 600, letterSpacing: 0.2 }}>
-              {new Date(lastMatch.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+              <span style={{ color: '#222', fontWeight: 700, fontSize: 15 }}>
+                {typeof lastMatch.matchday === 'number' ? `Jornada ${lastMatch.matchday}` : ''}
+              </span>
+              {typeof lastMatch.matchday === 'number' ? ' ' : ''}
+              <span style={{ color: '#888', fontWeight: 400, fontSize: 13 }}>
+                ({new Date(lastMatch.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })})
+              </span>
             </div>
           </div>
         ) : (
@@ -521,8 +531,14 @@ const MyTeamPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
-                    {new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+                  <div style={{ textAlign: 'center', marginTop: 4 }}>
+                    <span style={{ color: '#222', fontWeight: 700, fontSize: 12 }}>
+                      {typeof match.matchday === 'number' ? `Jornada ${match.matchday}` : ''}
+                    </span>
+                    {typeof match.matchday === 'number' ? ' ' : ''}
+                    <span style={{ color: '#888', fontWeight: 400, fontSize: 11 }}>
+                      ({new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })})
+                    </span>
                   </div>
                 </div>
               );
@@ -645,8 +661,14 @@ const MyTeamPage: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'center', marginTop: 4, color: '#888', fontSize: 11 }}>
-                    {new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+                  <div style={{ textAlign: 'center', marginTop: 4 }}>
+                    <span style={{ color: '#222', fontWeight: 700, fontSize: 12 }}>
+                      {typeof match.matchday === 'number' ? `Jornada ${match.matchday}` : ''}
+                    </span>
+                    {typeof match.matchday === 'number' ? ' ' : ''}
+                    <span style={{ color: '#888', fontWeight: 400, fontSize: 11 }}>
+                      ({new Date(match.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })})
+                    </span>
                   </div>
                 </div>
               );

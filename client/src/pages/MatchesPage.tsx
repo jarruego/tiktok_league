@@ -27,6 +27,7 @@ interface Match {
   matchday?: number;
   scheduledDate?: string;
   playoffRound?: string;
+  updatedAt?: string;
   // ...otros campos...
 }
 
@@ -82,14 +83,10 @@ export default function MatchesPage() {
             if (foundLeague && foundDivision) break;
           }
           if (foundLeague && foundDivision) {
-            const matchesResp = await matchApi.getMatchesBySeason(activeSeason.id, { leagueId: foundLeague.id });
-            const nextMatch = matchesResp.matches.find(m => m.status === 'scheduled' || m.status === 'live');
-            const nextMatchday = nextMatch ? nextMatch.matchday : undefined;
-            // Solo setea los filtros una vez, y marca como inicializado
+            // Solo seleccionar división y liga, dejar la jornada sin seleccionar
             setFilters({
               divisionId: foundDivision.id,
-              leagueId: foundLeague.id,
-              matchday: nextMatchday
+              leagueId: foundLeague.id
             });
             setInitialized(true);
             return;
