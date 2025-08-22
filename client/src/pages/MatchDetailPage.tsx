@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import { Card, Table, Row, Col, Typography, Spin } from 'antd';
 import TeamCrestSvg from '../components/TeamCrestSvg';
@@ -27,13 +28,28 @@ interface PlayerStat {
   goalMinutes?: number[];
 }
 
-const columns: ColumnsType<PlayerStat> = [
-  {
-    title: 'Jugador',
-    dataIndex: 'playerName',
-    key: 'playerName',
-  },
-  {
+export default function MatchDetailPage() {
+  const { matchId } = useParams();
+  const navigate = useNavigate();
+
+  const columns: ColumnsType<PlayerStat> = [
+    {
+      title: 'Jugador',
+      dataIndex: 'playerName',
+      key: 'playerName',
+      render: (text: string, record: PlayerStat) => (
+        <a
+          style={{ color: '#1976d2', cursor: 'pointer' }}
+          onClick={e => {
+            e.preventDefault();
+            navigate(`/player/${record.playerId}`);
+          }}
+        >
+          {text}
+        </a>
+      ),
+    },
+    {
     title: 'Goles',
     dataIndex: 'goals',
     key: 'goals',
@@ -57,8 +73,6 @@ const columns: ColumnsType<PlayerStat> = [
   },
 ];
 
-export default function MatchDetailPage() {
-  const { matchId } = useParams();
   const [loading, setLoading] = useState(true);
   const [match, setMatch] = useState<Match | null>(null);
   const [stats, setStats] = useState<{ home: PlayerStat[]; away: PlayerStat[] }>({ home: [], away: [] });

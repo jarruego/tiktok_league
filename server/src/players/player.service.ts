@@ -101,7 +101,7 @@ export class PlayerService {
 
   async findOne(id: number) {
     const db = this.databaseService.db;
-    
+
     const [player] = await db
       .select({
         id: playerTable.id,
@@ -117,16 +117,20 @@ export class PlayerService {
           id: teamTable.id,
           name: teamTable.name,
           displayName: teamTable.displayName,
+          crest: teamTable.crest,
+          avatarUrl: teamTable.avatarUrl,
+          primaryColor: teamTable.primaryColor,
+          secondaryColor: teamTable.secondaryColor,
         }
       })
       .from(playerTable)
       .leftJoin(teamTable, eq(playerTable.teamId, teamTable.id))
       .where(eq(playerTable.id, id));
-    
+
     if (!player) {
       throw new NotFoundException('Player not found');
     }
-    
+
     return player;
   }
 

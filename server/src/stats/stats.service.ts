@@ -191,19 +191,24 @@ export class StatsService {
 
   async getPlayerStats(playerId: number) {
     const db = this.databaseService.getDb();
-    const result = await db
+    // Contar partidos jugados aunque no haya goles ni asistencias
+    const [matchesPlayedResult] = await db
+      .select({ matchesPlayed: sql`COUNT(DISTINCT ${matchPlayerStatsTable.matchId})`.as('matchesPlayed') })
+      .from(matchPlayerStatsTable)
+      .where(sql`${matchPlayerStatsTable.playerId} = ${playerId}`);
+
+    const [statsResult] = await db
       .select({
         goals: sql`SUM(${matchPlayerStatsTable.goals})`.as('goals'),
         assists: sql`SUM(${matchPlayerStatsTable.assists})`.as('assists'),
       })
       .from(matchPlayerStatsTable)
       .where(sql`${matchPlayerStatsTable.playerId} = ${playerId}`);
-    if (result.length === 0) {
-      return { goals: 0, assists: 0 };
-    }
+
     return {
-      goals: Number(result[0].goals) || 0,
-      assists: Number(result[0].assists) || 0,
+      goals: Number(statsResult?.goals) || 0,
+      assists: Number(statsResult?.assists) || 0,
+      matchesPlayed: Number(matchesPlayedResult?.matchesPlayed) || 0,
     };
   }
   async getPlayerProgress(playerId: number) {

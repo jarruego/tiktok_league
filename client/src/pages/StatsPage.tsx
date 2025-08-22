@@ -31,21 +31,29 @@ export default function StatsPage() {
       try {
         const divisionsData = await leagueApi.getDivisionStructure();
         setDivisions(divisionsData);
-        // Buscar la liga del usuario logueado
         let defaultDivisionId = null;
         let defaultLeagueId = null;
         if (user?.teamId) {
-          // Buscar en todas las ligas
+          // Buscar la liga y división donde está el equipo del usuario
+          const activeSeason = await leagueApi.getActiveSeason();
+          let found = false;
           for (const division of divisionsData) {
             for (const league of division.leagues) {
-              // Aquí podrías necesitar una llamada extra para saber si el equipo está en la liga
-              // pero si tienes la info en frontend, puedes usarla
-              // Por simplicidad, seleccionamos la primera liga de la primera división
-              if (!defaultDivisionId) defaultDivisionId = division.id;
-              if (!defaultLeagueId) defaultLeagueId = league.id;
+              try {
+                const teams = await leagueApi.getTeamsInLeague(league.id, activeSeason.id);
+                if (teams.some(t => t.teamId === user.teamId)) {
+                  defaultDivisionId = division.id;
+                  defaultLeagueId = league.id;
+                  found = true;
+                  break;
+                }
+              } catch {}
             }
+            if (found) break;
           }
-        } else if (divisionsData.length > 0) {
+        }
+        // Si no se encuentra, usar la primera por defecto
+        if (!defaultDivisionId && divisionsData.length > 0) {
           defaultDivisionId = divisionsData[0].id;
           defaultLeagueId = divisionsData[0].leagues[0]?.id || null;
         }

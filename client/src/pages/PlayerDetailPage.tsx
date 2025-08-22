@@ -1,17 +1,21 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { Avatar } from 'antd';
+import TeamCrestSvg from '../components/TeamCrestSvg';
+import { MdSportsSoccer } from 'react-icons/md';
+import { useParams } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Player {
   id: number;
   name: string;
   position?: string;
-  team?: { id: number; name: string };
+  team?: { id: number; name: string; crest?: string; avatarUrl?: string; primaryColor?: string; secondaryColor?: string };
 }
 
 interface PlayerStats {
   goals: number;
   assists: number;
+  matchesPlayed?: number;
 }
 
 export default function PlayerDetailPage() {
@@ -31,7 +35,8 @@ export default function PlayerDetailPage() {
         if (!res.ok) throw new Error('No se pudo cargar el jugador');
         const data = await res.json();
         setPlayer(data);
-        // Obtener estadísticas de goles y asistencias
+  // ...
+        // Obtener estadísticas de goles, asistencias y partidos jugados
         const statsRes = await fetch(`/api/stats/player/${id}`);
         if (statsRes.ok) {
           const statsData = await statsRes.json();
@@ -60,14 +65,55 @@ export default function PlayerDetailPage() {
   if (!player) return <div style={{ textAlign: 'center', margin: 32 }}>Jugador no encontrado</div>;
 
   return (
-    <div style={{ maxWidth: 500, margin: '0 auto', padding: 16 }}>
-      <Link to="/mi-equipo" style={{ textDecoration: 'none', color: '#007bff' }}>← Volver a mi equipo</Link>
-      <h2 style={{ margin: '16px 0 8px' }}>{player.name}</h2>
-      <div style={{ marginBottom: 8 }}><b>Posición:</b> {player.position || 'Sin posición'}</div>
-      <div style={{ marginBottom: 8 }}><b>Equipo:</b> {player.team?.name || 'Sin equipo'}</div>
-      <div style={{ margin: '16px 0' }}>
-        <b>Goles:</b> {stats ? stats.goals : '-'}<br />
-        <b>Asistencias:</b> {stats ? stats.assists : '-'}
+    <div style={{ maxWidth: 420, margin: '0 auto', padding: 16 }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        background: '#fff',
+        borderRadius: 16,
+        boxShadow: '0 2px 12px #0002',
+        padding: 24,
+        gap: 24,
+        marginBottom: 24
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
+          {player.team?.crest || player.team?.avatarUrl ? (
+            <Avatar size={80} src={player.team.crest || player.team.avatarUrl} style={{ backgroundColor: '#f0f0f0', marginBottom: 8 }}>
+              {(player.team?.name || '').charAt(0).toUpperCase()}
+            </Avatar>
+          ) : player.team?.id ? (
+            <TeamCrestSvg
+              size={80}
+              teamId={player.team.id}
+              primaryColor={player.team.primaryColor}
+              secondaryColor={player.team.secondaryColor}
+              name={player.team.name}
+            />
+          ) : null}
+          <span style={{ fontWeight: 500, fontSize: 16, marginTop: 6 }}>{player.team?.name || 'Sin equipo'}</span>
+        </div>
+        <div style={{ flex: 1 }}>
+          <h2 style={{ margin: '0 0 8px 0', fontWeight: 700, fontSize: 28 }}>{player.name}</h2>
+          <div style={{ marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#888' }}>
+              <MdSportsSoccer /> {player.position || 'Sin posición'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 18, marginTop: 8 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 13, color: '#888' }}>Goles</div>
+              <div style={{ fontWeight: 600, fontSize: 22, color: '#388e3c' }}>{stats ? stats.goals : '-'}</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 13, color: '#888' }}>Asistencias</div>
+              <div style={{ fontWeight: 600, fontSize: 22, color: '#1976d2' }}>{stats ? stats.assists : '-'}</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 13, color: '#888' }}>Partidos</div>
+              <div style={{ fontWeight: 600, fontSize: 22, color: '#333' }}>{stats && typeof stats.matchesPlayed === 'number' ? stats.matchesPlayed : '-'}</div>
+            </div>
+          </div>
+        </div>
       </div>
       {progress.length > 0 && (
         <div style={{ margin: '32px 0 0 0', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px #0001', padding: 16 }}>

@@ -204,6 +204,13 @@
       "when": 1753897962811,
       "tag": "0028_ambitious_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1755884252276,
+      "tag": "0029_rare_whizzer",
+      "breakpoints": true
     }
   ]
 }

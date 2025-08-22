@@ -1,3 +1,18 @@
+// Logger profesional para errores de simulación
+const winston = require('winston');
+
+const matchSimLogger = winston.createLogger({
+  level: 'error',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.printf(({ timestamp, level, message }) => {
+      return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+    })
+  ),
+  transports: [
+    new winston.transports.File({ filename: 'match-simulation-errors.log' })
+  ]
+});
 
 import { Injectable, NotFoundException, Inject, Logger, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -138,6 +153,8 @@ export class MatchSimulationService {
         results.push(result);
       } catch (error) {
         this.logger.error(`❌ Error simulando partido ${match.id}:`, error);
+        // Detener la simulación si ocurre un error
+        throw error;
       }
     }
     if (results.length > 0) {
@@ -222,17 +239,11 @@ export class MatchSimulationService {
     // --- ASIGNACIÓN DE GOLES Y ASISTENCIAS SI HAY ALINEACIÓN ---
     // Helper para asignar goles/asistencias a un equipo
     async function asignarEstadisticasEquipo(teamId: number, goles: number, db: any, matchId: number) {
+  // ...
       // Buscar alineación
       const [alineacion] = await db.select().from(lineupTable).where(eq(lineupTable.teamId, teamId));
-      if (!alineacion) {
-        console.log(`[STATS] No se encontró alineación para el equipo ${teamId}`);
-        return;
-      }
-      console.log(`[STATS] Alineación encontrada para el equipo ${teamId}:`, alineacion);
-
-      // Convertir el objeto lineup a un array plano de jugadores con posición real
       let jugadores: Array<{ playerId: number, position: string }> = [];
-      if (alineacion.lineup && typeof alineacion.lineup === 'object') {
+      if (alineacion && alineacion.lineup && typeof alineacion.lineup === 'object') {
         for (const [pos, arr] of Object.entries(alineacion.lineup)) {
           if (Array.isArray(arr)) {
             for (const pid of arr) {
@@ -249,11 +260,34 @@ export class MatchSimulationService {
           }
         }
       }
+  // ...
+      // Si no hay alineación válida o no hay jugadores válidos, generar 11 jugadores de la plantilla
       if (jugadores.length === 0) {
-        console.log(`[STATS] La alineación del equipo ${teamId} no contiene jugadores válidos. Valor:`, alineacion.lineup);
-        return;
+        // ...
+        // Buscar plantilla completa (incluyendo portero) con manejo de errores
+        let plantilla: Array<{id: number, position: string}> = [];
+        try {
+          // Solo raw SQL para evitar bug de Drizzle
+          const rawResult = await db.execute(
+            `SELECT id, position FROM players WHERE team_id = ${teamId}`
+          );
+          plantilla = rawResult.rows || rawResult;
+          if (!Array.isArray(plantilla)) plantilla = [];
+        } catch (rawErr) {
+          return;
+        }
+        if (!Array.isArray(plantilla) || plantilla.length === 0) {
+          return;
+        }
+        if (plantilla.length >= 11) {
+          // Elegir 11 al azar
+          const shuffled = plantilla.sort(() => Math.random() - 0.5);
+          jugadores = shuffled.slice(0, 11).map(j => ({ playerId: j.id, position: j.position }));
+        } else {
+          // ...
+          return;
+        }
       }
-
 
       // Probabilidades por posición (ajustadas: GK nunca, DEF muy poco, MED poco, DEL mucho)
       const probGol = { 'GK': 0, 'DEF': 0.02, 'MED': 0.25, 'DEL': 0.73 };
@@ -315,64 +349,88 @@ export class MatchSimulationService {
         stats[goleador.playerId].goals++;
       }
 
-      // Mostrar stats generados antes de guardar
-      console.log(`[STATS] Stats generados para el equipo ${teamId} en el partido ${matchId}:`, stats);
+  // ...
 
-      // Guardar en la base de datos
+      // Chequeo final: si jugadores está vacío, abortar
+      if (!Array.isArray(jugadores) || jugadores.length === 0) {
+        console.warn(`[STATS] No hay jugadores alineados ni en plantilla para el equipo ${teamId} en el partido ${matchId}. Se omite guardado de stats individuales, pero el partido se simulará.`);
+        return false; // Indica que no se guardaron stats
+      }
+
+      // Guardar en la base de datos: ahora SIEMPRE para todos los alineados
       for (const jugador of jugadores) {
-        const { goals, assists, goalMinutes } = stats[jugador.playerId];
-        if (goals > 0 || assists > 0) {
-          try {
-            await db.insert(matchPlayerStatsTable).values({
-              matchId,
-              playerId: jugador.playerId,
-              teamId,
-              goals,
-              assists,
-              goalMinutes
-            });
-            console.log(`[STATS] Guardado stats para jugador ${jugador.playerId} (equipo ${teamId}): goles=${goals}, asistencias=${assists}, minutos=${goalMinutes}`);
-          } catch (err) {
-            console.error(`[STATS] Error guardando stats para jugador ${jugador.playerId} (equipo ${teamId}):`, err);
-      
-            // Si no hay alineación válida, obtener 10 jugadores de campo al azar de la plantilla
-            let jugadoresCampo = jugadores.filter(j => j.position !== 'GK' && j.position !== 'POR');
-            if (jugadoresCampo.length < 10) {
-              // Buscar plantilla de jugadores de campo
-              const plantilla = await db
-                .select({ id: 'id', position: 'position' })
-                .from(playerTable)
-                .where(and(eq(playerTable.teamId, teamId), sql`position NOT IN ('GK', 'POR')`));
-              if (plantilla.length >= 10) {
-                // Elegir 10 al azar
-                const shuffled = plantilla.sort(() => Math.random() - 0.5);
-                jugadoresCampo = shuffled.slice(0, 10).map(j => ({ playerId: j.id, position: j.position.toUpperCase() }));
-              } else {
-                // No hay suficientes jugadores de campo
-                return;
-              }
-            }
+  // ...
+        const { goals = 0, assists = 0, goalMinutes = [] } = stats[jugador.playerId] || {};
+        // Normalización de tipos para evitar errores de serialización
+        const safeGoals = Number.isFinite(goals) ? goals : 0;
+        const safeAssists = Number.isFinite(assists) ? assists : 0;
+        const safeMinutesPlayed = 90;
+        // goalMinutes debe ser un array plano de números
+        let safeGoalMinutes: number[] = [];
+        if (Array.isArray(goalMinutes)) {
+          safeGoalMinutes = (goalMinutes as unknown as number[]).flat().filter((m: any) => Number.isFinite(m));
+        }
 
+  // ...
+        try {
+          const insertObj = {
+            matchId: Number(matchId),
+            playerId: Number(jugador.playerId),
+            teamId: Number(teamId),
+            goals: safeGoals,
+            assists: safeAssists,
+            goalMinutes: safeGoalMinutes,
+            minutesPlayed: safeMinutesPlayed
+          };
+          let safeString;
+          try {
+            safeString = JSON.stringify(insertObj);
+          } catch (e) {
+            safeString = '[NO SERIALIZABLE]';
           }
+          // ...
+          await db.insert(matchPlayerStatsTable).values(insertObj);
+          // ...
+        } catch (err) {
+          matchSimLogger.error(`Error guardando stats para jugador ${jugador.playerId} (equipo ${teamId}, partido ${matchId}): ${err && err.stack ? err.stack : err}`);
+          console.error(`[STATS] Error guardando stats para jugador ${jugador.playerId} (equipo ${teamId}):`, err);
         }
       }
     }
 
             // const jugadoresCampo = jugadores.filter(j => j.position !== 'GK' && j.position !== 'POR');
-    await asignarEstadisticasEquipo(homeTeam.id, simulationResult.homeGoals, db, matchId);
-    await asignarEstadisticasEquipo(awayTeam.id, simulationResult.awayGoals, db, matchId);
+
+    const homeStatsGuardadas = await asignarEstadisticasEquipo(homeTeam.id, simulationResult.homeGoals, db, matchId);
+    const awayStatsGuardadas = await asignarEstadisticasEquipo(awayTeam.id, simulationResult.awayGoals, db, matchId);
+    if (homeStatsGuardadas === false) {
+      this.logger.warn(`[STATS] No se guardaron estadísticas individuales para el equipo local ${homeTeam.id} en el partido ${matchId}.`);
+    }
+    if (awayStatsGuardadas === false) {
+      this.logger.warn(`[STATS] No se guardaron estadísticas individuales para el equipo visitante ${awayTeam.id} en el partido ${matchId}.`);
+    }
 
     // Actualizar el partido en la base de datos
-    await db
-      .update(matchTable)
-      .set({
-        homeGoals: simulationResult.homeGoals,
-        awayGoals: simulationResult.awayGoals,
-        status: MatchStatus.FINISHED,
-        simulationDetails: JSON.stringify(simulationResult.algorithmDetails),
-        updatedAt: new Date()
-      })
-      .where(eq(matchTable.id, matchId));
+    try {
+      let safeAlgorithmDetails;
+      try {
+        safeAlgorithmDetails = JSON.stringify(simulationResult.algorithmDetails);
+      } catch (e) {
+        safeAlgorithmDetails = '[NO SERIALIZABLE]';
+      }
+      await db
+        .update(matchTable)
+        .set({
+          homeGoals: simulationResult.homeGoals,
+          awayGoals: simulationResult.awayGoals,
+          status: MatchStatus.FINISHED,
+          simulationDetails: safeAlgorithmDetails,
+          updatedAt: new Date()
+        })
+        .where(eq(matchTable.id, matchId));
+    } catch (err) {
+      console.error('[DEBUG][MATCH UPDATE] Error actualizando partido:', err);
+      throw err;
+    }
 
     // Log eliminado: resultado partido
 

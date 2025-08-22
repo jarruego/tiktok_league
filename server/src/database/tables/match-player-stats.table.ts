@@ -10,6 +10,7 @@ export const matchPlayerStatsTable = pgTable('match_player_stats', {
   goals: integer('goals').notNull().default(0),
   assists: integer('assists').notNull().default(0),
   goalMinutes: jsonb('goal_minutes').$type<number[]>().default([]), // array de minutos de los goles marcados
+  minutesPlayed: integer('minutes_played').notNull().default(90), // minutos jugados por el jugador en el partido
   // Puedes añadir más campos según lo que quieras registrar
 });
 

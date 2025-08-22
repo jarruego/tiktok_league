@@ -1,0 +1,1 @@
+ALTER TABLE "match_player_stats" ADD COLUMN "minutes_played" integer DEFAULT 90 NOT NULL;

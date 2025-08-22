@@ -1,6 +1,6 @@
 {
-  "id": "3bdddd84-524c-45dc-ad53-7269a647d29d",
-  "prevId": "a8918bcd-d65f-40f2-acb0-9b7cb1ac2a2a",
+  "id": "55b4d34c-c919-4d57-936c-7f41f94069c5",
+  "prevId": "3bdddd84-524c-45dc-ad53-7269a647d29d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -430,6 +430,13 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'[]'::jsonb"
+        },
+        "minutes_played": {
+          "name": "minutes_played",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 90
         }
       },
       "indexes": {},

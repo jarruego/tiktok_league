@@ -505,7 +505,7 @@ export default function DivisionView() {
 
       {/* Tabla de equipos */}
       {selectedLeagueData && (
-        <Card style={{ marginTop: 0, width: '100%', padding: 2 }} bodyStyle={{ padding: 2, width: '100%' }}>
+        <Card style={{ marginTop: 0, width: '100%', padding: 2 }} styles={{ body: { padding: 2, width: '100%' } }}>
           <Table
             columns={createColumns(navigate)}
             dataSource={teams}
