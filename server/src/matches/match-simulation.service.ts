@@ -1,3 +1,4 @@
+
 import { Injectable, NotFoundException, Inject, Logger, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DatabaseService } from '../database/database.service';
@@ -11,10 +12,32 @@ import {
   teamLeagueAssignmentTable,
   MatchStatus,
   lineupTable,
-  matchPlayerStatsTable
+  matchPlayerStatsTable,
+  playerTable
 } from '../database/schema';
 import { eq, and, sql, inArray, gte, lte } from 'drizzle-orm';
 import { DATABASE_PROVIDER } from '../database/database.module';
+
+// Mapeo de posiciones reales a categorías para simulación
+const POSITIONS = {
+  GK: ['Goalkeeper'],
+  DEF: ['Centre-Back', 'Right-Back', 'Left-Back', 'Defence'],
+  MED: [
+    'Central Midfield',
+    'Defensive Midfield',
+    'Attacking Midfield',
+    'Midfield',
+  ],
+  DEL: ['Centre-Forward', 'Right Winger', 'Left Winger']
+};
+
+function getPositionCategory(position: string): 'GK' | 'DEF' | 'MED' | 'DEL' {
+  if (POSITIONS.GK.includes(position)) return 'GK';
+  if (POSITIONS.DEF.includes(position)) return 'DEF';
+  if (POSITIONS.MED.includes(position)) return 'MED';
+  if (POSITIONS.DEL.includes(position)) return 'DEL';
+  return 'DEF'; // Por defecto, si no se reconoce, lo tratamos como defensa
+}
 
 interface TeamWithFollowers {
   id: number;
@@ -207,14 +230,20 @@ export class MatchSimulationService {
       }
       console.log(`[STATS] Alineación encontrada para el equipo ${teamId}:`, alineacion);
 
-      // Convertir el objeto lineup a un array plano de jugadores con posición
+      // Convertir el objeto lineup a un array plano de jugadores con posición real
       let jugadores: Array<{ playerId: number, position: string }> = [];
       if (alineacion.lineup && typeof alineacion.lineup === 'object') {
         for (const [pos, arr] of Object.entries(alineacion.lineup)) {
           if (Array.isArray(arr)) {
             for (const pid of arr) {
               if (pid && !isNaN(Number(pid))) {
-                jugadores.push({ playerId: Number(pid), position: pos.substring(0,3).toUpperCase() });
+                // Buscar la posición real del jugador en la plantilla
+                const [jugadorBD] = await db
+                  .select({ position: playerTable.position })
+                  .from(playerTable)
+                  .where(eq(playerTable.id, Number(pid)));
+                const realPosition = jugadorBD?.position || pos;
+                jugadores.push({ playerId: Number(pid), position: realPosition });
               }
             }
           }
@@ -225,22 +254,40 @@ export class MatchSimulationService {
         return;
       }
 
+
       // Probabilidades por posición (ajustadas: GK nunca, DEF muy poco, MED poco, DEL mucho)
       const probGol = { 'GK': 0, 'DEF': 0.02, 'MED': 0.25, 'DEL': 0.73 };
       const probAsist = { 'GK': 0, 'DEF': 0.10, 'MED': 0.45, 'DEL': 0.45 };
 
+      // Filtrar solo jugadores de campo (no porteros) usando el mapeo
+      let jugadoresCampo = jugadores.filter(j => getPositionCategory(j.position) !== 'GK');
+      if (jugadoresCampo.length < 10) {
+        // Buscar plantilla de jugadores de campo
+        const plantilla = await db
+          .select({ id: 'id', position: 'position' })
+          .from(playerTable)
+          .where(and(eq(playerTable.teamId, teamId)));
+        const plantillaCampo = plantilla.filter(j => getPositionCategory(j.position) !== 'GK');
+        if (plantillaCampo.length >= 10) {
+          // Elegir 10 al azar
+          const shuffled = plantillaCampo.sort(() => Math.random() - 0.5);
+          jugadoresCampo = shuffled.slice(0, 10).map(j => ({ playerId: j.id, position: j.position }));
+        } else {
+          // No hay suficientes jugadores de campo
+          return;
+        }
+      }
+
       // Inicializar stats
       const stats: Record<number, { goals: number, assists: number, goalMinutes: number[] }> = {};
-      jugadores.forEach(j => { stats[j.playerId] = { goals: 0, assists: 0, goalMinutes: [] }; });
+      jugadoresCampo.forEach(j => { stats[j.playerId] = { goals: 0, assists: 0, goalMinutes: [] }; });
 
       // Asignar goles y minutos
       const minutosDisponibles = Array.from({ length: 90 }, (_, i) => i + 1);
       for (let i = 0; i < goles; i++) {
-        // Filtrar por probabilidad y excluir porteros
-        const candidatos = jugadores.filter(j => j.position !== 'GK' && Math.random() < (probGol[j.position] || 0.1));
-        // Si no hay candidatos, usar todos menos porteros
-        const elegibles = candidatos.length > 0 ? candidatos : jugadores.filter(j => j.position !== 'GK');
-        // Si solo hay porteros, no asignar el gol
+        // Filtrar por probabilidad
+        const candidatos = jugadoresCampo.filter(j => Math.random() < (probGol[getPositionCategory(j.position)] || 0.1));
+        const elegibles = candidatos.length > 0 ? candidatos : jugadoresCampo;
         if (elegibles.length === 0) continue;
         const goleador = elegibles[Math.floor(Math.random() * elegibles.length)];
         stats[goleador.playerId].goals++;
@@ -253,13 +300,13 @@ export class MatchSimulationService {
       // Asignar asistencias
       for (let i = 0; i < goles; i++) {
         // El goleador de este gol
-        const posiblesGoleadores = jugadores.filter(j => stats[j.playerId].goals > 0 && j.position !== 'GK');
+        const posiblesGoleadores = jugadoresCampo.filter(j => stats[j.playerId].goals > 0);
         if (posiblesGoleadores.length === 0) break;
         const goleador = posiblesGoleadores[Math.floor(Math.random() * posiblesGoleadores.length)];
         stats[goleador.playerId].goals--;
-        // Elegir asistente (no puede ser el mismo ni portero)
-        const asistentes = jugadores.filter(j => j.playerId !== goleador.playerId && j.position !== 'GK' && Math.random() < (probAsist[j.position] || 0.1));
-        const elegiblesAsist = asistentes.length > 0 ? asistentes : jugadores.filter(j => j.playerId !== goleador.playerId && j.position !== 'GK');
+        // Elegir asistente (no puede ser el mismo)
+        const asistentes = jugadoresCampo.filter(j => j.playerId !== goleador.playerId && Math.random() < (probAsist[getPositionCategory(j.position)] || 0.1));
+        const elegiblesAsist = asistentes.length > 0 ? asistentes : jugadoresCampo.filter(j => j.playerId !== goleador.playerId);
         if (elegiblesAsist.length > 0) {
           const asistente = elegiblesAsist[Math.floor(Math.random() * elegiblesAsist.length)];
           stats[asistente.playerId].assists++;
@@ -287,12 +334,31 @@ export class MatchSimulationService {
             console.log(`[STATS] Guardado stats para jugador ${jugador.playerId} (equipo ${teamId}): goles=${goals}, asistencias=${assists}, minutos=${goalMinutes}`);
           } catch (err) {
             console.error(`[STATS] Error guardando stats para jugador ${jugador.playerId} (equipo ${teamId}):`, err);
+      
+            // Si no hay alineación válida, obtener 10 jugadores de campo al azar de la plantilla
+            let jugadoresCampo = jugadores.filter(j => j.position !== 'GK' && j.position !== 'POR');
+            if (jugadoresCampo.length < 10) {
+              // Buscar plantilla de jugadores de campo
+              const plantilla = await db
+                .select({ id: 'id', position: 'position' })
+                .from(playerTable)
+                .where(and(eq(playerTable.teamId, teamId), sql`position NOT IN ('GK', 'POR')`));
+              if (plantilla.length >= 10) {
+                // Elegir 10 al azar
+                const shuffled = plantilla.sort(() => Math.random() - 0.5);
+                jugadoresCampo = shuffled.slice(0, 10).map(j => ({ playerId: j.id, position: j.position.toUpperCase() }));
+              } else {
+                // No hay suficientes jugadores de campo
+                return;
+              }
+            }
+
           }
         }
       }
     }
 
-    // Asignar para local y visitante
+            // const jugadoresCampo = jugadores.filter(j => j.position !== 'GK' && j.position !== 'POR');
     await asignarEstadisticasEquipo(homeTeam.id, simulationResult.homeGoals, db, matchId);
     await asignarEstadisticasEquipo(awayTeam.id, simulationResult.awayGoals, db, matchId);
 
