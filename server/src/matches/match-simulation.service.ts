@@ -1,18 +1,4 @@
-// Logger profesional para errores de simulación
-const winston = require('winston');
 
-const matchSimLogger = winston.createLogger({
-  level: 'error',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.printf(({ timestamp, level, message }) => {
-      return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
-    })
-  ),
-  transports: [
-    new winston.transports.File({ filename: 'match-simulation-errors.log' })
-  ]
-});
 
 import { Injectable, NotFoundException, Inject, Logger, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -240,20 +226,30 @@ export class MatchSimulationService {
     // Helper para asignar goles/asistencias a un equipo
     async function asignarEstadisticasEquipo(teamId: number, goles: number, db: any, matchId: number) {
   // ...
-      // Buscar alineación
-      const [alineacion] = await db.select().from(lineupTable).where(eq(lineupTable.teamId, teamId));
+      // Buscar alineación (usar SQL crudo para evitar internals que provoquen recursión)
+      let alineacion: any = undefined;
+      try {
+        const rawLineup = await db.execute(`SELECT id, team_id, lineup FROM lineups WHERE team_id = ${teamId} LIMIT 1`);
+        alineacion = rawLineup.rows ? rawLineup.rows[0] : (Array.isArray(rawLineup) ? rawLineup[0] : undefined);
+      } catch (err) {
+        // si falla, alineacion quedará undefined y el flujo continuará
+        alineacion = undefined;
+      }
       let jugadores: Array<{ playerId: number, position: string }> = [];
       if (alineacion && alineacion.lineup && typeof alineacion.lineup === 'object') {
         for (const [pos, arr] of Object.entries(alineacion.lineup)) {
           if (Array.isArray(arr)) {
             for (const pid of arr) {
               if (pid && !isNaN(Number(pid))) {
-                // Buscar la posición real del jugador en la plantilla
-                const [jugadorBD] = await db
-                  .select({ position: playerTable.position })
-                  .from(playerTable)
-                  .where(eq(playerTable.id, Number(pid)));
-                const realPosition = jugadorBD?.position || pos;
+                // Buscar la posición real del jugador en la plantilla (SQL crudo)
+                let realPosition = pos;
+                try {
+                  const rawJugador = await db.execute(`SELECT position FROM players WHERE id = ${Number(pid)} LIMIT 1`);
+                  const jugadorRow = rawJugador.rows ? rawJugador.rows[0] : (Array.isArray(rawJugador) ? rawJugador[0] : undefined);
+                  if (jugadorRow && jugadorRow.position) realPosition = jugadorRow.position;
+                } catch (err) {
+                  // mantener pos si la consulta falla
+                }
                 jugadores.push({ playerId: Number(pid), position: realPosition });
               }
             }
@@ -274,10 +270,17 @@ export class MatchSimulationService {
           plantilla = rawResult.rows || rawResult;
           if (!Array.isArray(plantilla)) plantilla = [];
         } catch (rawErr) {
-          return;
+          // Intentar fallback con Drizzle si el SQL crudo falla
+          try {
+            const drRes = await db.select({ id: playerTable.id, position: playerTable.position }).from(playerTable).where(eq(playerTable.teamId, teamId));
+            plantilla = Array.isArray(drRes) ? drRes.map(r => ({ id: r.id, position: (r as any).position })) : [];
+          } catch (drErr) {
+            // Log removed: detailed stats fetch errors suppressed per request
+            return false;
+          }
         }
         if (!Array.isArray(plantilla) || plantilla.length === 0) {
-          return;
+          return false;
         }
         if (plantilla.length >= 11) {
           // Elegir 11 al azar
@@ -285,7 +288,8 @@ export class MatchSimulationService {
           jugadores = shuffled.slice(0, 11).map(j => ({ playerId: j.id, position: j.position }));
         } else {
           // ...
-          return;
+          // Plantilla insuficiente para elegir 11 jugadores
+          return false;
         }
       }
 
@@ -297,10 +301,21 @@ export class MatchSimulationService {
       let jugadoresCampo = jugadores.filter(j => getPositionCategory(j.position) !== 'GK');
       if (jugadoresCampo.length < 10) {
         // Buscar plantilla de jugadores de campo
-        const plantilla = await db
-          .select({ id: 'id', position: 'position' })
-          .from(playerTable)
-          .where(and(eq(playerTable.teamId, teamId)));
+        // Obtener plantilla de jugadores de campo usando SQL crudo para evitar recorrer internals
+        let plantilla: Array<{ id: number, position: string }> = [];
+        try {
+          const rawPlant = await db.execute(`SELECT id, position FROM players WHERE team_id = ${teamId}`);
+          plantilla = rawPlant.rows ? rawPlant.rows : (Array.isArray(rawPlant) ? rawPlant : []);
+        } catch (err) {
+          // Intentar fallback con Drizzle si db.execute falla
+          try {
+            const drRes = await db.select({ id: playerTable.id, position: playerTable.position }).from(playerTable).where(eq(playerTable.teamId, teamId));
+            plantilla = Array.isArray(drRes) ? drRes.map(r => ({ id: r.id, position: (r as any).position })) : [];
+          } catch (drErr) {
+            // Log removed: detailed stats fetch errors suppressed per request
+            plantilla = [];
+          }
+        }
         const plantillaCampo = plantilla.filter(j => getPositionCategory(j.position) !== 'GK');
         if (plantillaCampo.length >= 10) {
           // Elegir 10 al azar
@@ -308,7 +323,7 @@ export class MatchSimulationService {
           jugadoresCampo = shuffled.slice(0, 10).map(j => ({ playerId: j.id, position: j.position }));
         } else {
           // No hay suficientes jugadores de campo
-          return;
+          return false;
         }
       }
 
@@ -349,18 +364,72 @@ export class MatchSimulationService {
         stats[goleador.playerId].goals++;
       }
 
+      // --- Asegurar que la suma de goles asignados coincide con el resultado solicitado ---
+      const totalAssignedGoals = Object.values(stats).reduce((s, v) => s + (v.goals || 0), 0);
+      if (totalAssignedGoals < goles) {
+        // Asignar goles faltantes aleatoriamente entre jugadores de campo
+        let faltan = goles - totalAssignedGoals;
+        while (faltan > 0) {
+          const candidato = jugadoresCampo[Math.floor(Math.random() * jugadoresCampo.length)];
+          if (!candidato) break;
+          stats[candidato.playerId].goals++;
+          // asignar minuto si quedan disponibles
+          const idx = minutosDisponibles.length > 0 ? Math.floor(Math.random() * minutosDisponibles.length) : -1;
+          const minuto = idx >= 0 ? minutosDisponibles.splice(idx, 1)[0] : 90;
+          stats[candidato.playerId].goalMinutes.push(minuto);
+          faltan--;
+        }
+      } else if (totalAssignedGoals > goles) {
+        // Reducir goles sobrantes quitándolos a jugadores al azar
+        let sobrantes = totalAssignedGoals - goles;
+        const playersWithGoals = Object.keys(stats).filter(pid => stats[Number(pid)].goals > 0).map(n => Number(n));
+        while (sobrantes > 0 && playersWithGoals.length > 0) {
+          const idx = Math.floor(Math.random() * playersWithGoals.length);
+          const pid = playersWithGoals[idx];
+          if (stats[pid].goals > 0) {
+            stats[pid].goals--;
+            // también eliminar un minuto si existe
+            if (stats[pid].goalMinutes.length > 0) stats[pid].goalMinutes.pop();
+            sobrantes--;
+            if (stats[pid].goals === 0) playersWithGoals.splice(idx, 1);
+          } else {
+            playersWithGoals.splice(idx, 1);
+          }
+        }
+      }
+
   // ...
 
       // Chequeo final: si jugadores está vacío, abortar
       if (!Array.isArray(jugadores) || jugadores.length === 0) {
-        console.warn(`[STATS] No hay jugadores alineados ni en plantilla para el equipo ${teamId} en el partido ${matchId}. Se omite guardado de stats individuales, pero el partido se simulará.`);
+        // Log removed: no players aligned or in squad — suppressing message as requested
         return false; // Indica que no se guardaron stats
       }
 
-      // Guardar en la base de datos: ahora SIEMPRE para todos los alineados
-      for (const jugador of jugadores) {
-  // ...
-        const { goals = 0, assists = 0, goalMinutes = [] } = stats[jugador.playerId] || {};
+      // Antes de guardar: eliminar stats previos para este partido y equipo (sobrescribir)
+      try {
+        await db.execute(`DELETE FROM match_player_stats WHERE match_id = ${matchId} AND team_id = ${teamId}`);
+      } catch (delErr) {
+        // Log removed: suppressing detailed delete error for match_player_stats per request
+        // no abortamos por esto; continuamos intentando insertar
+      }
+
+      // Guardar en la base de datos: iterar sobre la unión única de jugadores originales y los jugadores de campo
+      // Esto garantiza que si reemplazamos jugadoresCampo (por falta de alineación) las estadísticas asignadas
+      // a esos jugadores se persistan correctamente.
+      const playersMap = new Map<number, { playerId: number, position: string }>();
+      // añadir jugadores (p. ej. alineación original, contiene GK)
+      if (Array.isArray(jugadores)) {
+        for (const j of jugadores) playersMap.set(Number(j.playerId), { playerId: Number(j.playerId), position: j.position });
+      }
+      // añadir jugadoresCampo (quienes realmente recibieron goles/asistencias)
+      if (Array.isArray(jugadoresCampo)) {
+        for (const jc of jugadoresCampo) playersMap.set(Number(jc.playerId), { playerId: Number(jc.playerId), position: jc.position });
+      }
+
+      for (const jugadorInfo of playersMap.values()) {
+        const pid = Number(jugadorInfo.playerId);
+        const { goals = 0, assists = 0, goalMinutes = [] } = (stats[pid] || {});
         // Normalización de tipos para evitar errores de serialización
         const safeGoals = Number.isFinite(goals) ? goals : 0;
         const safeAssists = Number.isFinite(assists) ? assists : 0;
@@ -371,43 +440,44 @@ export class MatchSimulationService {
           safeGoalMinutes = (goalMinutes as unknown as number[]).flat().filter((m: any) => Number.isFinite(m));
         }
 
-  // ...
         try {
-          const insertObj = {
+          // Construir un objeto sanitizado con tipos primitivos
+          const safeGoalMinutesNumeric = Array.isArray(safeGoalMinutes)
+            ? safeGoalMinutes.map((m: any) => Number(m)).filter((n: number) => Number.isFinite(n))
+            : [];
+
+          const sanitizedInsertObj = {
             matchId: Number(matchId),
-            playerId: Number(jugador.playerId),
+            playerId: pid,
             teamId: Number(teamId),
-            goals: safeGoals,
-            assists: safeAssists,
-            goalMinutes: safeGoalMinutes,
-            minutesPlayed: safeMinutesPlayed
+            goals: Number.isFinite(safeGoals) ? Number(safeGoals) : 0,
+            assists: Number.isFinite(safeAssists) ? Number(safeAssists) : 0,
+            goalMinutes: safeGoalMinutesNumeric,
+            minutesPlayed: Number.isFinite(safeMinutesPlayed) ? Number(safeMinutesPlayed) : 0
           };
-          let safeString;
-          try {
-            safeString = JSON.stringify(insertObj);
-          } catch (e) {
-            safeString = '[NO SERIALIZABLE]';
-          }
-          // ...
-          await db.insert(matchPlayerStatsTable).values(insertObj);
-          // ...
+
+          // Intento de serializar solo con fines de depuración; si falla, lo ignoramos
+          try { JSON.stringify(sanitizedInsertObj); } catch (e) { /* noop */ }
+
+          // Usar SQL crudo para evitar que internals de Drizzle (orderSelectedFields)
+          // intenten recorrer estructuras que pudieran provocar recursión.
+          // Escapamos el JSON de goalMinutes de forma segura.
+          const goalMinutesJson = JSON.stringify(sanitizedInsertObj.goalMinutes || []).replace(/'/g, "''");
+          const insertSql = `INSERT INTO match_player_stats (match_id, player_id, team_id, goals, assists, goal_minutes, minutes_played) VALUES (${sanitizedInsertObj.matchId}, ${sanitizedInsertObj.playerId}, ${sanitizedInsertObj.teamId}, ${sanitizedInsertObj.goals}, ${sanitizedInsertObj.assists}, '${goalMinutesJson}', ${sanitizedInsertObj.minutesPlayed})`;
+          await db.execute(insertSql);
         } catch (err) {
-          matchSimLogger.error(`Error guardando stats para jugador ${jugador.playerId} (equipo ${teamId}, partido ${matchId}): ${err && err.stack ? err.stack : err}`);
-          console.error(`[STATS] Error guardando stats para jugador ${jugador.playerId} (equipo ${teamId}):`, err);
+          // Log removed: suppressing per-player insert error details per request
         }
       }
+  // Indicar éxito
+  return true;
     }
 
             // const jugadoresCampo = jugadores.filter(j => j.position !== 'GK' && j.position !== 'POR');
 
     const homeStatsGuardadas = await asignarEstadisticasEquipo(homeTeam.id, simulationResult.homeGoals, db, matchId);
     const awayStatsGuardadas = await asignarEstadisticasEquipo(awayTeam.id, simulationResult.awayGoals, db, matchId);
-    if (homeStatsGuardadas === false) {
-      this.logger.warn(`[STATS] No se guardaron estadísticas individuales para el equipo local ${homeTeam.id} en el partido ${matchId}.`);
-    }
-    if (awayStatsGuardadas === false) {
-      this.logger.warn(`[STATS] No se guardaron estadísticas individuales para el equipo visitante ${awayTeam.id} en el partido ${matchId}.`);
-    }
+  // Si no se guardaron stats individuales, se continúa sin log adicional
 
     // Actualizar el partido en la base de datos
     try {

@@ -77,6 +77,10 @@ export default function MatchDetailPage() {
   const [match, setMatch] = useState<Match | null>(null);
   const [stats, setStats] = useState<{ home: PlayerStat[]; away: PlayerStat[] }>({ home: [], away: [] });
 
+  // Filtrar jugadores que tengan al menos un gol o una asistencia
+  const filteredHome = stats.home.filter(p => ((p.goals || 0) + (p.assists || 0)) > 0);
+  const filteredAway = stats.away.filter(p => ((p.goals || 0) + (p.assists || 0)) > 0);
+
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
@@ -140,24 +144,32 @@ export default function MatchDetailPage() {
             </Row>
             <Row gutter={24} style={{ marginTop: 16 }}>
               <Col xs={24} sm={12}>
-                <Table
-                  columns={columns}
-                  dataSource={stats.home}
-                  pagination={false}
-                  rowKey="playerId"
-                  size="small"
-                  style={{ width: '100%' }}
-                />
+                {filteredHome.length > 0 ? (
+                  <Table
+                    columns={columns}
+                    dataSource={filteredHome}
+                    pagination={false}
+                    rowKey="playerId"
+                    size="small"
+                    style={{ width: '100%' }}
+                  />
+                ) : (
+                  <div style={{ padding: 16, textAlign: 'center', color: '#666' }}>Sin datos</div>
+                )}
               </Col>
               <Col xs={24} sm={12}>
-                <Table
-                  columns={columns}
-                  dataSource={stats.away}
-                  pagination={false}
-                  rowKey="playerId"
-                  size="small"
-                  style={{ width: '100%' }}
-                />
+                {filteredAway.length > 0 ? (
+                  <Table
+                    columns={columns}
+                    dataSource={filteredAway}
+                    pagination={false}
+                    rowKey="playerId"
+                    size="small"
+                    style={{ width: '100%' }}
+                  />
+                ) : (
+                  <div style={{ padding: 16, textAlign: 'center', color: '#666' }}>Sin datos</div>
+                )}
               </Col>
             </Row>
           </Card>

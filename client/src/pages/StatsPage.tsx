@@ -154,7 +154,7 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {scorers.slice(0, 20).map((p, i) => (
+                {scorers.filter(s => (s.value || 0) > 0).slice(0, 20).map((p, i) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: 8 }}>
                       {i+1}. <a href={`/player/${p.id}`} style={{ color: '#1976d2', cursor: 'pointer', textDecoration: 'underline' }}>{p.name}</a>
@@ -163,6 +163,9 @@ export default function StatsPage() {
                     <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.value}</td>
                   </tr>
                 ))}
+                {scorers.filter(s => (s.value || 0) > 0).length === 0 && (
+                  <tr><td colSpan={3} style={{ textAlign: 'center', padding: 16 }}>Sin datos</td></tr>
+                )}
               </tbody>
             </table>
           </section>
@@ -178,7 +181,7 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {assists.slice(0, 20).map((p, i) => (
+                {assists.filter(a => (a.value || 0) > 0).slice(0, 20).map((p, i) => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: 8 }}>
                       {i+1}. <a href={`/player/${p.id}`} style={{ color: '#1976d2', cursor: 'pointer', textDecoration: 'underline' }}>{p.name}</a>
@@ -187,6 +190,9 @@ export default function StatsPage() {
                     <td style={{ padding: 8, textAlign: 'right', fontWeight: 600 }}>{p.value}</td>
                   </tr>
                 ))}
+                {assists.filter(a => (a.value || 0) > 0).length === 0 && (
+                  <tr><td colSpan={3} style={{ textAlign: 'center', padding: 16 }}>Sin datos</td></tr>
+                )}
               </tbody>
             </table>
           </section>
@@ -204,12 +210,15 @@ export default function StatsPage() {
                 </tr>
               </thead>
               <tbody>
-                {allStats.length > 0 ? (
-                  allStats
-                    .map(p => ({ ...p, total: (p.goals || 0) + (p.assists || 0) }))
-                    .sort((a, b) => b.total - a.total || b.goals - a.goals)
-                    .slice(0, 20)
-                    .map((p, i) => (
+                {allStats && allStats.length > 0 ? (
+                  (() => {
+                    const withTotals = allStats
+                      .map(p => ({ ...p, total: (p.goals || 0) + (p.assists || 0) }))
+                      .filter(p => (p.total || 0) > 0)
+                      .sort((a, b) => b.total - a.total || b.goals - a.goals)
+                      .slice(0, 20);
+                    if (withTotals.length === 0) return (<tr><td colSpan={5} style={{ textAlign: 'center', padding: 16 }}>Sin datos</td></tr>);
+                    return withTotals.map((p, i) => (
                       <tr key={p.id} style={{ borderBottom: '1px solid #eee' }}>
                         <td style={{ padding: 8 }}>
                           {i+1}. <a href={`/player/${p.id}`} style={{ color: '#1976d2', cursor: 'pointer', textDecoration: 'underline' }}>{p.name}</a>
@@ -219,7 +228,8 @@ export default function StatsPage() {
                         <td style={{ padding: 8, textAlign: 'right' }}>{p.goals}</td>
                         <td style={{ padding: 8, textAlign: 'right' }}>{p.assists}</td>
                       </tr>
-                    ))
+                    ));
+                  })()
                 ) : (
                   <tr><td colSpan={5} style={{ textAlign: 'center', padding: 16 }}>Sin datos</td></tr>
                 )}
